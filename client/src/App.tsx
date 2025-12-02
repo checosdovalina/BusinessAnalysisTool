@@ -10,6 +10,7 @@ import EvaluationList from "@/pages/evaluation-list";
 import EvaluationForm from "@/pages/evaluation-form";
 import Reports from "@/pages/reports";
 import SimulatorSessions from "@/pages/simulator-sessions";
+import SimulatorRun from "@/pages/simulator-run";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/evaluations/:id" component={EvaluationForm} />
       <Route path="/reports" component={Reports} />
       <Route path="/simulator" component={SimulatorSessions} />
+      <Route path="/simulator/run/:id" component={SimulatorRun} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

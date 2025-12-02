@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { simulatorScenarios } from "@/lib/mock-data";
 import { Play, Activity, Zap, AlertTriangle, Server, GitBranch } from "lucide-react";
+import { Link } from "wouter";
 import simImg from "@assets/generated_images/electrical_grid_simulator_interface.png";
 
 export default function SimulatorSessions() {
@@ -21,10 +22,10 @@ export default function SimulatorSessions() {
         </div>
 
         {/* Hero Banner for Simulator */}
-        <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-border/50 shadow-2xl">
+        <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-border/50 shadow-2xl group cursor-pointer">
            <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent z-10" />
-           <img src={simImg} alt="Simulator" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+           <img src={simImg} alt="Simulator" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 group-hover:scale-105 transition-all duration-700" />
            
            <div className="relative z-20 p-8 md:p-12 max-w-2xl">
              <Badge variant="outline" className="mb-4 text-cyan-400 border-cyan-400/30 bg-cyan-400/10">Módulo Avanzado</Badge>
@@ -69,9 +70,11 @@ export default function SimulatorSessions() {
                   <CardDescription>{scenario.description}</CardDescription>
                 </CardHeader>
                 <CardFooter className="pt-0">
-                  <Button variant="ghost" className="w-full group-hover:bg-accent group-hover:text-accent-foreground transition-all">
-                    Iniciar Simulación <Play className="ml-2 h-4 w-4" />
-                  </Button>
+                  <Link href={`/simulator/run/${scenario.id}`}>
+                    <Button variant="ghost" className="w-full group-hover:bg-accent group-hover:text-accent-foreground transition-all">
+                      Iniciar Simulación <Play className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
             ))}
