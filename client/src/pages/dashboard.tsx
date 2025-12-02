@@ -1,12 +1,21 @@
 import DashboardShell from "@/components/layout/dashboard-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cycles } from "@/lib/mock-data";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { ArrowUpRight, Users, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import { cyclesAPI } from "@/lib/api";
 
 export default function Dashboard() {
-  // Mock data for charts
+  const { user } = useAuth();
+  
+  const { data: cycles = [], isLoading } = useQuery({
+    queryKey: ["cycles", user?.companyId],
+    queryFn: () => user?.companyId ? cyclesAPI.getByCompany(user.companyId) : Promise.resolve([]),
+    enabled: !!user?.companyId,
+  });
+
   const activityData = [
     { name: "Lun", total: 12 },
     { name: "Mar", total: 18 },
@@ -22,6 +31,19 @@ export default function Dashboard() {
     inProgress: cycles.filter(c => c.status === "in_progress").length,
     pending: cycles.filter(c => c.status === "pending").length,
   };
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-muted-foreground">Cargando datos...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>
@@ -129,16 +151,16 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                {cycles.map((cycle) => (
-                  <div key={cycle.id} className="flex items-center">
+                {cycles.slice(0, 5).map((cycle) => (
+                  <div key={cycle.id} className="flex items-center" data-testid={`cycle-item-${cycle.id}`}>
                     <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
                       <span className="text-xs font-bold text-muted-foreground">
-                        {cycle.studentId === "u3" ? "JO" : "XX"}
+                        {cycle.studentId.toString().substring(0, 2).toUpperCase()}
                       </span>
                     </div>
                     <div className="ml-4 space-y-1">
                       <p className="text-sm font-medium leading-none truncate max-w-[200px]">{cycle.title}</p>
-                      <p className="text-xs text-muted-foreground">Juan Operador</p>
+                      <p className="text-xs text-muted-foreground">Estudiante #{cycle.studentId}</p>
                     </div>
                     <div className="ml-auto font-medium">
                       {cycle.status === "completed" ? (
@@ -151,6 +173,9 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
+                {cycles.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-8">No hay ciclos de evaluación registrados</p>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { navItems, users } from "@/lib/mock-data";
+import { navItems } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -14,12 +14,20 @@ import {
 import { Bell, Menu, Search, LogOut, Zap, Power } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import logoImg from "@assets/generated_images/abstract_logo_for_energy_evaluation_system.png";
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const currentUser = users[0]; // Mock current user as Admin
+  const { user, company, logout } = useAuth();
+  
+  const userInitials = user?.name
+    .split(" ")
+    .map(n => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase() || "US";
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-sidebar/95 backdrop-blur-xl border-r border-white/5">
@@ -59,11 +67,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <div className="p-4 border-t border-white/5 bg-black/20">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border border-white/10 ring-2 ring-transparent group-hover:ring-primary/50 transition-all">
-            <AvatarFallback className="bg-primary/20 text-primary font-bold">CS</AvatarFallback>
+            <AvatarFallback className="bg-primary/20 text-primary font-bold">{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col overflow-hidden">
-            <span className="text-sm font-medium truncate text-white">{currentUser.name}</span>
-            <span className="text-xs text-muted-foreground truncate">{currentUser.email}</span>
+            <span className="text-sm font-medium truncate text-white">{user?.name}</span>
+            <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
           </div>
         </div>
       </div>
@@ -122,12 +130,21 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 bg-card border-white/10 text-white">
-                <DropdownMenuLabel>Cuenta de Operador</DropdownMenuLabel>
+                <DropdownMenuLabel>
+                  <div>
+                    <p className="font-medium">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground font-normal">{company?.name}</p>
+                  </div>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="focus:bg-white/10 focus:text-white">Perfil Profesional</DropdownMenuItem>
-                <DropdownMenuItem className="focus:bg-white/10 focus:text-white">Configuración</DropdownMenuItem>
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer">Perfil Profesional</DropdownMenuItem>
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer">Configuración</DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                  onClick={logout}
+                  data-testid="button-logout"
+                >
                   <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
                 </DropdownMenuItem>
               </DropdownMenuContent>

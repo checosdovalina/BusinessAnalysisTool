@@ -7,41 +7,178 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { events, cycles } from "@/lib/mock-data";
 import { useLocation, useRoute } from "wouter";
-import { ArrowLeft, CheckCircle2, XCircle, Camera, Save, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Camera, Save, AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { cyclesAPI, eventsAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function EvaluationForm() {
   const [location, setLocation] = useLocation();
   const [match, params] = useRoute("/evaluations/:id");
-  const cycleId = params?.id;
+  const cycleId = params?.id ? parseInt(params.id) : null;
   
-  const cycle = cycles.find(c => c.id === cycleId);
-  const cycleEvents = events.filter(e => e.cycleId === cycleId);
-  
-  // Simple state for demo purposes
-  const [currentEventIndex, setCurrentEventIndex] = useState(0);
-  const [scores, setScores] = useState<Record<string, string>>({});
+  const { data: cycle, isLoading: cycleLoading } = useQuery({
+    queryKey: ["cycle", cycleId],
+    queryFn: () => cycleId ? cyclesAPI.getById(cycleId) : Promise.reject("No cycle ID"),
+    enabled: !!cycleId,
+  });
 
-  if (!cycle) return <div>Ciclo no encontrado</div>;
+  const { data: cycleEvents = [], isLoading: eventsLoading } = useQuery({
+    queryKey: ["events", cycleId],
+    queryFn: () => cycleId ? eventsAPI.getByCycle(cycleId) : Promise.resolve([]),
+    enabled: !!cycleId,
+  });
+  
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
+  const [scores, setScores] = useState<Record<number, string>>({});
+  const [feedback, setFeedback] = useState<Record<number, string>>({});
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const updateEventMutation = useMutation({
+    mutationFn: async ({ eventId, data }: { eventId: number; data: { status: string; score: number; feedback?: string } }) => {
+      return eventsAPI.update(eventId, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events", cycleId] });
+    },
+  });
+
+  const updateCycleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { status?: string; progress?: number; score?: number } }) => {
+      return cyclesAPI.update(id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cycles"] });
+    },
+  });
+
+  if (cycleLoading || eventsLoading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-muted-foreground">Cargando evaluación...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (!cycle) {
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <p className="text-muted-foreground">Ciclo no encontrado</p>
+          <Button onClick={() => setLocation("/evaluations")}>Volver a Evaluaciones</Button>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (cycleEvents.length === 0) {
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <p className="text-muted-foreground">Este ciclo no tiene eventos de evaluación configurados</p>
+          <Button onClick={() => setLocation("/evaluations")}>Volver a Evaluaciones</Button>
+        </div>
+      </DashboardShell>
+    );
+  }
 
   const currentEvent = cycleEvents[currentEventIndex];
   const isLastEvent = currentEventIndex === cycleEvents.length - 1;
 
   const handleScoreChange = (value: string) => {
-    setScores(prev => ({ ...prev, [currentEvent.id]: value }));
+    if (currentEvent) {
+      setScores(prev => ({ ...prev, [currentEvent.id]: value }));
+    }
   };
 
-  const handleNext = () => {
+  const handleFeedbackChange = (value: string) => {
+    if (currentEvent) {
+      setFeedback(prev => ({ ...prev, [currentEvent.id]: value }));
+    }
+  };
+
+  const saveCurrentEvent = async () => {
+    if (!currentEvent) return;
+
+    const scoreValue = scores[currentEvent.id];
+    const feedbackValue = feedback[currentEvent.id] || "";
+    
+    let status: string;
+    let score: number;
+
+    if (scoreValue === "pass") {
+      status = "pass";
+      score = currentEvent.maxScore;
+    } else if (scoreValue === "fail") {
+      status = "fail";
+      score = 0;
+    } else {
+      status = "skipped";
+      score = 0;
+    }
+
+    try {
+      await updateEventMutation.mutateAsync({
+        eventId: currentEvent.id,
+        data: { status, score, feedback: feedbackValue },
+      });
+
+      const progress = Math.round(((currentEventIndex + 1) / cycleEvents.length) * 100);
+      await updateCycleMutation.mutateAsync({
+        id: cycle.id,
+        data: { progress },
+      });
+
+      toast({
+        title: "Evento guardado",
+        description: "El evento ha sido evaluado correctamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la evaluación.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNext = async () => {
+    await saveCurrentEvent();
+
     if (isLastEvent) {
-      // Finish
+      const totalScore = cycleEvents.reduce((acc, event) => {
+        const scoreVal = scores[event.id];
+        return acc + (scoreVal === "pass" ? event.maxScore : 0);
+      }, 0);
+      const maxTotalScore = cycleEvents.reduce((acc, event) => acc + event.maxScore, 0);
+      const finalScore = Math.round((totalScore / maxTotalScore) * 100);
+
+      await updateCycleMutation.mutateAsync({
+        id: cycle.id,
+        data: { status: "completed", progress: 100, score: finalScore },
+      });
+
+      toast({
+        title: "Evaluación completada",
+        description: `Calificación final: ${finalScore}%`,
+      });
+      
       setLocation("/evaluations");
     } else {
       setCurrentEventIndex(prev => prev + 1);
     }
   };
+
+  const isSaving = updateEventMutation.isPending || updateCycleMutation.isPending;
 
   return (
     <DashboardShell>
@@ -178,6 +315,9 @@ export default function EvaluationForm() {
                     id="feedback" 
                     placeholder="Ingrese comentarios detallados sobre el desempeño..." 
                     className="min-h-[120px] resize-none bg-muted/20"
+                    value={feedback[currentEvent.id] || ""}
+                    onChange={(e) => handleFeedbackChange(e.target.value)}
+                    data-testid="textarea-feedback"
                   />
                 </div>
 
@@ -195,15 +335,36 @@ export default function EvaluationForm() {
               </CardContent>
 
               <CardFooter className="bg-muted/30 p-6 flex justify-between border-t border-border/50">
-                <Button variant="outline" onClick={() => setCurrentEventIndex(prev => Math.max(0, prev - 1))} disabled={currentEventIndex === 0}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentEventIndex(prev => Math.max(0, prev - 1))} 
+                  disabled={currentEventIndex === 0 || isSaving}
+                  data-testid="button-previous"
+                >
                   Anterior
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="ghost" className="text-muted-foreground">
-                    <Save className="mr-2 h-4 w-4" /> Guardar Borrador
+                  <Button 
+                    variant="ghost" 
+                    className="text-muted-foreground"
+                    onClick={saveCurrentEvent}
+                    disabled={isSaving || !scores[currentEvent.id]}
+                    data-testid="button-save-draft"
+                  >
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Guardar
                   </Button>
-                  <Button onClick={handleNext} className="bg-primary text-primary-foreground shadow-md hover:shadow-lg">
-                    {isLastEvent ? "Finalizar Evaluación" : "Siguiente Evento"}
+                  <Button 
+                    onClick={handleNext} 
+                    className="bg-primary text-primary-foreground shadow-md hover:shadow-lg"
+                    disabled={isSaving || !scores[currentEvent.id]}
+                    data-testid="button-next"
+                  >
+                    {isSaving ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
+                    ) : (
+                      isLastEvent ? "Finalizar Evaluación" : "Siguiente Evento"
+                    )}
                   </Button>
                 </div>
               </CardFooter>

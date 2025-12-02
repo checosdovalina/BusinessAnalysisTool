@@ -1,16 +1,315 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema } from "@shared/schema";
+import { z } from "zod";
+import bcrypt from "bcrypt";
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  
+  // ============= AUTH ROUTES =============
+  
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const company = await storage.getCompany(user.companyId);
+      
+      res.json({ 
+        user: { ...user, password: undefined },
+        company 
+      });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Login failed" });
+    }
+  });
+
+  // Register (only for testing - in production would have more controls)
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      const newUser = await storage.createUser(userData);
+      res.json({ ...newUser, password: undefined });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Registration failed" });
+    }
+  });
+
+  // ============= COMPANIES ROUTES =============
+  
+  app.get("/api/companies", async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      res.json(companies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  app.get("/api/companies/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const company = await storage.getCompany(id);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      res.json(company);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch company" });
+    }
+  });
+
+  // ============= USERS ROUTES =============
+  
+  app.get("/api/users/company/:companyId", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const users = await storage.getUsersByCompany(companyId);
+      res.json(users.map(u => ({ ...u, password: undefined })));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // ============= CYCLES ROUTES =============
+  
+  app.get("/api/cycles/company/:companyId", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const cycles = await storage.getCyclesByCompany(companyId);
+      res.json(cycles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cycles" });
+    }
+  });
+
+  app.get("/api/cycles/student/:studentId", async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const cycles = await storage.getCyclesByStudent(studentId);
+      res.json(cycles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cycles" });
+    }
+  });
+
+  app.get("/api/cycles/trainer/:trainerId", async (req, res) => {
+    try {
+      const trainerId = parseInt(req.params.trainerId);
+      const cycles = await storage.getCyclesByTrainer(trainerId);
+      res.json(cycles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cycles" });
+    }
+  });
+
+  app.get("/api/cycles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const cycle = await storage.getCycle(id);
+      if (!cycle) {
+        return res.status(404).json({ error: "Cycle not found" });
+      }
+      res.json(cycle);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cycle" });
+    }
+  });
+
+  app.post("/api/cycles", async (req, res) => {
+    try {
+      const cycleData = insertCycleSchema.parse(req.body);
+      const newCycle = await storage.createCycle(cycleData);
+      res.status(201).json(newCycle);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create cycle" });
+    }
+  });
+
+  app.patch("/api/cycles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedCycle = await storage.updateCycle(id, updates);
+      if (!updatedCycle) {
+        return res.status(404).json({ error: "Cycle not found" });
+      }
+      res.json(updatedCycle);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update cycle" });
+    }
+  });
+
+  // ============= EVENTS ROUTES =============
+  
+  app.get("/api/events/cycle/:cycleId", async (req, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      const events = await storage.getEventsByCycle(cycleId);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch events" });
+    }
+  });
+
+  app.get("/api/events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const event = await storage.getEvent(id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch event" });
+    }
+  });
+
+  app.post("/api/events", async (req, res) => {
+    try {
+      const eventData = insertEventSchema.parse(req.body);
+      const newEvent = await storage.createEvent(eventData);
+      res.status(201).json(newEvent);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create event" });
+    }
+  });
+
+  app.patch("/api/events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedEvent = await storage.updateEvent(id, updates);
+      if (!updatedEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(updatedEvent);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update event" });
+    }
+  });
+
+  // ============= SIMULATOR SCENARIOS ROUTES =============
+  
+  app.get("/api/simulator-scenarios", async (req, res) => {
+    try {
+      const scenarios = await storage.getAllSimulatorScenarios();
+      res.json(scenarios);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scenarios" });
+    }
+  });
+
+  app.get("/api/simulator-scenarios/company/:companyId", async (req, res) => {
+    try {
+      const companyId = req.params.companyId === 'null' ? null : parseInt(req.params.companyId);
+      const scenarios = await storage.getSimulatorScenariosByCompany(companyId);
+      res.json(scenarios);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scenarios" });
+    }
+  });
+
+  app.get("/api/simulator-scenarios/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const scenario = await storage.getSimulatorScenario(id);
+      if (!scenario) {
+        return res.status(404).json({ error: "Scenario not found" });
+      }
+      res.json(scenario);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scenario" });
+    }
+  });
+
+  app.post("/api/simulator-scenarios", async (req, res) => {
+    try {
+      const scenarioData = insertSimulatorScenarioSchema.parse(req.body);
+      const newScenario = await storage.createSimulatorScenario(scenarioData);
+      res.status(201).json(newScenario);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create scenario" });
+    }
+  });
+
+  // ============= SIMULATOR SESSIONS ROUTES =============
+  
+  app.get("/api/simulator-sessions/company/:companyId", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const sessions = await storage.getSimulatorSessionsByCompany(companyId);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  app.get("/api/simulator-sessions/student/:studentId", async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const sessions = await storage.getSimulatorSessionsByStudent(studentId);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  app.get("/api/simulator-sessions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const session = await storage.getSimulatorSession(id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
+
+  app.post("/api/simulator-sessions", async (req, res) => {
+    try {
+      const sessionData = insertSimulatorSessionSchema.parse(req.body);
+      const newSession = await storage.createSimulatorSession(sessionData);
+      res.status(201).json(newSession);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create session" });
+    }
+  });
+
+  app.patch("/api/simulator-sessions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedSession = await storage.updateSimulatorSession(id, updates);
+      if (!updatedSession) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json(updatedSession);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update session" });
+    }
+  });
 
   return httpServer;
 }

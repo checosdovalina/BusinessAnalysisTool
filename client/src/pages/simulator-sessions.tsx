@@ -2,12 +2,30 @@ import DashboardShell from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { simulatorScenarios } from "@/lib/mock-data";
 import { Play, Activity, Zap, AlertTriangle, Server, GitBranch } from "lucide-react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { simulatorScenariosAPI } from "@/lib/api";
 import simImg from "@assets/generated_images/electrical_grid_simulator_interface.png";
 
 export default function SimulatorSessions() {
+  const { data: scenarios = [], isLoading } = useQuery({
+    queryKey: ["simulator-scenarios"],
+    queryFn: () => simulatorScenariosAPI.getAll(),
+  });
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-muted-foreground">Cargando escenarios...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
   return (
     <DashboardShell>
       <div className="space-y-8">
@@ -50,7 +68,7 @@ export default function SimulatorSessions() {
         <div className="space-y-6">
           <h3 className="text-xl font-bold font-heading">Escenarios Disponibles</h3>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {simulatorScenarios.map((scenario) => (
+            {scenarios.map((scenario) => (
               <Card key={scenario.id} className="group border-border/60 bg-card hover:border-accent/50 transition-all hover:shadow-lg hover:shadow-accent/5 cursor-pointer">
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">

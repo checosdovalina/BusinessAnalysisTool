@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,16 +11,22 @@ import logoImg from "@assets/generated_images/abstract_logo_for_energy_evaluatio
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login delay
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await login(email, password);
       setLocation("/");
-    }, 1000);
+    } catch (error) {
+      console.error("Login failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -40,7 +47,16 @@ export default function AuthPage() {
               <Label htmlFor="email">Credencial Corporativa</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="operador@red-electrica.com" className="pl-9 bg-muted/30" required />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="operador@red-electrica.com" 
+                  className="pl-9 bg-muted/30" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  data-testid="input-email"
+                  required 
+                />
               </div>
             </div>
 
@@ -51,11 +67,24 @@ export default function AuthPage() {
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="password" type="password" className="pl-9 bg-muted/30" required />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  className="pl-9 bg-muted/30" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  data-testid="input-password"
+                  required 
+                />
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11 text-base font-medium" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full h-11 text-base font-medium" 
+              disabled={isLoading}
+              data-testid="button-login"
+            >
               {isLoading ? "Verificando..." : "Acceder al Panel de Control"}
             </Button>
           </form>

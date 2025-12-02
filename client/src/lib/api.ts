@@ -1,0 +1,97 @@
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession } from "@shared/schema";
+
+const API_BASE = "/api";
+
+async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${url}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || "Request failed");
+  }
+
+  return response.json();
+}
+
+// Auth API
+export const authAPI = {
+  login: async (email: string, password: string) => {
+    return fetcher<{ user: User; company: Company }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  },
+};
+
+// Companies API
+export const companiesAPI = {
+  getAll: () => fetcher<Company[]>("/companies"),
+  getById: (id: number) => fetcher<Company>(`/companies/${id}`),
+};
+
+// Users API
+export const usersAPI = {
+  getByCompany: (companyId: number) => fetcher<User[]>(`/users/company/${companyId}`),
+};
+
+// Cycles API
+export const cyclesAPI = {
+  getByCompany: (companyId: number) => fetcher<Cycle[]>(`/cycles/company/${companyId}`),
+  getByStudent: (studentId: number) => fetcher<Cycle[]>(`/cycles/student/${studentId}`),
+  getByTrainer: (trainerId: number) => fetcher<Cycle[]>(`/cycles/trainer/${trainerId}`),
+  getById: (id: number) => fetcher<Cycle>(`/cycles/${id}`),
+  create: (data: Partial<Cycle>) => fetcher<Cycle>("/cycles", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<Cycle>) => fetcher<Cycle>(`/cycles/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+};
+
+// Events API
+export const eventsAPI = {
+  getByCycle: (cycleId: number) => fetcher<Event[]>(`/events/cycle/${cycleId}`),
+  getById: (id: number) => fetcher<Event>(`/events/${id}`),
+  create: (data: Partial<Event>) => fetcher<Event>("/events", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<Event>) => fetcher<Event>(`/events/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+};
+
+// Simulator Scenarios API
+export const simulatorScenariosAPI = {
+  getAll: () => fetcher<SimulatorScenario[]>("/simulator-scenarios"),
+  getByCompany: (companyId: number | null) => fetcher<SimulatorScenario[]>(`/simulator-scenarios/company/${companyId}`),
+  getById: (id: number) => fetcher<SimulatorScenario>(`/simulator-scenarios/${id}`),
+  create: (data: Partial<SimulatorScenario>) => fetcher<SimulatorScenario>("/simulator-scenarios", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+};
+
+// Simulator Sessions API
+export const simulatorSessionsAPI = {
+  getByCompany: (companyId: number) => fetcher<SimulatorSession[]>(`/simulator-sessions/company/${companyId}`),
+  getByStudent: (studentId: number) => fetcher<SimulatorSession[]>(`/simulator-sessions/student/${studentId}`),
+  getById: (id: number) => fetcher<SimulatorSession>(`/simulator-sessions/${id}`),
+  create: (data: Partial<SimulatorSession>) => fetcher<SimulatorSession>("/simulator-sessions", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<SimulatorSession>) => fetcher<SimulatorSession>(`/simulator-sessions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+};
