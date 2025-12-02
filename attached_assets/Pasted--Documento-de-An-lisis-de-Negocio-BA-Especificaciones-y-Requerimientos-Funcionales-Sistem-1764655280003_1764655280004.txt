@@ -1,0 +1,205 @@
+# Documento de Análisis de Negocio (BA)
+
+## Especificaciones y Requerimientos Funcionales
+
+## Sistema Evaluador Multiempresa basado en Reporte de Entrenamiento OTS
+
+---
+
+# 1. Visión del Proyecto
+
+El sistema estará **enfocado en el sector energético**, específicamente en el entrenamiento y evaluación de operadores encargados de **maniobras eléctricas, control de cargas y operación de la red**, incluyendo contextos similares a los utilizados en **CFE, centros de control, subestaciones y sistemas de potencia**.
+
+El sistema integrará principios del entrenamiento con **simuladores operativos**, donde los operadores practican eventos, fallas, secuencias de maniobra y criterios operativos antes de ejecutarlos en la red real. Se evaluarán habilidades relacionadas con operación segura, análisis de contingencias, interpretación de diagramas unifilares, topología, protecciones eléctricas y respuesta a fallas en tiempo real.
+
+---
+
+El propósito del sistema es digitalizar y estandarizar el proceso de evaluación tipo **Entrenamiento OTS**, permitiendo que múltiples empresas utilicen la plataforma de manera independiente, escalable y segura. El objetivo principal es garantizar la correcta formación operativa, la trazabilidad de eventos, la reducción de riesgos y la mejora continua del desempeño de los trabajadores.
+
+---
+
+# 2. Objetivos del Negocio
+
+* **Estandarizar el proceso de evaluación OTS** mediante un sistema digital centralizado.
+* **Optimizar la labor del entrenador**, reduciendo tiempos de registro y generación de reportes.
+* **Asegurar la trazabilidad** de entrenamientos, calificaciones, evidencias y anexos.
+* **Proveer indicadores ejecutivos** que permitan tomar decisiones basadas en datos.
+* **Garantizar independencia total entre empresas** dentro de un mismo sistema.
+* **Mejorar el nivel operativo del personal** mediante retroalimentación y métricas.
+
+---
+
+# 3. Alcance del Proyecto
+
+## 3.1 Alcance Funcional
+
+El sistema contempla:
+
+* Modelo multiempresa.
+* Gestión completa de usuarios y roles.
+* Flujos de evaluación OTS.
+* Registro de ciclos y eventos.
+* Calificación automática.
+* Evidencias y anexos.
+* Reportes PDF profesionales.
+* Dashboards y métricas.
+
+## 3.2 Fuera de Alcance (Fase Inicial)
+
+* Integraciones externas.
+* Firma biométrica.
+* Automatización avanzada de workflows.
+* Gamificación.
+
+---
+
+# 4. Análisis de Stakeholders
+
+## 4.1 SuperAdmin
+
+**Intereses:** Control global, gestión de empresas, monitoreo de uso.
+
+## 4.2 Administrador de Empresa
+
+**Intereses:** Control interno, creación de plantillas, supervisión de evaluaciones.
+
+## 4.3 Entrenador
+
+**Intereses:** Agilidad en registrar entrenamientos, emitir observaciones y generar reportes.
+
+## 4.4 Alumno
+
+**Intereses:** Visualizar resultados, retroalimentación y progreso.
+
+## 4.5 Jefes o Supervisores
+
+**Intereses:** Recibir reportes, analizar desempeño y tomar decisiones.
+
+---
+
+# 5. Requerimientos del Negocio
+
+* RN-01: Asegurar que cada empresa opere con información aislada.
+* RN-02: Garantizar que las evaluaciones sigan el estándar OTS.
+* RN-03: Mantener históricos completos con trazabilidad.
+* RN-04: Producir reportes confiables y auditables.
+* RN-05: Ofrecer visualizaciones ejecutivas de desempeño.
+
+---
+
+# 6. Requerimientos Funcionales
+
+(Se conserva la estructura detallada previamente, ahora clasificada como BA)
+
+## 6.1 Gestión Multiempresa
+
+* RF-001 Crear empresa.
+* RF-002 Activar/desactivar empresa.
+* RF-003 Aislamiento de datos.
+
+## 6.2 Gestión de Usuarios
+
+* RF-010 Registro de entrenadores.
+* RF-011 Registro de alumnos.
+* RF-012 Asignación de roles.
+* RF-013 Relación entrenador–alumnos.
+
+## 6.3 Ciclo de Entrenamiento
+
+* RF-020 Crear ciclo.
+* RF-021 Captura de datos del ciclo.
+* RF-022 Relación ciclo → eventos.
+
+## 6.4 Eventos del Entrenamiento
+
+* RF-030 Crear evento.
+* RF-031 Registro de objetivos.
+* RF-032 Captura de descripción.
+* RF-033 Reactivos y acciones esperadas.
+* RF-034 Criterios y ponderaciones.
+* RF-035 Autocalificación.
+
+## 6.5 Temas de Evaluación
+
+* RF-040 Catálogo base.
+* RF-041 Personalización de temas.
+* RF-042 Relación tema → evento.
+
+## 6.6 Generación de Reportes
+
+* RF-050 Validación previa.
+* RF-051 Calificación automática.
+* RF-052 Gráfica individual.
+* RF-053 Gráfica radar.
+* RF-054 Generación PDF.
+* RF-055 Envío de reportes.
+* RF-056 Historial de reportes.
+
+## 6.7 Evidencias y Anexos
+
+* RF-060 Subida de evidencias.
+* RF-061 Gestión de anexos.
+* RF-062 Control de versiones.
+
+## 6.8 Dashboards
+
+* RF-070 Dashboard administrador.
+* RF-071 Dashboard entrenador.
+* RF-072 Dashboard alumno.
+
+## 6.9 Notificaciones
+
+* RF-080 Notificaciones automáticas.
+
+---
+
+# 7. Requerimientos No Funcionales
+
+## Seguridad, rendimiento, usabilidad, escalabilidad, almacenamiento.
+
+(Se mantienen tal como redactados previamente.)
+
+---
+
+# 8. Modelo de Proceso del Negocio
+
+1. Creación de empresa.
+2. Registro de usuarios.
+3. Configuración de plantillas OTS.
+4. Inicio de ciclo.
+5. Registro de eventos.
+6. Calificación.
+7. Evidencias.
+8. Reporte.
+9. Firma del alumno.
+10. Métricas e historial.
+
+---
+
+# 9. Reglas del Negocio
+
+* RN-100 La calificación final depende de la ponderación definida.
+* RN-101 Un ciclo no puede cerrarse sin completar eventos mínimos.
+* RN-102 Un reporte solo puede generarse si contiene al menos un evento.
+* RN-103 Los anexos deben estar vigentes para ser utilizados.
+* RN-104 Los datos de una empresa no pueden ser visibles por otra.
+
+---
+
+# 10. Riesgos Identificados
+
+* Falta de estandarización de plantillas entre empresas.
+* Sobrecarga del sistema si no se optimiza manejo de evidencias.
+* Brechas de uso en entrenadores poco digitalizados.
+
+---
+
+# 11. Suposiciones
+
+* Cada empresa proporcionará sus plantillas OTS.
+* Los entrenadores cuentan con equipos móviles o tablets.
+* Las evidencias serán capturadas directamente desde el dispositivo.
+
+---
+
+# FIN DEL DOCUMENTO

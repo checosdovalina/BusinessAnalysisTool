@@ -44,22 +44,22 @@ export interface Event {
 // MOCK DATA
 
 export const companies: Company[] = [
-  { id: "c1", name: "Minería del Norte S.A.", active: true },
-  { id: "c2", name: "Transportes Logísticos Global", active: true },
-  { id: "c3", name: "Constructora Andes", active: false },
+  { id: "c1", name: "Red Eléctrica Nacional", active: true },
+  { id: "c2", name: "Transmisión del Centro S.A.", active: true },
+  { id: "c3", name: "Energía Sustentable Global", active: false },
 ];
 
 export const users: User[] = [
-  { id: "u1", name: "Carlos Admin", email: "admin@mineria.com", role: "admin", companyId: "c1" },
-  { id: "u2", name: "Roberto Entrenador", email: "roberto@mineria.com", role: "trainer", companyId: "c1" },
-  { id: "u3", name: "Juan Operador", email: "juan@mineria.com", role: "student", companyId: "c1" },
-  { id: "u4", name: "Ana Super", email: "ana@ots-system.com", role: "super_admin", companyId: "root" },
+  { id: "u1", name: "Ing. Carlos Supervisor", email: "admin@red-electrica.com", role: "admin", companyId: "c1" },
+  { id: "u2", name: "Roberto Instructor", email: "roberto@red-electrica.com", role: "trainer", companyId: "c1" },
+  { id: "u3", name: "Juan Operador", email: "juan@red-electrica.com", role: "student", companyId: "c1" },
+  { id: "u4", name: "Ana Auditora", email: "ana@ots-system.com", role: "super_admin", companyId: "root" },
 ];
 
 export const cycles: Cycle[] = [
   { 
     id: "cy1", 
-    title: "Certificación Operación Camión CAEX 930E", 
+    title: "Restablecimiento de Línea 115kV - Falla Bifásica", 
     studentId: "u3", 
     trainerId: "u2", 
     status: "in_progress", 
@@ -68,7 +68,7 @@ export const cycles: Cycle[] = [
   },
   { 
     id: "cy2", 
-    title: "Inducción Seguridad Planta Concentradora", 
+    title: "Maniobra en Subestación de Potencia (Libranza)", 
     studentId: "u3", 
     trainerId: "u2", 
     status: "completed", 
@@ -79,7 +79,7 @@ export const cycles: Cycle[] = [
   },
   { 
     id: "cy3", 
-    title: "Mantenimiento Preventivo Pala Hidráulica", 
+    title: "Control de Voltaje en Barra de Alta Tensión", 
     studentId: "u3", 
     trainerId: "u2", 
     status: "pending", 
@@ -92,28 +92,28 @@ export const events: Event[] = [
   {
     id: "e1",
     cycleId: "cy1",
-    title: "Inspección Pre-operacional (Vuelta del Perro)",
-    description: "Verificar estado de neumáticos, fugas, niveles de fluidos y estructura general.",
+    title: "Análisis de Diagrama Unifilar y Estado Inicial",
+    description: "Validar topología de la red, estado de interruptores y alarmas activas en el SCADA.",
     status: "pass",
     score: 10,
     maxScore: 10,
-    feedback: "Excelente revisión de puntos críticos."
+    feedback: "Lectura correcta de protecciones activadas."
   },
   {
     id: "e2",
     cycleId: "cy1",
-    title: "Procedimiento de Arranque y Testeo",
-    description: "Secuencia correcta de encendido, prueba de frenos y comunicaciones radiales.",
+    title: "Aislamiento de Falla (Apertura de Interruptores)",
+    description: "Ejecución de secuencia de apertura de interruptores de línea para aislar el tramo fallado.",
     status: "pass",
     score: 9,
     maxScore: 10,
-    feedback: "Comunicación radial un poco baja, pero procedimiento correcto."
+    feedback: "Secuencia correcta, tiempo de respuesta adecuado."
   },
   {
     id: "e3",
     cycleId: "cy1",
-    title: "Maniobra de Carguío en Pala",
-    description: "Posicionamiento correcto bajo la pala, uso de freno de parqueo, espera de señal.",
+    title: "Verificación de Ausencia de Tensión",
+    description: "Confirmación visual y por telemetría de desenergización antes de autorizar puesta a tierra.",
     status: "pending",
     score: 0,
     maxScore: 15,
@@ -121,8 +121,8 @@ export const events: Event[] = [
   {
     id: "e4",
     cycleId: "cy1",
-    title: "Transporte y Descarga en Botadero",
-    description: "Velocidades controladas, aproximación a bermas, descarga segura.",
+    title: "Coordinación con Cuadrillas de Campo",
+    description: "Protocolo de comunicación por radio para instruir inspección visual de la línea.",
     status: "pending",
     score: 0,
     maxScore: 15,
@@ -130,10 +130,10 @@ export const events: Event[] = [
 ];
 
 export const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { label: "Centro de Control", icon: LayoutDashboard, href: "/" },
   { label: "Evaluaciones", icon: BookOpen, href: "/evaluations" },
-  { label: "Usuarios", icon: Users, href: "/users" },
+  { label: "Operadores", icon: Users, href: "/users" },
   { label: "Empresas", icon: Building2, href: "/companies", role: "super_admin" },
-  { label: "Reportes", icon: BarChart3, href: "/reports" },
+  { label: "Reportes Ejecutivos", icon: BarChart3, href: "/reports" },
   { label: "Configuración", icon: Settings, href: "/settings" },
 ];
