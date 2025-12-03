@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { simulatorScenariosAPI } from "@/lib/api";
-import { ArrowLeft, AlertTriangle, Zap, Timer, CheckCircle, Activity, Power, Play, Pause, RotateCcw } from "lucide-react";
+import { simulatorScenariosAPI, scenarioStepsAPI, sessionStepResultsAPI, simulatorSessionsAPI } from "@/lib/api";
+import { ArrowLeft, AlertTriangle, Zap, Timer, CheckCircle, Activity, Power, Play, Pause, RotateCcw, Target, XCircle, Info, ChevronRight, Award, Clock, Radio, Shield, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ScenarioStep } from "@shared/schema";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 // Mock Topology Component
 const GridTopology = ({ status }: { status: string }) => (
@@ -72,10 +75,41 @@ const GridTopology = ({ status }: { status: string }) => (
   </div>
 );
 
+interface StepResult {
+  stepId: number;
+  isCorrect: boolean;
+  actionPerformed: string;
+  pointsAwarded: number;
+  responseTime: number;
+}
+
+interface FeedbackModal {
+  isOpen: boolean;
+  isCorrect: boolean;
+  title: string;
+  message: string;
+  alternativeInterpretation?: string;
+  points: number;
+}
+
+const ACTION_TYPE_LABELS: Record<string, string> = {
+  "breaker_open": "Abrir Interruptor",
+  "breaker_close": "Cerrar Interruptor",
+  "voltage_adjust": "Ajustar Voltaje",
+  "load_transfer": "Transferir Carga",
+  "communication": "Comunicación Operativa",
+  "alarm_acknowledge": "Reconocer Alarma",
+  "protection_check": "Verificar Protección",
+  "isolation": "Aislar Equipo",
+  "grounding": "Puesta a Tierra",
+  "custom": "Acción Personalizada",
+};
+
 export default function SimulatorRun() {
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/simulator/run/:id");
   const scenarioId = params?.id ? parseInt(params.id) : null;
+  const { user } = useAuth();
   
   const { data: scenario, isLoading } = useQuery({
     queryKey: ["simulator-scenario", scenarioId],
@@ -83,12 +117,75 @@ export default function SimulatorRun() {
     enabled: !!scenarioId,
   });
 
+  const { data: scenarioSteps = [], isLoading: stepsLoading } = useQuery({
+    queryKey: ["scenario-steps", scenarioId],
+    queryFn: () => scenarioId ? scenarioStepsAPI.getByScenario(scenarioId) : Promise.resolve([]),
+    enabled: !!scenarioId,
+  });
+
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [simStatus, setSimStatus] = useState("normal"); // normal, fault, recovered
+  const [simStatus, setSimStatus] = useState("normal");
   const [logs, setLogs] = useState<{time: string, msg: string, type: string}[]>([]);
+  
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [stepResults, setStepResults] = useState<StepResult[]>([]);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [stepStartTime, setStepStartTime] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackModal>({ isOpen: false, isCorrect: true, title: "", message: "", points: 0 });
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [stepElapsedTime, setStepElapsedTime] = useState(0);
+  const [criticalFailures, setCriticalFailures] = useState(0);
+  const [inputModal, setInputModal] = useState<{ isOpen: boolean; actionType: string; actionLabel: string }>({ isOpen: false, actionType: "", actionLabel: "" });
+  const [inputValue, setInputValue] = useState("");
 
-  // Timer
+  const hasConfiguredSteps = scenarioSteps.length > 0;
+  const currentStep = hasConfiguredSteps ? scenarioSteps[currentStepIndex] : null;
+  const maxPoints = scenarioSteps.reduce((sum, s) => sum + s.points, 0);
+
+  const createSession = async () => {
+    if (!scenarioId || !user) return null;
+    try {
+      const session = await simulatorSessionsAPI.create({
+        scenarioId,
+        studentId: user.id,
+        companyId: user.companyId,
+        startTime: new Date(),
+      });
+      return session.id;
+    } catch (error) {
+      console.error("Error creating session:", error);
+      return null;
+    }
+  };
+
+  const saveStepResult = async (result: StepResult, sessId: number) => {
+    try {
+      await sessionStepResultsAPI.create({
+        sessionId: sessId,
+        stepId: result.stepId,
+        isCorrect: result.isCorrect,
+        actionTaken: result.actionPerformed,
+        pointsAwarded: result.pointsAwarded,
+        responseTime: result.responseTime,
+      });
+    } catch (error) {
+      console.error("Error saving step result:", error);
+    }
+  };
+
+  const completeSession = async (sessId: number, finalScore: number) => {
+    try {
+      await simulatorSessionsAPI.update(sessId, {
+        endTime: new Date(),
+        score: finalScore,
+      });
+    } catch (error) {
+      console.error("Error completing session:", error);
+    }
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isRunning) {
@@ -99,11 +196,9 @@ export default function SimulatorRun() {
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  // Initial Start
   useEffect(() => {
     if (scenario) {
       addLog("Sistema Inicializado. Parámetros nominales.", "info");
-      // Simulate fault after 3 seconds
       if (scenario.category === "Fault") {
          setTimeout(() => {
             if(isRunning) triggerFault();
@@ -111,6 +206,79 @@ export default function SimulatorRun() {
       }
     }
   }, [scenario, isRunning]);
+
+  useEffect(() => {
+    if (isRunning && hasConfiguredSteps && stepStartTime === null) {
+      setStepStartTime(Date.now());
+    }
+  }, [isRunning, hasConfiguredSteps, stepStartTime]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRunning && stepStartTime && hasConfiguredSteps && !isCompleted) {
+      interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - stepStartTime) / 1000);
+        setStepElapsedTime(elapsed);
+        
+        if (currentStep?.timeLimit && elapsed >= currentStep.timeLimit && !feedback.isOpen) {
+          handleTimeExpired();
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning, stepStartTime, hasConfiguredSteps, isCompleted, currentStep, feedback.isOpen]);
+
+  const handleTimeExpired = () => {
+    if (!currentStep) return;
+    
+    addLog(`⏱ TIEMPO AGOTADO: ${currentStep.actionDescription}`, "error");
+    
+    const result: StepResult = {
+      stepId: currentStep.id,
+      isCorrect: false,
+      actionPerformed: "timeout",
+      pointsAwarded: 0,
+      responseTime: currentStep.timeLimit || 0,
+    };
+    
+    setStepResults(prev => [...prev, result]);
+    
+    if (sessionId) {
+      saveStepResult(result, sessionId);
+    }
+    
+    setFeedback({
+      isOpen: true,
+      isCorrect: false,
+      title: "Tiempo Agotado",
+      message: `El tiempo límite de ${currentStep.timeLimit} segundos ha expirado. ${currentStep.incorrectResponse}`,
+      alternativeInterpretation: currentStep.isCritical 
+        ? "En un escenario real, esta demora podría haber causado daños significativos al sistema."
+        : currentStep.alternativeInterpretation || undefined,
+      points: 0,
+    });
+
+    if (currentStep.isCritical) {
+      setCriticalFailures(prev => prev + 1);
+      addLog("⚠ FALLA CRÍTICA POR TIEMPO - Impacto severo en el sistema.", "error");
+    }
+
+    if (currentStepIndex < scenarioSteps.length - 1) {
+      setTimeout(() => {
+        setCurrentStepIndex(prev => prev + 1);
+        setStepStartTime(Date.now());
+        setStepElapsedTime(0);
+        const nextStep = scenarioSteps[currentStepIndex + 1];
+        addLog(`SIGUIENTE OBJETIVO: ${nextStep.actionDescription}`, "info");
+      }, 3000);
+    } else {
+      setIsCompleted(true);
+      setIsRunning(false);
+      if (sessionId) {
+        completeSession(sessionId, Math.round((totalPoints / maxPoints) * 100));
+      }
+    }
+  };
 
   const addLog = (msg: string, type: "info" | "warn" | "error" | "success") => {
     const now = new Date().toLocaleTimeString();
@@ -123,9 +291,21 @@ export default function SimulatorRun() {
     addLog("ALERTA: Caída de Frecuencia detectada (59.2Hz)", "error");
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
     setIsRunning(true);
+    setStepStartTime(Date.now());
     addLog("Simulación Iniciada por Operador.", "info");
+    
+    if (hasConfiguredSteps) {
+      const newSessionId = await createSession();
+      if (newSessionId) {
+        setSessionId(newSessionId);
+        addLog(`Sesión de simulación creada (ID: ${newSessionId})`, "info");
+      }
+      if (currentStep) {
+        addLog(`OBJETIVO: ${currentStep.actionDescription}`, "info");
+      }
+    }
   };
 
   const handleStop = () => {
@@ -133,16 +313,159 @@ export default function SimulatorRun() {
     addLog("Simulación Pausada.", "warn");
   };
 
-  const handleAction = (action: string) => {
-    if (!isRunning) return;
-    addLog(`COMANDO: ${action} ejecutado.`, "info");
+  const validateAction = async (actionType: string, providedValue?: string) => {
+    if (!isRunning || !hasConfiguredSteps || !currentStep || isCompleted) return;
+
+    const responseTime = stepStartTime ? Math.floor((Date.now() - stepStartTime) / 1000) : 0;
     
-    if (action === "Abrir Interruptor 52-1" && simStatus === "fault") {
-      setTimeout(() => {
-        addLog("CONFIRMACIÓN: Interruptor 52-1 Abierto. Falla Aislada.", "success");
-        setSimStatus("recovered");
-      }, 1000);
+    const actionTypeMatches = actionType === currentStep.actionType;
+    const valueMatches = !currentStep.expectedValue || 
+      (providedValue !== undefined && providedValue.trim().toLowerCase() === currentStep.expectedValue.trim().toLowerCase());
+    
+    const isCorrect = actionTypeMatches && valueMatches === true;
+    const pointsAwarded = isCorrect ? currentStep.points : 0;
+
+    const result: StepResult = {
+      stepId: currentStep.id,
+      isCorrect,
+      actionPerformed: providedValue ? `${actionType}:${providedValue}` : actionType,
+      pointsAwarded,
+      responseTime,
+    };
+
+    setStepResults(prev => [...prev, result]);
+    
+    if (sessionId) {
+      await saveStepResult(result, sessionId);
     }
+    
+    if (isCorrect) {
+      const newTotalPoints = totalPoints + pointsAwarded;
+      setTotalPoints(newTotalPoints);
+      addLog(`✓ CORRECTO: ${currentStep.actionDescription}`, "success");
+      
+      setFeedback({
+        isOpen: true,
+        isCorrect: true,
+        title: "¡Acción Correcta!",
+        message: currentStep.correctResponse,
+        points: pointsAwarded,
+      });
+
+      if (currentStepIndex < scenarioSteps.length - 1) {
+        setTimeout(() => {
+          setCurrentStepIndex(prev => prev + 1);
+          setStepStartTime(Date.now());
+          const nextStep = scenarioSteps[currentStepIndex + 1];
+          addLog(`SIGUIENTE OBJETIVO: ${nextStep.actionDescription}`, "info");
+        }, 2000);
+      } else {
+        setIsCompleted(true);
+        setIsRunning(false);
+        addLog("SIMULACIÓN COMPLETADA - Todos los pasos ejecutados correctamente.", "success");
+        
+        if (sessionId) {
+          const finalScore = Math.round((newTotalPoints / maxPoints) * 100);
+          await completeSession(sessionId, finalScore);
+          addLog(`Sesión guardada con puntuación: ${finalScore}%`, "success");
+        }
+      }
+
+      if (simStatus === "fault" && actionType === "breaker_open") {
+        setTimeout(() => {
+          setSimStatus("recovered");
+        }, 1000);
+      }
+    } else {
+      addLog(`✗ INCORRECTO: Se esperaba "${ACTION_TYPE_LABELS[currentStep.actionType] || currentStep.actionType}"`, "error");
+      
+      if (currentStep.isCritical) {
+        setCriticalFailures(prev => prev + 1);
+        addLog("⚠ PASO CRÍTICO FALLIDO - Esto tendría consecuencias graves en un escenario real.", "error");
+      }
+      
+      setFeedback({
+        isOpen: true,
+        isCorrect: false,
+        title: currentStep.isCritical ? "⚠ Falla Crítica" : "Acción Incorrecta",
+        message: currentStep.incorrectResponse,
+        alternativeInterpretation: currentStep.alternativeInterpretation || undefined,
+        points: 0,
+      });
+    }
+  };
+
+  const handleAction = (actionType: string, actionLabel: string) => {
+    if (!isRunning) return;
+    
+    if (hasConfiguredSteps && currentStep) {
+      if (currentStep.actionType === actionType && currentStep.expectedValue) {
+        setInputModal({ isOpen: true, actionType, actionLabel });
+        setInputValue("");
+        return;
+      }
+      addLog(`COMANDO: ${actionLabel} ejecutado.`, "info");
+      validateAction(actionType);
+    } else {
+      addLog(`COMANDO: ${actionLabel} ejecutado.`, "info");
+      if (actionType === "breaker_open" && simStatus === "fault") {
+        setTimeout(() => {
+          addLog("CONFIRMACIÓN: Interruptor 52-1 Abierto. Falla Aislada.", "success");
+          setSimStatus("recovered");
+        }, 1000);
+      }
+    }
+  };
+
+  const handleInputSubmit = () => {
+    if (!currentStep) return;
+    
+    addLog(`COMANDO: ${inputModal.actionLabel} con valor "${inputValue}"`, "info");
+    
+    const valueMatches = inputValue.trim().toLowerCase() === (currentStep.expectedValue || "").trim().toLowerCase();
+    
+    if (valueMatches) {
+      validateAction(inputModal.actionType, inputValue);
+    } else {
+      const responseTime = stepStartTime ? Math.floor((Date.now() - stepStartTime) / 1000) : 0;
+      
+      const result: StepResult = {
+        stepId: currentStep.id,
+        isCorrect: false,
+        actionPerformed: `${inputModal.actionType}:${inputValue}`,
+        pointsAwarded: 0,
+        responseTime,
+      };
+      
+      setStepResults(prev => [...prev, result]);
+      
+      if (sessionId) {
+        saveStepResult(result, sessionId);
+      }
+      
+      addLog(`✗ VALOR INCORRECTO: Se esperaba "${currentStep.expectedValue}", ingresado "${inputValue}"`, "error");
+      
+      if (currentStep.isCritical) {
+        setCriticalFailures(prev => prev + 1);
+        addLog("⚠ PASO CRÍTICO FALLIDO - Valor incorrecto en acción crítica.", "error");
+      }
+      
+      setFeedback({
+        isOpen: true,
+        isCorrect: false,
+        title: currentStep.isCritical ? "⚠ Falla Crítica" : "Valor Incorrecto",
+        message: `${currentStep.incorrectResponse} (Se esperaba: ${currentStep.expectedValue})`,
+        alternativeInterpretation: currentStep.alternativeInterpretation || undefined,
+        points: 0,
+      });
+    }
+    
+    setInputModal({ isOpen: false, actionType: "", actionLabel: "" });
+    setInputValue("");
+  };
+
+  const closeFeedback = () => {
+    setFeedback(prev => ({ ...prev, isOpen: false }));
   };
 
   const formatTime = (seconds: number) => {
@@ -214,44 +537,237 @@ export default function SimulatorRun() {
              </CardContent>
            </Card>
 
+           {/* Current Step Objective - Only show if configured steps exist */}
+           {hasConfiguredSteps && currentStep && !isCompleted && (
+             <Card className="border-accent/50 bg-accent/5">
+               <CardContent className="p-4">
+                 <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                     <div className="h-10 w-10 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center">
+                       <Target className="h-5 w-5 text-accent" />
+                     </div>
+                     <div>
+                       <div className="text-xs text-muted-foreground mb-1">Paso {currentStepIndex + 1} de {scenarioSteps.length}</div>
+                       <div className="font-medium text-foreground">{currentStep.actionDescription}</div>
+                       <div className="text-xs text-muted-foreground mt-1">
+                         Acción requerida: <span className="text-accent">{ACTION_TYPE_LABELS[currentStep.actionType] || currentStep.actionType}</span>
+                         {currentStep.isCritical && <Badge variant="destructive" className="ml-2 text-[10px]">Crítico</Badge>}
+                       </div>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-2xl font-bold text-accent">{currentStep.points} pts</div>
+                     {currentStep.timeLimit && (
+                       <div className={cn(
+                         "flex items-center gap-1 text-xs",
+                         stepElapsedTime >= currentStep.timeLimit * 0.8 ? "text-red-400 animate-pulse" : "text-muted-foreground"
+                       )}>
+                         <Clock className="h-3 w-3" />
+                         {currentStep.timeLimit - stepElapsedTime > 0 
+                           ? `${currentStep.timeLimit - stepElapsedTime}s restantes`
+                           : "¡Tiempo agotado!"
+                         }
+                       </div>
+                     )}
+                     {currentStep.expectedValue && (
+                       <div className="text-xs text-amber-400 mt-1">
+                         Valor: {currentStep.expectedValue}
+                       </div>
+                     )}
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+           )}
+
+           {/* Completion Summary */}
+           {isCompleted && (
+             <Card className={cn(
+               "border-2",
+               criticalFailures > 0 ? "border-red-500/50 bg-red-500/10" : "border-emerald-500/50 bg-emerald-500/10"
+             )}>
+               <CardContent className="p-6 text-center">
+                 <Award className={cn("h-12 w-12 mx-auto mb-4", criticalFailures > 0 ? "text-red-500" : "text-emerald-500")} />
+                 <h3 className={cn("text-xl font-bold mb-2", criticalFailures > 0 ? "text-red-500" : "text-emerald-500")}>
+                   {criticalFailures > 0 ? "Simulación Finalizada con Fallas" : "¡Simulación Completada!"}
+                 </h3>
+                 <div className="text-3xl font-bold text-foreground mb-2">{totalPoints} / {maxPoints} puntos</div>
+                 <div className="text-sm text-muted-foreground mb-2">
+                   {stepResults.filter(r => r.isCorrect).length} de {stepResults.length} acciones correctas
+                 </div>
+                 {criticalFailures > 0 && (
+                   <div className="text-sm text-red-400 mb-2">
+                     ⚠ {criticalFailures} falla(s) crítica(s) registrada(s)
+                   </div>
+                 )}
+                 <Button onClick={() => setLocation("/simulator")} className="mt-4 bg-accent text-accent-foreground">
+                   Volver a Escenarios
+                 </Button>
+               </CardContent>
+             </Card>
+           )}
+
            {/* Control Panel */}
            <div className="grid grid-cols-4 gap-4">
              <Button 
                variant="outline" 
-               className="h-24 flex flex-col gap-2 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
-               onClick={() => handleAction("Abrir Interruptor 52-1")}
-               disabled={!isRunning}
+               className={cn(
+                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "breaker_open" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+               )}
+               onClick={() => handleAction("breaker_open", "Abrir Interruptor 52-1")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-breaker-open"
              >
                <Power className="h-8 w-8" />
                <span className="text-xs font-mono">ABRIR INT 52-1</span>
              </Button>
              <Button 
                variant="outline" 
-               className="h-24 flex flex-col gap-2 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
-               onClick={() => handleAction("Cerrar Interruptor 52-1")}
-               disabled={!isRunning}
+               className={cn(
+                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "breaker_close" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+               )}
+               onClick={() => handleAction("breaker_close", "Cerrar Interruptor 52-1")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-breaker-close"
              >
                <RotateCcw className="h-8 w-8" />
                <span className="text-xs font-mono">CERRAR INT 52-1</span>
              </Button>
              <Button 
                variant="outline" 
-               className="h-24 flex flex-col gap-2 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
-               onClick={() => handleAction("Transferir Carga B")}
-               disabled={!isRunning}
+               className={cn(
+                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "load_transfer" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+               )}
+               onClick={() => handleAction("load_transfer", "Transferir Carga B")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-load-transfer"
              >
                <Activity className="h-8 w-8" />
                <span className="text-xs font-mono">TRANSFERIR CARGA</span>
              </Button>
              <Button 
                variant="outline" 
-               className="h-24 flex flex-col gap-2 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
-               onClick={() => handleAction("Resetear Protección")}
-               disabled={!isRunning}
+               className={cn(
+                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "protection_check" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+               )}
+               onClick={() => handleAction("protection_check", "Verificar Protección")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-protection-check"
              >
                <CheckCircle className="h-8 w-8" />
-               <span className="text-xs font-mono">RESET PROT 87L</span>
+               <span className="text-xs font-mono">VERIFICAR PROT</span>
              </Button>
+           </div>
+
+           {/* Additional Action Buttons - Row 1 */}
+           <div className="grid grid-cols-4 gap-4">
+             <Button 
+               variant="outline" 
+               className={cn(
+                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "alarm_acknowledge" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400"
+               )}
+               onClick={() => handleAction("alarm_acknowledge", "Reconocer Alarma")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-alarm-acknowledge"
+             >
+               <AlertTriangle className="h-6 w-6" />
+               <span className="text-xs font-mono">RECONOCER ALARMA</span>
+             </Button>
+             <Button 
+               variant="outline" 
+               className={cn(
+                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "isolation" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400"
+               )}
+               onClick={() => handleAction("isolation", "Aislar Equipo")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-isolation"
+             >
+               <XCircle className="h-6 w-6" />
+               <span className="text-xs font-mono">AISLAR EQUIPO</span>
+             </Button>
+             <Button 
+               variant="outline" 
+               className={cn(
+                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "grounding" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-yellow-500/50 hover:bg-yellow-500/10 hover:text-yellow-400"
+               )}
+               onClick={() => handleAction("grounding", "Puesta a Tierra")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-grounding"
+             >
+               <Zap className="h-6 w-6" />
+               <span className="text-xs font-mono">PUESTA A TIERRA</span>
+             </Button>
+             <Button 
+               variant="outline" 
+               className={cn(
+                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "communication" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-400"
+               )}
+               onClick={() => handleAction("communication", "Comunicación Operativa")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-communication"
+             >
+               <Radio className="h-6 w-6" />
+               <span className="text-xs font-mono">COMUNICACIÓN</span>
+             </Button>
+           </div>
+
+           {/* Additional Action Buttons - Row 2 */}
+           <div className="grid grid-cols-4 gap-4">
+             <Button 
+               variant="outline" 
+               className={cn(
+                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "voltage_adjust" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-purple-500/50 hover:bg-purple-500/10 hover:text-purple-400"
+               )}
+               onClick={() => handleAction("voltage_adjust", "Ajustar Voltaje")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-voltage-adjust"
+             >
+               <Activity className="h-6 w-6" />
+               <span className="text-xs font-mono">AJUSTAR VOLTAJE</span>
+             </Button>
+             <Button 
+               variant="outline" 
+               className={cn(
+                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                 hasConfiguredSteps && currentStep?.actionType === "custom" 
+                   ? "border-accent/50 bg-accent/10 text-accent"
+                   : "hover:border-slate-500/50 hover:bg-slate-500/10 hover:text-slate-400"
+               )}
+               onClick={() => handleAction("custom", "Acción Personalizada")}
+               disabled={!isRunning || isCompleted}
+               data-testid="button-custom"
+             >
+               <Settings className="h-6 w-6" />
+               <span className="text-xs font-mono">ACCIÓN CUSTOM</span>
+             </Button>
+             <div className="col-span-2"></div>
            </div>
         </div>
 
@@ -309,9 +825,164 @@ export default function SimulatorRun() {
                </div>
              </CardContent>
            </Card>
+
+           {/* Progress Tracker - Show if configured steps */}
+           {hasConfiguredSteps && (
+             <Card className="border-white/10 bg-card/50">
+               <CardHeader className="py-3 border-b border-white/10">
+                 <CardTitle className="text-xs font-mono uppercase tracking-widest flex items-center justify-between">
+                   <span>Progreso de Validación</span>
+                   <span className="text-accent">{totalPoints} / {maxPoints} pts</span>
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-4">
+                 <div className="flex gap-1">
+                   {scenarioSteps.map((step, idx) => {
+                     const result = stepResults.find(r => r.stepId === step.id);
+                     return (
+                       <div 
+                         key={step.id}
+                         className={cn(
+                           "flex-1 h-3 rounded-full transition-all",
+                           idx === currentStepIndex && !result ? "bg-accent/50 animate-pulse" :
+                           result?.isCorrect ? "bg-emerald-500" :
+                           result ? "bg-red-500" :
+                           "bg-muted"
+                         )}
+                         title={`Paso ${idx + 1}: ${step.actionDescription}`}
+                       />
+                     );
+                   })}
+                 </div>
+               </CardContent>
+             </Card>
+           )}
         </div>
 
       </div>
+
+      {/* Feedback Modal */}
+      {feedback.isOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closeFeedback}>
+          <div 
+            className={cn(
+              "w-full max-w-lg rounded-xl border-2 p-6 shadow-2xl animate-in zoom-in-95 duration-200",
+              feedback.isCorrect 
+                ? "bg-emerald-950 border-emerald-500/50" 
+                : "bg-red-950 border-red-500/50"
+            )}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-4 mb-4">
+              {feedback.isCorrect ? (
+                <div className="h-14 w-14 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center">
+                  <CheckCircle className="h-8 w-8 text-emerald-500" />
+                </div>
+              ) : (
+                <div className="h-14 w-14 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center">
+                  <XCircle className="h-8 w-8 text-red-500" />
+                </div>
+              )}
+              <div>
+                <h3 className={cn("text-xl font-bold", feedback.isCorrect ? "text-emerald-400" : "text-red-400")}>
+                  {feedback.title}
+                </h3>
+                {feedback.isCorrect && feedback.points > 0 && (
+                  <div className="flex items-center gap-1 text-emerald-300">
+                    <Award className="h-4 w-4" />
+                    <span>+{feedback.points} puntos</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <p className="text-foreground mb-4">{feedback.message}</p>
+            
+            {/* Alternative Interpretation - Only show for incorrect actions */}
+            {!feedback.isCorrect && feedback.alternativeInterpretation && (
+              <div className="bg-amber-950/50 border border-amber-500/30 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-2 text-amber-400 font-medium mb-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>¿Qué pasaría si...?</span>
+                </div>
+                <p className="text-amber-200/80 text-sm">{feedback.alternativeInterpretation}</p>
+              </div>
+            )}
+            
+            <Button 
+              onClick={closeFeedback} 
+              className={cn(
+                "w-full",
+                feedback.isCorrect 
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                  : "bg-red-600 hover:bg-red-700 text-white"
+              )}
+            >
+              {feedback.isCorrect ? "Continuar" : "Intentar de nuevo"}
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Input Value Modal */}
+      {inputModal.isOpen && currentStep && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div 
+            className="w-full max-w-md rounded-xl border-2 border-accent/50 bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center">
+                <Target className="h-6 w-6 text-accent" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">{inputModal.actionLabel}</h3>
+                <p className="text-sm text-muted-foreground">Ingresa el valor requerido</p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="text-sm font-medium text-muted-foreground block mb-2">
+                {currentStep.actionDescription}
+              </label>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleInputSubmit()}
+                placeholder={`Valor esperado: ${currentStep.expectedValue}`}
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground text-lg font-mono focus:outline-none focus:ring-2 focus:ring-accent"
+                autoFocus
+                data-testid="input-expected-value"
+              />
+              <p className="text-xs text-amber-400 mt-2">
+                Nota: Ingresa exactamente "{currentStep.expectedValue}"
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setInputModal({ isOpen: false, actionType: "", actionLabel: "" });
+                  setInputValue("");
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleInputSubmit}
+                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                data-testid="button-submit-value"
+              >
+                Confirmar <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
