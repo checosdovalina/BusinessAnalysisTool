@@ -28,9 +28,7 @@ export default function SimulatorSessions() {
     queryFn: () => simulatorScenariosAPI.getAll(),
   });
 
-  const handleCreateScenario = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleCreateScenario = async () => {
     if (!formData.title.trim()) {
       toast.error("Ingresa un nombre para el escenario");
       return;
@@ -129,7 +127,7 @@ export default function SimulatorSessions() {
               <CardDescription>Configura los parámetros del nuevo escenario</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCreateScenario} className="space-y-4">
+              <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Nombre del Escenario</label>
                   <Input 
@@ -176,7 +174,6 @@ export default function SimulatorSessions() {
                 </div>
                 <div className="flex gap-3 pt-2">
                   <Button 
-                    type="button"
                     variant="outline"
                     onClick={() => setIsCreateOpen(false)}
                     className="flex-1"
@@ -184,14 +181,14 @@ export default function SimulatorSessions() {
                     Cancelar
                   </Button>
                   <Button 
-                    type="submit"
+                    onClick={handleCreateScenario}
                     disabled={isCreating}
                     className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
                   >
                     {isCreating ? "Creando..." : "Crear"}
                   </Button>
                 </div>
-              </form>
+              </div>
             </CardContent>
           </Card>
         )}
