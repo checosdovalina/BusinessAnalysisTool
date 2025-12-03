@@ -48,16 +48,26 @@ export default function SimulatorSessions() {
     },
   });
 
-  const handleCreateScenario = () => {
-    if (!formData.title.trim()) {
-      toast.error("Ingresa un nombre para el escenario");
-      return;
+  const handleCreateScenario = async () => {
+    try {
+      if (!formData.title.trim()) {
+        toast.error("Ingresa un nombre para el escenario");
+        return;
+      }
+      if (!formData.description.trim()) {
+        toast.error("Ingresa una descripción");
+        return;
+      }
+      console.log("Creating scenario:", formData);
+      await simulatorScenariosAPI.create(formData);
+      toast.success("Escenario creado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["simulator-scenarios"] });
+      setIsCreateOpen(false);
+      setFormData({ title: "", category: "Fault", difficulty: "Medium", description: "" });
+    } catch (error: any) {
+      console.error("Error creating scenario:", error);
+      toast.error(error.message || "Error al crear escenario");
     }
-    if (!formData.description.trim()) {
-      toast.error("Ingresa una descripción");
-      return;
-    }
-    createMutation.mutate(formData);
   };
 
   if (isLoading) {
