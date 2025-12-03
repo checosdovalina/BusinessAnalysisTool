@@ -35,7 +35,14 @@ export default function SimulatorSessions() {
             <h2 className="text-3xl font-bold tracking-tight font-heading text-foreground">Simuladores de Red</h2>
             <p className="text-muted-foreground mt-1">Entrenamiento en escenarios virtuales de operación y fallas.</p>
           </div>
-          <Button className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/20">
+          <Button 
+            onClick={() => {
+              if (scenarios.length > 0) {
+                setLocation(`/simulator/run/${scenarios[0].id}`);
+              }
+            }}
+            className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/20"
+          >
             <Play className="mr-2 h-4 w-4" /> Nueva Sesión de Simulador
           </Button>
         </div>

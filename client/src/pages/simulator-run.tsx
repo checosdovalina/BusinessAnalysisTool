@@ -3,7 +3,8 @@ import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { simulatorScenarios } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { simulatorScenariosAPI } from "@/lib/api";
 import { ArrowLeft, AlertTriangle, Zap, Timer, CheckCircle, Activity, Power, Play, Pause, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +75,13 @@ const GridTopology = ({ status }: { status: string }) => (
 export default function SimulatorRun() {
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/simulator/run/:id");
-  const scenarioId = params?.id;
-  const scenario = simulatorScenarios.find(s => s.id === scenarioId);
+  const scenarioId = params?.id ? parseInt(params.id) : null;
+  
+  const { data: scenario, isLoading } = useQuery({
+    queryKey: ["simulator-scenario", scenarioId],
+    queryFn: () => scenarioId ? simulatorScenariosAPI.getById(scenarioId) : Promise.reject("No ID"),
+    enabled: !!scenarioId,
+  });
 
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -145,7 +151,18 @@ export default function SimulatorRun() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!scenario) return <div>Escenario no encontrado</div>;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground">Cargando simulador...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!scenario) return <div className="min-h-screen bg-background flex items-center justify-center text-red-500 font-bold text-lg">Escenario no encontrado</div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
