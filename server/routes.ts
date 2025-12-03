@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema } from "@shared/schema";
+import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 
@@ -308,6 +308,108 @@ export async function registerRoutes(
       res.json(updatedSession);
     } catch (error) {
       res.status(400).json({ error: "Failed to update session" });
+    }
+  });
+
+  // ============= SCENARIO STEPS ROUTES =============
+  
+  app.get("/api/scenario-steps/scenario/:scenarioId", async (req, res) => {
+    try {
+      const scenarioId = parseInt(req.params.scenarioId);
+      const steps = await storage.getScenarioSteps(scenarioId);
+      res.json(steps);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scenario steps" });
+    }
+  });
+
+  app.get("/api/scenario-steps/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const step = await storage.getScenarioStep(id);
+      if (!step) {
+        return res.status(404).json({ error: "Step not found" });
+      }
+      res.json(step);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch step" });
+    }
+  });
+
+  app.post("/api/scenario-steps", async (req, res) => {
+    try {
+      const stepData = insertScenarioStepSchema.parse(req.body);
+      const newStep = await storage.createScenarioStep(stepData);
+      res.status(201).json(newStep);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create step" });
+    }
+  });
+
+  app.post("/api/scenario-steps/batch", async (req, res) => {
+    try {
+      const stepsSchema = z.array(insertScenarioStepSchema);
+      const stepsData = stepsSchema.parse(req.body);
+      const newSteps = await storage.createScenarioStepsBatch(stepsData);
+      res.status(201).json(newSteps);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create steps" });
+    }
+  });
+
+  app.patch("/api/scenario-steps/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedStep = await storage.updateScenarioStep(id, updates);
+      if (!updatedStep) {
+        return res.status(404).json({ error: "Step not found" });
+      }
+      res.json(updatedStep);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update step" });
+    }
+  });
+
+  app.delete("/api/scenario-steps/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteScenarioStep(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete step" });
+    }
+  });
+
+  app.delete("/api/scenario-steps/scenario/:scenarioId", async (req, res) => {
+    try {
+      const scenarioId = parseInt(req.params.scenarioId);
+      await storage.deleteScenarioSteps(scenarioId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete steps" });
+    }
+  });
+
+  // ============= SESSION STEP RESULTS ROUTES =============
+  
+  app.get("/api/session-step-results/session/:sessionId", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const results = await storage.getSessionStepResults(sessionId);
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch step results" });
+    }
+  });
+
+  app.post("/api/session-step-results", async (req, res) => {
+    try {
+      const resultData = insertSessionStepResultSchema.parse(req.body);
+      const newResult = await storage.createSessionStepResult(resultData);
+      res.status(201).json(newResult);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create step result" });
     }
   });
 

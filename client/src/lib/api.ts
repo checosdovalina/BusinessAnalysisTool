@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -92,6 +92,35 @@ export const simulatorSessionsAPI = {
   }),
   update: (id: number, data: Partial<SimulatorSession>) => fetcher<SimulatorSession>(`/simulator-sessions/${id}`, {
     method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+};
+
+// Scenario Steps API
+export const scenarioStepsAPI = {
+  getByScenario: (scenarioId: number) => fetcher<ScenarioStep[]>(`/scenario-steps/scenario/${scenarioId}`),
+  getById: (id: number) => fetcher<ScenarioStep>(`/scenario-steps/${id}`),
+  create: (data: Partial<ScenarioStep>) => fetcher<ScenarioStep>("/scenario-steps", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  createBatch: (steps: Partial<ScenarioStep>[]) => fetcher<ScenarioStep[]>("/scenario-steps/batch", {
+    method: "POST",
+    body: JSON.stringify(steps),
+  }),
+  update: (id: number, data: Partial<ScenarioStep>) => fetcher<ScenarioStep>(`/scenario-steps/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: number) => fetch(`${API_BASE}/scenario-steps/${id}`, { method: "DELETE" }),
+  deleteByScenario: (scenarioId: number) => fetch(`${API_BASE}/scenario-steps/scenario/${scenarioId}`, { method: "DELETE" }),
+};
+
+// Session Step Results API
+export const sessionStepResultsAPI = {
+  getBySession: (sessionId: number) => fetcher<SessionStepResult[]>(`/session-step-results/session/${sessionId}`),
+  create: (data: Partial<SessionStepResult>) => fetcher<SessionStepResult>("/session-step-results", {
+    method: "POST",
     body: JSON.stringify(data),
   }),
 };

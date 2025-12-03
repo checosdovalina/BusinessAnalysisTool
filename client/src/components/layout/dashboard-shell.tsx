@@ -46,20 +46,20 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         {navItems.map((item) => {
           const isActive = location === item.href;
           return (
-            <Link key={item.href} href={item.href}>
-              <a
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-200 group relative overflow-hidden",
-                  isActive
-                    ? "text-white bg-white/5 border-l-2 border-primary shadow-[inset_10px_0_20px_-10px_hsl(var(--primary)/0.1)]"
-                    : "text-muted-foreground hover:text-white hover:bg-white/5"
-                )}
-                onClick={() => setIsMobileOpen(false)}
-              >
-                {isActive && <div className="absolute inset-0 bg-primary/5 z-0" />}
-                <item.icon className={cn("w-4 h-4 z-10 transition-colors", isActive ? "text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]" : "text-muted-foreground group-hover:text-white")} />
-                <span className="z-10">{item.label}</span>
-              </a>
+            <Link 
+              key={item.href} 
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-200 group relative overflow-hidden",
+                isActive
+                  ? "text-white bg-white/5 border-l-2 border-primary shadow-[inset_10px_0_20px_-10px_hsl(var(--primary)/0.1)]"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              )}
+              onClick={() => setIsMobileOpen(false)}
+            >
+              {isActive && <div className="absolute inset-0 bg-primary/5 z-0" />}
+              <item.icon className={cn("w-4 h-4 z-10 transition-colors", isActive ? "text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]" : "text-muted-foreground group-hover:text-white")} />
+              <span className="z-10">{item.label}</span>
             </Link>
           );
         })}

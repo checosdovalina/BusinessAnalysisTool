@@ -115,6 +115,27 @@ export const insertSimulatorScenarioSchema = createInsertSchema(simulatorScenari
 export type InsertSimulatorScenario = z.infer<typeof insertSimulatorScenarioSchema>;
 export type SimulatorScenario = typeof simulatorScenarios.$inferSelect;
 
+// Scenario Steps Table (Pasos configurables con validación)
+export const scenarioSteps = pgTable("scenario_steps", {
+  id: serial("id").primaryKey(),
+  scenarioId: integer("scenario_id").notNull().references(() => simulatorScenarios.id, { onDelete: "cascade" }),
+  stepOrder: integer("step_order").notNull(),
+  actionType: text("action_type").notNull(), // "breaker_open", "breaker_close", "voltage_adjust", "communication", etc.
+  actionDescription: text("action_description").notNull(), // Descripción de la acción esperada
+  expectedValue: text("expected_value"), // Valor esperado (ej: "ON", "230kV", etc.)
+  correctResponse: text("correct_response").notNull(), // Respuesta afirmativa cuando es correcto
+  incorrectResponse: text("incorrect_response").notNull(), // Respuesta cuando es incorrecto
+  alternativeInterpretation: text("alternative_interpretation"), // Qué pasaría si no sigue el flujo
+  points: integer("points").notNull().default(10), // Puntos por completar correctamente
+  isCritical: boolean("is_critical").notNull().default(false), // Si falla este paso, falla toda la simulación
+  timeLimit: integer("time_limit"), // Tiempo límite en segundos (opcional)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertScenarioStepSchema = createInsertSchema(scenarioSteps).omit({ id: true, createdAt: true });
+export type InsertScenarioStep = z.infer<typeof insertScenarioStepSchema>;
+export type ScenarioStep = typeof scenarioSteps.$inferSelect;
+
 // Simulator Sessions Table
 export const simulatorSessions = pgTable("simulator_sessions", {
   id: serial("id").primaryKey(),
@@ -136,6 +157,23 @@ export const simulatorSessions = pgTable("simulator_sessions", {
 export const insertSimulatorSessionSchema = createInsertSchema(simulatorSessions).omit({ id: true, createdAt: true });
 export type InsertSimulatorSession = z.infer<typeof insertSimulatorSessionSchema>;
 export type SimulatorSession = typeof simulatorSessions.$inferSelect;
+
+// Session Step Results Table (Resultados de cada paso durante una sesión)
+export const sessionStepResults = pgTable("session_step_results", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => simulatorSessions.id, { onDelete: "cascade" }),
+  stepId: integer("step_id").notNull().references(() => scenarioSteps.id),
+  actionTaken: text("action_taken"),
+  isCorrect: boolean("is_correct").notNull(),
+  pointsAwarded: integer("points_awarded").notNull().default(0),
+  responseTime: integer("response_time"),
+  feedbackShown: text("feedback_shown"),
+  completedAt: timestamp("completed_at").notNull().defaultNow(),
+});
+
+export const insertSessionStepResultSchema = createInsertSchema(sessionStepResults).omit({ id: true, completedAt: true });
+export type InsertSessionStepResult = z.infer<typeof insertSessionStepResultSchema>;
+export type SessionStepResult = typeof sessionStepResults.$inferSelect;
 
 // Relations
 export const companiesRelations = relations(companies, ({ many }) => ({
@@ -186,9 +224,18 @@ export const simulatorScenariosRelations = relations(simulatorScenarios, ({ one,
     references: [companies.id],
   }),
   sessions: many(simulatorSessions),
+  steps: many(scenarioSteps),
 }));
 
-export const simulatorSessionsRelations = relations(simulatorSessions, ({ one }) => ({
+export const scenarioStepsRelations = relations(scenarioSteps, ({ one, many }) => ({
+  scenario: one(simulatorScenarios, {
+    fields: [scenarioSteps.scenarioId],
+    references: [simulatorScenarios.id],
+  }),
+  results: many(sessionStepResults),
+}));
+
+export const simulatorSessionsRelations = relations(simulatorSessions, ({ one, many }) => ({
   scenario: one(simulatorScenarios, {
     fields: [simulatorSessions.scenarioId],
     references: [simulatorScenarios.id],
@@ -204,5 +251,17 @@ export const simulatorSessionsRelations = relations(simulatorSessions, ({ one })
   company: one(companies, {
     fields: [simulatorSessions.companyId],
     references: [companies.id],
+  }),
+  stepResults: many(sessionStepResults),
+}));
+
+export const sessionStepResultsRelations = relations(sessionStepResults, ({ one }) => ({
+  session: one(simulatorSessions, {
+    fields: [sessionStepResults.sessionId],
+    references: [simulatorSessions.id],
+  }),
+  step: one(scenarioSteps, {
+    fields: [sessionStepResults.stepId],
+    references: [scenarioSteps.id],
   }),
 }));

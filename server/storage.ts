@@ -1,14 +1,17 @@
 import { 
   users, companies, cycles, events, simulatorScenarios, simulatorSessions,
+  scenarioSteps, sessionStepResults,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
   type Event, type InsertEvent,
   type SimulatorScenario, type InsertSimulatorScenario,
   type SimulatorSession, type InsertSimulatorSession,
+  type ScenarioStep, type InsertScenarioStep,
+  type SessionStepResult, type InsertSessionStepResult,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -48,6 +51,20 @@ export interface IStorage {
   getSimulatorSessionsByStudent(studentId: number): Promise<SimulatorSession[]>;
   createSimulatorSession(session: InsertSimulatorSession): Promise<SimulatorSession>;
   updateSimulatorSession(id: number, updates: Partial<InsertSimulatorSession>): Promise<SimulatorSession | undefined>;
+  
+  // Scenario Steps
+  getScenarioStep(id: number): Promise<ScenarioStep | undefined>;
+  getScenarioSteps(scenarioId: number): Promise<ScenarioStep[]>;
+  createScenarioStep(step: InsertScenarioStep): Promise<ScenarioStep>;
+  createScenarioStepsBatch(steps: InsertScenarioStep[]): Promise<ScenarioStep[]>;
+  updateScenarioStep(id: number, updates: Partial<InsertScenarioStep>): Promise<ScenarioStep | undefined>;
+  deleteScenarioStep(id: number): Promise<void>;
+  deleteScenarioSteps(scenarioId: number): Promise<void>;
+  
+  // Session Step Results
+  getSessionStepResult(id: number): Promise<SessionStepResult | undefined>;
+  getSessionStepResults(sessionId: number): Promise<SessionStepResult[]>;
+  createSessionStepResult(result: InsertSessionStepResult): Promise<SessionStepResult>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -178,6 +195,58 @@ export class DatabaseStorage implements IStorage {
   async updateSimulatorSession(id: number, updates: Partial<InsertSimulatorSession>): Promise<SimulatorSession | undefined> {
     const [session] = await db.update(simulatorSessions).set(updates).where(eq(simulatorSessions.id, id)).returning();
     return session || undefined;
+  }
+
+  // Scenario Steps
+  async getScenarioStep(id: number): Promise<ScenarioStep | undefined> {
+    const [step] = await db.select().from(scenarioSteps).where(eq(scenarioSteps.id, id));
+    return step || undefined;
+  }
+
+  async getScenarioSteps(scenarioId: number): Promise<ScenarioStep[]> {
+    return await db.select().from(scenarioSteps)
+      .where(eq(scenarioSteps.scenarioId, scenarioId))
+      .orderBy(asc(scenarioSteps.stepOrder));
+  }
+
+  async createScenarioStep(insertStep: InsertScenarioStep): Promise<ScenarioStep> {
+    const [step] = await db.insert(scenarioSteps).values(insertStep).returning();
+    return step;
+  }
+
+  async createScenarioStepsBatch(insertSteps: InsertScenarioStep[]): Promise<ScenarioStep[]> {
+    if (insertSteps.length === 0) return [];
+    return await db.insert(scenarioSteps).values(insertSteps).returning();
+  }
+
+  async updateScenarioStep(id: number, updates: Partial<InsertScenarioStep>): Promise<ScenarioStep | undefined> {
+    const [step] = await db.update(scenarioSteps).set(updates).where(eq(scenarioSteps.id, id)).returning();
+    return step || undefined;
+  }
+
+  async deleteScenarioStep(id: number): Promise<void> {
+    await db.delete(scenarioSteps).where(eq(scenarioSteps.id, id));
+  }
+
+  async deleteScenarioSteps(scenarioId: number): Promise<void> {
+    await db.delete(scenarioSteps).where(eq(scenarioSteps.scenarioId, scenarioId));
+  }
+
+  // Session Step Results
+  async getSessionStepResult(id: number): Promise<SessionStepResult | undefined> {
+    const [result] = await db.select().from(sessionStepResults).where(eq(sessionStepResults.id, id));
+    return result || undefined;
+  }
+
+  async getSessionStepResults(sessionId: number): Promise<SessionStepResult[]> {
+    return await db.select().from(sessionStepResults)
+      .where(eq(sessionStepResults.sessionId, sessionId))
+      .orderBy(asc(sessionStepResults.completedAt));
+  }
+
+  async createSessionStepResult(insertResult: InsertSessionStepResult): Promise<SessionStepResult> {
+    const [result] = await db.insert(sessionStepResults).values(insertResult).returning();
+    return result;
   }
 }
 
