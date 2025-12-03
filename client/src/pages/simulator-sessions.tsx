@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Activity, Zap, AlertTriangle, Server, GitBranch } from "lucide-react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { simulatorScenariosAPI } from "@/lib/api";
 import simImg from "@assets/generated_images/electrical_grid_simulator_interface.png";
 
 export default function SimulatorSessions() {
+  const [, setLocation] = useLocation();
   const { data: scenarios = [], isLoading } = useQuery({
     queryKey: ["simulator-scenarios"],
     queryFn: () => simulatorScenariosAPI.getAll(),
@@ -88,11 +89,12 @@ export default function SimulatorSessions() {
                   <CardDescription>{scenario.description}</CardDescription>
                 </CardHeader>
                 <CardFooter className="pt-0">
-                  <Link href={`/simulator/run/${scenario.id}`}>
-                    <Button variant="ghost" className="w-full group-hover:bg-accent group-hover:text-accent-foreground transition-all">
-                      Iniciar Simulación <Play className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
+                  <Button 
+                    onClick={() => setLocation(`/simulator/run/${scenario.id}`)}
+                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
+                  >
+                    Iniciar Simulación <Play className="ml-2 h-4 w-4" />
+                  </Button>
                 </CardFooter>
               </Card>
             ))}
