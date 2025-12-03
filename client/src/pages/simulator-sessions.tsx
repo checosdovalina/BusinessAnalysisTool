@@ -4,29 +4,91 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Play, Activity, Zap, AlertTriangle, Server, GitBranch, X } from "lucide-react";
+import { Play, Activity, Zap, AlertTriangle, Server, GitBranch, X, Plus, Trash2, ChevronRight, ChevronLeft, Settings, CheckCircle2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { simulatorScenariosAPI } from "@/lib/api";
+import { simulatorScenariosAPI, scenarioStepsAPI } from "@/lib/api";
 import simImg from "@assets/generated_images/electrical_grid_simulator_interface.png";
 import { toast } from "sonner";
+import type { InsertScenarioStep } from "@shared/schema";
+
+interface StepConfig {
+  stepOrder: number;
+  actionType: string;
+  actionDescription: string;
+  expectedValue: string;
+  correctResponse: string;
+  incorrectResponse: string;
+  alternativeInterpretation: string;
+  points: number;
+  isCritical: boolean;
+  timeLimit: number | null;
+}
+
+const ACTION_TYPES = [
+  { value: "breaker_open", label: "Abrir Interruptor" },
+  { value: "breaker_close", label: "Cerrar Interruptor" },
+  { value: "voltage_adjust", label: "Ajustar Voltaje" },
+  { value: "load_transfer", label: "Transferir Carga" },
+  { value: "communication", label: "Comunicación Operativa" },
+  { value: "alarm_acknowledge", label: "Reconocer Alarma" },
+  { value: "protection_check", label: "Verificar Protección" },
+  { value: "isolation", label: "Aislar Equipo" },
+  { value: "grounding", label: "Puesta a Tierra" },
+  { value: "custom", label: "Acción Personalizada" },
+];
 
 export default function SimulatorSessions() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [createStep, setCreateStep] = useState(1);
   const [formData, setFormData] = useState<{title: string; category: "Fault" | "Overload" | "Topology"; difficulty: "Easy" | "Medium" | "Hard"; description: string}>({
     title: "",
     category: "Fault",
     difficulty: "Medium",
     description: "",
   });
+  const [steps, setSteps] = useState<StepConfig[]>([]);
 
   const { data: scenarios = [], isLoading } = useQuery({
     queryKey: ["simulator-scenarios"],
     queryFn: () => simulatorScenariosAPI.getAll(),
   });
+
+  const addStep = () => {
+    setSteps([...steps, {
+      stepOrder: steps.length + 1,
+      actionType: "breaker_open",
+      actionDescription: "",
+      expectedValue: "",
+      correctResponse: "¡Correcto! La acción se ejecutó adecuadamente.",
+      incorrectResponse: "Incorrecto. Esta no es la acción esperada en este momento.",
+      alternativeInterpretation: "",
+      points: 10,
+      isCritical: false,
+      timeLimit: null,
+    }]);
+  };
+
+  const removeStep = (index: number) => {
+    const newSteps = steps.filter((_, i) => i !== index);
+    setSteps(newSteps.map((s, i) => ({ ...s, stepOrder: i + 1 })));
+  };
+
+  const updateStep = (index: number, field: keyof StepConfig, value: any) => {
+    const newSteps = [...steps];
+    newSteps[index] = { ...newSteps[index], [field]: value };
+    setSteps(newSteps);
+  };
+
+  const resetForm = () => {
+    setFormData({ title: "", category: "Fault", difficulty: "Medium", description: "" });
+    setSteps([]);
+    setCreateStep(1);
+    setIsCreateOpen(false);
+  };
 
   const handleCreateScenario = async () => {
     if (!formData.title.trim()) {
@@ -40,13 +102,28 @@ export default function SimulatorSessions() {
 
     setIsCreating(true);
     try {
-      console.log("Creating scenario with:", formData);
       const result = await simulatorScenariosAPI.create(formData);
-      console.log("Scenario created:", result);
-      toast.success("Escenario creado exitosamente");
+      
+      if (steps.length > 0) {
+        const stepsToCreate: Partial<InsertScenarioStep>[] = steps.map(step => ({
+          scenarioId: result.id,
+          stepOrder: step.stepOrder,
+          actionType: step.actionType,
+          actionDescription: step.actionDescription,
+          expectedValue: step.expectedValue || null,
+          correctResponse: step.correctResponse,
+          incorrectResponse: step.incorrectResponse,
+          alternativeInterpretation: step.alternativeInterpretation || null,
+          points: step.points,
+          isCritical: step.isCritical,
+          timeLimit: step.timeLimit,
+        }));
+        await scenarioStepsAPI.createBatch(stepsToCreate);
+      }
+      
+      toast.success(`Escenario creado con ${steps.length} pasos configurados`);
       queryClient.invalidateQueries({ queryKey: ["simulator-scenarios"] });
-      setIsCreateOpen(false);
-      setFormData({ title: "", category: "Fault", difficulty: "Medium", description: "" });
+      resetForm();
     } catch (error: any) {
       console.error("Error creating scenario:", error);
       toast.error(error.message || "Error al crear escenario");
@@ -119,76 +196,258 @@ export default function SimulatorSessions() {
           <Card className="border border-accent/50 bg-card">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Crear Nuevo Escenario de Simulación</CardTitle>
-                <button onClick={() => setIsCreateOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <div className="flex items-center gap-3">
+                  <CardTitle>Crear Nuevo Escenario</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-8 rounded-full ${createStep >= 1 ? 'bg-accent' : 'bg-muted'}`} />
+                    <div className={`h-2 w-8 rounded-full ${createStep >= 2 ? 'bg-accent' : 'bg-muted'}`} />
+                  </div>
+                </div>
+                <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <CardDescription>Configura los parámetros del nuevo escenario</CardDescription>
+              <CardDescription>
+                {createStep === 1 ? "Paso 1: Información básica del escenario" : "Paso 2: Configura las acciones y validaciones"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground">Nombre del Escenario</label>
-                  <Input 
-                    placeholder="Ej: Falla en Línea 230kV"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+              {createStep === 1 ? (
+                <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-foreground">Categoría</label>
-                    <select 
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value as "Fault" | "Overload" | "Topology" })}
-                      className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
-                    >
-                      <option value="Fault">Falla</option>
-                      <option value="Overload">Sobrecarga</option>
-                      <option value="Topology">Topología</option>
-                    </select>
+                    <label className="text-sm font-medium text-foreground">Nombre del Escenario</label>
+                    <Input 
+                      placeholder="Ej: Falla en Línea 230kV"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="mt-1"
+                      data-testid="input-scenario-title"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Categoría</label>
+                      <select 
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value as "Fault" | "Overload" | "Topology" })}
+                        className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
+                        data-testid="select-scenario-category"
+                      >
+                        <option value="Fault">Falla</option>
+                        <option value="Overload">Sobrecarga</option>
+                        <option value="Topology">Topología</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Dificultad</label>
+                      <select 
+                        value={formData.difficulty}
+                        onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
+                        className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
+                        data-testid="select-scenario-difficulty"
+                      >
+                        <option value="Easy">Fácil</option>
+                        <option value="Medium">Medio</option>
+                        <option value="Hard">Difícil</option>
+                      </select>
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-foreground">Dificultad</label>
-                    <select 
-                      value={formData.difficulty}
-                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
-                      className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
+                    <label className="text-sm font-medium text-foreground">Descripción</label>
+                    <textarea 
+                      placeholder="Describe el escenario y los objetivos de aprendizaje..."
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground resize-none h-24"
+                      data-testid="textarea-scenario-description"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="outline" onClick={resetForm} className="flex-1">
+                      Cancelar
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        if (!formData.title.trim()) {
+                          toast.error("Ingresa un nombre para el escenario");
+                          return;
+                        }
+                        if (!formData.description.trim()) {
+                          toast.error("Ingresa una descripción");
+                          return;
+                        }
+                        setCreateStep(2);
+                      }}
+                      className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                      data-testid="button-next-step"
                     >
-                      <option value="Easy">Fácil</option>
-                      <option value="Medium">Medio</option>
-                      <option value="Hard">Difícil</option>
-                    </select>
+                      Siguiente: Configurar Pasos <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground">Descripción</label>
-                  <textarea 
-                    placeholder="Describe el escenario y los objetivos de aprendizaje..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground resize-none h-24"
-                  />
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Pasos de la Simulación</h4>
+                      <p className="text-sm text-muted-foreground">Define cada acción que el operador debe ejecutar</p>
+                    </div>
+                    <Button onClick={addStep} size="sm" variant="outline" data-testid="button-add-step">
+                      <Plus className="h-4 w-4 mr-1" /> Agregar Paso
+                    </Button>
+                  </div>
+
+                  {steps.length === 0 ? (
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                      <Settings className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                      <p className="text-muted-foreground">No hay pasos configurados</p>
+                      <p className="text-sm text-muted-foreground/70 mt-1">Agrega pasos para definir las acciones que el operador debe realizar</p>
+                      <Button onClick={addStep} className="mt-4" variant="outline">
+                        <Plus className="h-4 w-4 mr-2" /> Agregar Primer Paso
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                      {steps.map((step, index) => (
+                        <div key={index} className="border border-border rounded-lg p-4 bg-muted/20" data-testid={`step-config-${index}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="h-6 w-6 rounded-full bg-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
+                                {step.stepOrder}
+                              </span>
+                              <span className="font-medium text-sm">Paso {step.stepOrder}</span>
+                              {step.isCritical && (
+                                <Badge variant="destructive" className="text-xs">Crítico</Badge>
+                              )}
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => removeStep(index)} className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">Tipo de Acción</label>
+                              <select
+                                value={step.actionType}
+                                onChange={(e) => updateStep(index, "actionType", e.target.value)}
+                                className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-md text-sm"
+                              >
+                                {ACTION_TYPES.map(type => (
+                                  <option key={type.value} value={type.value}>{type.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">Valor Esperado</label>
+                              <Input
+                                value={step.expectedValue}
+                                onChange={(e) => updateStep(index, "expectedValue", e.target.value)}
+                                placeholder="Ej: ABIERTO, 230kV"
+                                className="mt-1 h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mb-3">
+                            <label className="text-xs font-medium text-muted-foreground">Descripción de la Acción</label>
+                            <Input
+                              value={step.actionDescription}
+                              onChange={(e) => updateStep(index, "actionDescription", e.target.value)}
+                              placeholder="Ej: Abrir interruptor 52-1 de la línea 230kV"
+                              className="mt-1 h-8 text-sm"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="text-xs font-medium text-emerald-500">Respuesta Correcta</label>
+                              <textarea
+                                value={step.correctResponse}
+                                onChange={(e) => updateStep(index, "correctResponse", e.target.value)}
+                                placeholder="Mensaje cuando el operador ejecuta correctamente"
+                                className="mt-1 w-full px-2 py-1.5 bg-background border border-emerald-500/30 rounded-md text-sm resize-none h-16"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-red-500">Respuesta Incorrecta</label>
+                              <textarea
+                                value={step.incorrectResponse}
+                                onChange={(e) => updateStep(index, "incorrectResponse", e.target.value)}
+                                placeholder="Mensaje cuando el operador comete un error"
+                                className="mt-1 w-full px-2 py-1.5 bg-background border border-red-500/30 rounded-md text-sm resize-none h-16"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mb-3">
+                            <label className="text-xs font-medium text-amber-500">Interpretación Alternativa (Qué pasaría si...)</label>
+                            <textarea
+                              value={step.alternativeInterpretation}
+                              onChange={(e) => updateStep(index, "alternativeInterpretation", e.target.value)}
+                              placeholder="Ej: Si el operador cierra el interruptor sin verificar las protecciones, podría causar una sobrecarga en el transformador adyacente..."
+                              className="mt-1 w-full px-2 py-1.5 bg-background border border-amber-500/30 rounded-md text-sm resize-none h-16"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                              <label className="text-xs font-medium text-muted-foreground">Puntos</label>
+                              <Input
+                                type="number"
+                                value={step.points}
+                                onChange={(e) => updateStep(index, "points", parseInt(e.target.value) || 0)}
+                                className="mt-1 h-8 text-sm w-20"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-xs font-medium text-muted-foreground">Tiempo Límite (seg)</label>
+                              <Input
+                                type="number"
+                                value={step.timeLimit || ""}
+                                onChange={(e) => updateStep(index, "timeLimit", e.target.value ? parseInt(e.target.value) : null)}
+                                placeholder="Sin límite"
+                                className="mt-1 h-8 text-sm w-24"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2 pt-4">
+                              <input
+                                type="checkbox"
+                                id={`critical-${index}`}
+                                checked={step.isCritical}
+                                onChange={(e) => updateStep(index, "isCritical", e.target.checked)}
+                                className="h-4 w-4 rounded border-border"
+                              />
+                              <label htmlFor={`critical-${index}`} className="text-xs font-medium text-muted-foreground">
+                                Paso Crítico
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-4 border-t border-border">
+                    <Button variant="outline" onClick={() => setCreateStep(1)} className="flex-1">
+                      <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
+                    </Button>
+                    <Button 
+                      onClick={handleCreateScenario}
+                      disabled={isCreating}
+                      className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                      data-testid="button-create-scenario"
+                    >
+                      {isCreating ? "Creando..." : (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Crear Escenario {steps.length > 0 && `(${steps.length} pasos)`}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <Button 
-                    variant="outline"
-                    onClick={() => setIsCreateOpen(false)}
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={handleCreateScenario}
-                    disabled={isCreating}
-                    className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-                  >
-                    {isCreating ? "Creando..." : "Crear"}
-                  </Button>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         )}
