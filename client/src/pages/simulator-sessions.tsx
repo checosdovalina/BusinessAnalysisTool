@@ -23,7 +23,7 @@ export default function SimulatorSessions() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{title: string; category: "Fault" | "Overload" | "Topology"; difficulty: "Easy" | "Medium" | "Hard"; description: string}>({
     title: "",
     category: "Fault",
     difficulty: "Medium",
@@ -36,7 +36,7 @@ export default function SimulatorSessions() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => simulatorScenariosAPI.create(data),
+    mutationFn: (data: any) => simulatorScenariosAPI.create(data),
     onSuccess: () => {
       toast.success("Escenario creado exitosamente");
       queryClient.invalidateQueries({ queryKey: ["simulator-scenarios"] });
@@ -183,7 +183,7 @@ export default function SimulatorSessions() {
                       <label className="text-sm font-medium text-foreground">Categoría</label>
                       <select 
                         value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value as "Fault" | "Overload" | "Topology" })}
                         className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
                       >
                         <option value="Fault">Falla</option>
@@ -195,7 +195,7 @@ export default function SimulatorSessions() {
                       <label className="text-sm font-medium text-foreground">Dificultad</label>
                       <select 
                         value={formData.difficulty}
-                        onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
                         className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
                       >
                         <option value="Easy">Fácil</option>
