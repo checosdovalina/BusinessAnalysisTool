@@ -1,19 +1,64 @@
+import { useState } from "react";
 import DashboardShell from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Activity, Zap, AlertTriangle, Server, GitBranch } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Play, Activity, Zap, AlertTriangle, Server, GitBranch, X } from "lucide-react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { simulatorScenariosAPI } from "@/lib/api";
 import simImg from "@assets/generated_images/electrical_grid_simulator_interface.png";
+import { toast } from "sonner";
 
 export default function SimulatorSessions() {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    category: "Fault",
+    difficulty: "Medium",
+    description: "",
+  });
+
   const { data: scenarios = [], isLoading } = useQuery({
     queryKey: ["simulator-scenarios"],
     queryFn: () => simulatorScenariosAPI.getAll(),
   });
+
+  const createMutation = useMutation({
+    mutationFn: (data: typeof formData) => simulatorScenariosAPI.create(data),
+    onSuccess: () => {
+      toast.success("Escenario creado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["simulator-scenarios"] });
+      setIsCreateOpen(false);
+      setFormData({ title: "", category: "Fault", difficulty: "Medium", description: "" });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Error al crear escenario");
+    },
+  });
+
+  const handleCreateScenario = () => {
+    if (!formData.title.trim()) {
+      toast.error("Ingresa un nombre para el escenario");
+      return;
+    }
+    if (!formData.description.trim()) {
+      toast.error("Ingresa una descripción");
+      return;
+    }
+    createMutation.mutate(formData);
+  };
 
   if (isLoading) {
     return (
@@ -27,6 +72,7 @@ export default function SimulatorSessions() {
       </DashboardShell>
     );
   }
+
   return (
     <DashboardShell>
       <div className="space-y-8">
@@ -106,14 +152,86 @@ export default function SimulatorSessions() {
               </Card>
             ))}
             
-            {/* New Scenario Placeholder */}
-            <Card className="border-dashed border-2 border-border/50 bg-transparent flex flex-col items-center justify-center p-6 min-h-[200px] hover:bg-muted/20 transition-colors cursor-pointer">
-               <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                 <Zap className="h-6 w-6 text-muted-foreground" />
-               </div>
-               <h4 className="font-medium text-muted-foreground">Crear Nuevo Escenario</h4>
-               <p className="text-xs text-muted-foreground/60 text-center mt-1">Define condiciones iniciales y eventos</p>
-            </Card>
+            {/* New Scenario Modal Trigger */}
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Card className="border-dashed border-2 border-border/50 bg-transparent flex flex-col items-center justify-center p-6 min-h-[200px] hover:bg-muted/20 transition-colors cursor-pointer">
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Zap className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h4 className="font-medium text-muted-foreground">Crear Nuevo Escenario</h4>
+                  <p className="text-xs text-muted-foreground/60 text-center mt-1">Define condiciones iniciales y eventos</p>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Crear Nuevo Escenario de Simulación</DialogTitle>
+                  <DialogDescription>Configura los parámetros del nuevo escenario</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Nombre del Escenario</label>
+                    <Input 
+                      placeholder="Ej: Falla en Línea 230kV"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Categoría</label>
+                      <select 
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
+                      >
+                        <option value="Fault">Falla</option>
+                        <option value="Overload">Sobrecarga</option>
+                        <option value="Topology">Topología</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Dificultad</label>
+                      <select 
+                        value={formData.difficulty}
+                        onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                        className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground"
+                      >
+                        <option value="Easy">Fácil</option>
+                        <option value="Medium">Medio</option>
+                        <option value="Hard">Difícil</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Descripción</label>
+                    <textarea 
+                      placeholder="Describe el escenario y los objetivos de aprendizaje..."
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="mt-1 w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-foreground resize-none h-24"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsCreateOpen(false)}
+                      className="flex-1"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button 
+                      onClick={handleCreateScenario}
+                      disabled={createMutation.isPending}
+                      className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                    >
+                      {createMutation.isPending ? "Creando..." : "Crear"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
