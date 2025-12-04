@@ -140,8 +140,16 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer">Perfil Profesional</DropdownMenuItem>
-                <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer">Configuración</DropdownMenuItem>
+                <Link href="/settings">
+                  <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer" data-testid="menu-profile">
+                    Perfil Profesional
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/settings">
+                  <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer" data-testid="menu-settings">
+                    Configuración
+                  </DropdownMenuItem>
+                </Link>
                 <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
