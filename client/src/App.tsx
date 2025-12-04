@@ -9,6 +9,7 @@ import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import EvaluationList from "@/pages/evaluation-list";
 import EvaluationForm from "@/pages/evaluation-form";
+import EvaluationTopics from "@/pages/evaluation-topics";
 import Reports from "@/pages/reports";
 import SimulatorSessions from "@/pages/simulator-sessions";
 import SimulatorRun from "@/pages/simulator-run";
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/" component={(props) => <ProtectedRoute component={Dashboard} {...props} />} />
       <Route path="/evaluations" component={(props) => <ProtectedRoute component={EvaluationList} {...props} />} />
       <Route path="/evaluations/:id" component={(props) => <ProtectedRoute component={EvaluationForm} {...props} />} />
+      <Route path="/evaluation-topics" component={(props) => <ProtectedRoute component={EvaluationTopics} {...props} />} />
       <Route path="/reports" component={(props) => <ProtectedRoute component={Reports} {...props} />} />
       <Route path="/simulator" component={(props) => <ProtectedRoute component={SimulatorSessions} {...props} />} />
       <Route path="/simulator/run/:id" component={(props) => <ProtectedRoute component={SimulatorRun} {...props} />} />

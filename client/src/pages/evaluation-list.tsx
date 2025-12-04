@@ -5,25 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { cyclesAPI, usersAPI } from "@/lib/api";
+import { cyclesAPI, usersAPI, evaluationTopicsAPI, evaluationTopicItemsAPI, cycleTopicItemsAPI } from "@/lib/api";
 import { toast } from "sonner";
-import type { Cycle, User } from "@shared/schema";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Cycle, User, EvaluationTopic, EvaluationTopicItem } from "@shared/schema";
 
-const EVALUATION_TOPICS = [
-  { value: "control_voltaje", label: "Control de Voltaje" },
-  { value: "conocimiento_procedimientos", label: "Conocimiento de Procedimientos" },
-  { value: "ejecucion_procedimientos", label: "Ejecución de Procedimientos" },
-  { value: "control_frecuencia", label: "Control de Frecuencia" },
-  { value: "topologia", label: "Topología" },
-  { value: "comunicacion_operativa", label: "Comunicación Operativa" },
-  { value: "protecciones_electricas", label: "Protecciones Eléctricas" },
-];
+interface SelectedTopicItem {
+  topicItemId: number;
+  weight: number;
+  customFocus?: string;
+}
 
 interface CycleFormData {
   title: string;
@@ -35,6 +33,7 @@ interface CycleFormData {
   status: "pending" | "in_progress" | "completed";
   minPassingScore: number;
   evaluationTopics: string[];
+  selectedTopicItems: SelectedTopicItem[];
 }
 
 const initialFormData: CycleFormData = {
@@ -47,6 +46,7 @@ const initialFormData: CycleFormData = {
   status: "pending",
   minPassingScore: 80,
   evaluationTopics: [],
+  selectedTopicItems: [],
 };
 
 export default function EvaluationList() {
@@ -59,6 +59,7 @@ export default function EvaluationList() {
   const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
   const [formData, setFormData] = useState<CycleFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   
   const { data: cycles = [], isLoading } = useQuery({
@@ -72,6 +73,23 @@ export default function EvaluationList() {
     queryFn: () => user?.companyId ? usersAPI.getByCompany(user.companyId) : Promise.resolve([]),
     enabled: !!user?.companyId,
   });
+
+  const { data: evaluationTopics = [] } = useQuery({
+    queryKey: ["evaluation-topics"],
+    queryFn: () => evaluationTopicsAPI.getAll(),
+  });
+
+  const { data: allTopicItems = [] } = useQuery({
+    queryKey: ["evaluation-topic-items", user?.companyId],
+    queryFn: () => user?.companyId ? evaluationTopicItemsAPI.getByCompany(user.companyId) : Promise.resolve([]),
+    enabled: !!user?.companyId,
+  });
+
+  const getItemsForTopic = (topicCode: string) => {
+    const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
+    if (!topic) return [];
+    return allTopicItems.filter((item: EvaluationTopicItem) => item.topicId === topic.id);
+  };
 
   const students = users.filter((u: User) => u.role === "student");
   const trainers = users.filter((u: User) => u.role === "trainer" || u.role === "admin");
@@ -100,8 +118,55 @@ export default function EvaluationList() {
     setIsCreateOpen(true);
   };
 
-  const handleOpenEdit = (cycle: Cycle) => {
+  const handleOpenEdit = async (cycle: Cycle) => {
     setSelectedCycle(cycle);
+    setIsLoadingEdit(true);
+    setIsEditOpen(true);
+    
+    await queryClient.ensureQueryData({
+      queryKey: ["evaluation-topics"],
+      queryFn: () => evaluationTopicsAPI.getAll(),
+    });
+    
+    if (user?.companyId) {
+      await queryClient.ensureQueryData({
+        queryKey: ["evaluation-topic-items", user.companyId],
+        queryFn: () => evaluationTopicItemsAPI.getByCompany(user.companyId),
+      });
+    }
+    
+    const currentTopics = queryClient.getQueryData<EvaluationTopic[]>(["evaluation-topics"]) || [];
+    const currentItems = queryClient.getQueryData<EvaluationTopicItem[]>(["evaluation-topic-items", user?.companyId]) || [];
+    
+    let loadedItems: SelectedTopicItem[] = [];
+    let derivedTopicCodes: string[] = cycle.evaluationTopics || [];
+    
+    try {
+      const cycleItems = await cycleTopicItemsAPI.getByCycle(cycle.id);
+      loadedItems = cycleItems.map((item: any) => ({
+        topicItemId: item.topicItemId,
+        weight: item.weight || 1,
+        customFocus: item.customFocus || undefined,
+      }));
+      
+      const itemTopicIds = new Set<number>();
+      for (const cti of cycleItems) {
+        const topicItem = currentItems.find((ti: EvaluationTopicItem) => ti.id === cti.topicItemId);
+        if (topicItem) {
+          itemTopicIds.add(topicItem.topicId);
+        }
+      }
+      
+      for (const topicId of itemTopicIds) {
+        const topic = currentTopics.find((t: EvaluationTopic) => t.id === topicId);
+        if (topic && !derivedTopicCodes.includes(topic.code)) {
+          derivedTopicCodes = [...derivedTopicCodes, topic.code];
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cycle topic items:", error);
+    }
+    
     setFormData({
       title: cycle.title,
       qualityCode: cycle.qualityCode || "",
@@ -111,9 +176,10 @@ export default function EvaluationList() {
       type: cycle.type as "field" | "simulator",
       status: cycle.status as "pending" | "in_progress" | "completed",
       minPassingScore: cycle.minPassingScore || 80,
-      evaluationTopics: cycle.evaluationTopics || [],
+      evaluationTopics: derivedTopicCodes,
+      selectedTopicItems: loadedItems,
     });
-    setIsEditOpen(true);
+    setIsLoadingEdit(false);
   };
 
   const handleOpenDelete = (cycle: Cycle) => {
@@ -129,12 +195,18 @@ export default function EvaluationList() {
 
     setIsSubmitting(true);
     try {
-      await cyclesAPI.create({
-        ...formData,
+      const { selectedTopicItems, ...cycleData } = formData;
+      const newCycle = await cyclesAPI.create({
+        ...cycleData,
         companyId: user?.companyId,
         progress: 0,
         startDate: new Date(),
       });
+      
+      if (selectedTopicItems.length > 0) {
+        await cycleTopicItemsAPI.sync(newCycle.id, selectedTopicItems);
+      }
+      
       toast.success("Evaluación creada exitosamente");
       queryClient.invalidateQueries({ queryKey: ["cycles"] });
       setIsCreateOpen(false);
@@ -154,7 +226,10 @@ export default function EvaluationList() {
 
     setIsSubmitting(true);
     try {
-      await cyclesAPI.update(selectedCycle.id, formData);
+      const { selectedTopicItems, ...cycleData } = formData;
+      await cyclesAPI.update(selectedCycle.id, cycleData);
+      await cycleTopicItemsAPI.sync(selectedCycle.id, selectedTopicItems);
+      
       toast.success("Evaluación actualizada exitosamente");
       queryClient.invalidateQueries({ queryKey: ["cycles"] });
       setIsEditOpen(false);
@@ -183,13 +258,49 @@ export default function EvaluationList() {
     }
   };
 
-  const toggleTopic = (topic: string) => {
-    setFormData(prev => ({
-      ...prev,
-      evaluationTopics: prev.evaluationTopics.includes(topic)
-        ? prev.evaluationTopics.filter(t => t !== topic)
-        : [...prev.evaluationTopics, topic]
-    }));
+  const toggleTopic = (topicCode: string) => {
+    setFormData(prev => {
+      const isRemoving = prev.evaluationTopics.includes(topicCode);
+      const newTopics = isRemoving
+        ? prev.evaluationTopics.filter(t => t !== topicCode)
+        : [...prev.evaluationTopics, topicCode];
+      
+      if (isRemoving) {
+        const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
+        if (topic) {
+          const itemsToRemove = allTopicItems
+            .filter((item: EvaluationTopicItem) => item.topicId === topic.id)
+            .map((item: EvaluationTopicItem) => item.id);
+          return {
+            ...prev,
+            evaluationTopics: newTopics,
+            selectedTopicItems: prev.selectedTopicItems.filter(s => !itemsToRemove.includes(s.topicItemId))
+          };
+        }
+      }
+      return { ...prev, evaluationTopics: newTopics };
+    });
+  };
+
+  const toggleTopicItem = (itemId: number, defaultWeight: number) => {
+    setFormData(prev => {
+      const isSelected = prev.selectedTopicItems.some(s => s.topicItemId === itemId);
+      if (isSelected) {
+        return {
+          ...prev,
+          selectedTopicItems: prev.selectedTopicItems.filter(s => s.topicItemId !== itemId)
+        };
+      } else {
+        return {
+          ...prev,
+          selectedTopicItems: [...prev.selectedTopicItems, { topicItemId: itemId, weight: defaultWeight }]
+        };
+      }
+    });
+  };
+
+  const isTopicItemSelected = (itemId: number) => {
+    return formData.selectedTopicItems.some(s => s.topicItemId === itemId);
   };
 
   const getUserName = (userId: number | null) => {
@@ -310,24 +421,97 @@ export default function EvaluationList() {
           />
         </div>
         <div className="col-span-2">
-          <label className="text-sm font-medium mb-2 block">Temas de Evaluación</label>
-          <div className="flex flex-wrap gap-2">
-            {EVALUATION_TOPICS.map((topic) => (
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium">Temas de Evaluación</label>
+            <Link href="/evaluation-topics" className="text-xs text-accent hover:underline flex items-center gap-1">
+              <ExternalLink className="h-3 w-3" />
+              Gestionar temas
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {evaluationTopics.map((topic: EvaluationTopic) => (
               <Badge
-                key={topic.value}
-                variant={formData.evaluationTopics.includes(topic.value) ? "default" : "outline"}
+                key={topic.code}
+                variant={formData.evaluationTopics.includes(topic.code) ? "default" : "outline"}
                 className={`cursor-pointer transition-all ${
-                  formData.evaluationTopics.includes(topic.value) 
+                  formData.evaluationTopics.includes(topic.code) 
                     ? "bg-accent text-accent-foreground" 
                     : "hover:bg-accent/10"
                 }`}
-                onClick={() => toggleTopic(topic.value)}
-                data-testid={`topic-${topic.value}`}
+                onClick={() => toggleTopic(topic.code)}
+                data-testid={`topic-${topic.code}`}
               >
-                {topic.label}
+                {topic.name}
               </Badge>
             ))}
           </div>
+          
+          {formData.evaluationTopics.length > 0 && (
+            <div className="border border-border rounded-lg p-4 bg-background/50">
+              <p className="text-sm font-medium mb-3">Elementos de Evaluación por Tema</p>
+              <Accordion type="multiple" className="w-full">
+                {formData.evaluationTopics.map(topicCode => {
+                  const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
+                  const items = getItemsForTopic(topicCode);
+                  if (!topic) return null;
+                  
+                  return (
+                    <AccordionItem key={topicCode} value={topicCode}>
+                      <AccordionTrigger className="text-sm hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <span>{topic.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {formData.selectedTopicItems.filter(s => 
+                              items.some((item: EvaluationTopicItem) => item.id === s.topicItemId)
+                            ).length} / {items.length}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        {items.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">
+                            No hay elementos definidos. Añade elementos desde la sección de Gestión de Temas.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {items.map((item: EvaluationTopicItem) => (
+                              <div 
+                                key={item.id}
+                                className="flex items-start gap-3 p-2 rounded-md hover:bg-accent/5 transition-colors"
+                              >
+                                <Checkbox
+                                  id={`item-${item.id}`}
+                                  checked={isTopicItemSelected(item.id)}
+                                  onCheckedChange={() => toggleTopicItem(item.id, item.defaultWeight || 1)}
+                                  data-testid={`checkbox-item-${item.id}`}
+                                />
+                                <div className="flex-1">
+                                  <label 
+                                    htmlFor={`item-${item.id}`}
+                                    className="text-sm cursor-pointer"
+                                  >
+                                    {item.name}
+                                  </label>
+                                  {item.description && (
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                      {item.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+              <p className="text-xs text-muted-foreground mt-3">
+                {formData.selectedTopicItems.length} elemento(s) seleccionado(s) en total.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -503,14 +687,21 @@ export default function EvaluationList() {
             </DialogTitle>
             <DialogDescription>Modifica los detalles del ciclo de entrenamiento.</DialogDescription>
           </DialogHeader>
-          <FormContent />
+          {isLoadingEdit ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+              <span className="ml-3 text-muted-foreground">Cargando datos...</span>
+            </div>
+          ) : (
+            <FormContent />
+          )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancelar
             </Button>
             <Button 
               onClick={handleUpdate}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingEdit}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
               data-testid="button-save-edit-cycle"
             >

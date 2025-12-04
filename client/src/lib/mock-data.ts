@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle, Clock, FileText, LayoutDashboard, Settings, Users, BarChart3, Building2, MonitorPlay } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, FileText, LayoutDashboard, Settings, Users, BarChart3, Building2, MonitorPlay, Target } from "lucide-react";
 
 export type Role = "super_admin" | "admin" | "trainer" | "student";
 
@@ -172,7 +172,8 @@ export const events: Event[] = [
 export const navItems = [
   { label: "Centro de Control", icon: LayoutDashboard, href: "/" },
   { label: "Evaluaciones", icon: BookOpen, href: "/evaluations" },
-  { label: "Simuladores", icon: MonitorPlay, href: "/simulator" }, // New Item
+  { label: "Temas de Evaluación", icon: Target, href: "/evaluation-topics" },
+  { label: "Simuladores", icon: MonitorPlay, href: "/simulator" },
   { label: "Operadores", icon: Users, href: "/users" },
   { label: "Empresas", icon: Building2, href: "/companies", role: "super_admin" },
   { label: "Reportes Ejecutivos", icon: BarChart3, href: "/reports" },

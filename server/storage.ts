@@ -95,6 +95,7 @@ export interface IStorage {
   updateCycleTopicItem(id: number, updates: Partial<InsertCycleTopicItem>): Promise<CycleTopicItem | undefined>;
   deleteCycleTopicItem(id: number): Promise<void>;
   deleteCycleTopicItems(cycleId: number): Promise<void>;
+  syncCycleTopicItems(cycleId: number, items: Array<{ topicItemId: number; weight: number; customFocus?: string }>): Promise<CycleTopicItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -399,6 +400,27 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCycleTopicItems(cycleId: number): Promise<void> {
     await db.delete(cycleTopicItems).where(eq(cycleTopicItems.cycleId, cycleId));
+  }
+
+  async syncCycleTopicItems(
+    cycleId: number, 
+    items: Array<{ topicItemId: number; weight: number; customFocus?: string }>
+  ): Promise<CycleTopicItem[]> {
+    await db.delete(cycleTopicItems).where(eq(cycleTopicItems.cycleId, cycleId));
+    
+    if (items.length === 0) {
+      return [];
+    }
+    
+    const itemsToInsert = items.map(item => ({
+      cycleId,
+      topicItemId: item.topicItemId,
+      weight: item.weight,
+      customFocus: item.customFocus || null,
+    }));
+    
+    const insertedItems = await db.insert(cycleTopicItems).values(itemsToInsert).returning();
+    return insertedItems;
   }
 }
 

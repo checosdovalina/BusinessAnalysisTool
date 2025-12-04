@@ -630,5 +630,22 @@ export async function registerRoutes(
     }
   });
 
+  // Batch sync endpoint - atomic operation
+  app.post("/api/cycle-topic-items/sync/:cycleId", async (req, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      const { items } = req.body as { items: Array<{ topicItemId: number; weight: number; customFocus?: string }> };
+      
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "items must be an array" });
+      }
+      
+      const result = await storage.syncCycleTopicItems(cycleId, items);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to sync cycle topic items" });
+    }
+  });
+
   return httpServer;
 }

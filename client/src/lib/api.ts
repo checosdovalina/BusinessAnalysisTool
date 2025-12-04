@@ -175,4 +175,9 @@ export const cycleTopicItemsAPI = {
   }),
   delete: (id: number) => fetch(`${API_BASE}/cycle-topic-items/${id}`, { method: "DELETE" }),
   deleteByCycle: (cycleId: number) => fetch(`${API_BASE}/cycle-topic-items/cycle/${cycleId}`, { method: "DELETE" }),
+  sync: (cycleId: number, items: Array<{ topicItemId: number; weight: number; customFocus?: string }>) => 
+    fetcher<CycleTopicItem[]>(`/cycle-topic-items/sync/${cycleId}`, {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    }),
 };
