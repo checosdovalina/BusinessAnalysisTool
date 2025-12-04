@@ -252,6 +252,30 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/simulator-scenarios/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedScenario = await storage.updateSimulatorScenario(id, updates);
+      if (!updatedScenario) {
+        return res.status(404).json({ error: "Scenario not found" });
+      }
+      res.json(updatedScenario);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update scenario" });
+    }
+  });
+
+  app.delete("/api/simulator-scenarios/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteSimulatorScenario(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete scenario" });
+    }
+  });
+
   // ============= SIMULATOR SESSIONS ROUTES =============
   
   app.get("/api/simulator-sessions/company/:companyId", async (req, res) => {

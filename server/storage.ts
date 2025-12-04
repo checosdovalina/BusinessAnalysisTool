@@ -44,6 +44,8 @@ export interface IStorage {
   getAllSimulatorScenarios(): Promise<SimulatorScenario[]>;
   getSimulatorScenariosByCompany(companyId: number | null): Promise<SimulatorScenario[]>;
   createSimulatorScenario(scenario: InsertSimulatorScenario): Promise<SimulatorScenario>;
+  updateSimulatorScenario(id: number, updates: Partial<InsertSimulatorScenario>): Promise<SimulatorScenario | undefined>;
+  deleteSimulatorScenario(id: number): Promise<void>;
   
   // Simulator Sessions
   getSimulatorSession(id: number): Promise<SimulatorSession | undefined>;
@@ -171,6 +173,16 @@ export class DatabaseStorage implements IStorage {
   async createSimulatorScenario(insertScenario: InsertSimulatorScenario): Promise<SimulatorScenario> {
     const [scenario] = await db.insert(simulatorScenarios).values(insertScenario).returning();
     return scenario;
+  }
+
+  async updateSimulatorScenario(id: number, updates: Partial<InsertSimulatorScenario>): Promise<SimulatorScenario | undefined> {
+    const [scenario] = await db.update(simulatorScenarios).set(updates).where(eq(simulatorScenarios.id, id)).returning();
+    return scenario || undefined;
+  }
+
+  async deleteSimulatorScenario(id: number): Promise<void> {
+    await db.delete(scenarioSteps).where(eq(scenarioSteps.scenarioId, id));
+    await db.delete(simulatorScenarios).where(eq(simulatorScenarios.id, id));
   }
 
   // Simulator Sessions

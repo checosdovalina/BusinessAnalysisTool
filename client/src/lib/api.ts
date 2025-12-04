@@ -79,6 +79,11 @@ export const simulatorScenariosAPI = {
     method: "POST",
     body: JSON.stringify(data),
   }),
+  update: (id: number, data: Partial<SimulatorScenario>) => fetcher<SimulatorScenario>(`/simulator-scenarios/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: number) => fetch(`${API_BASE}/simulator-scenarios/${id}`, { method: "DELETE" }),
 };
 
 // Simulator Sessions API
