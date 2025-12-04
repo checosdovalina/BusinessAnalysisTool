@@ -498,3 +498,90 @@ export const annualTrainingProgramsRelations = relations(annualTrainingPrograms,
     references: [companies.id],
   }),
 }));
+
+// ============================================
+// Settings Module (Módulo de Configuración)
+// ============================================
+
+// Company Settings Table (Configuración por empresa)
+export const companySettings = pgTable("company_settings", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id).unique(),
+  
+  // Branding / Marca
+  primaryColor: text("primary_color").default("#00F0FF"),
+  secondaryColor: text("secondary_color").default("#0b0f19"),
+  accentColor: text("accent_color").default("#3B82F6"),
+  
+  // Contact / Contacto
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  
+  // Training Parameters / Parámetros de Entrenamiento
+  defaultMinPassingScore: real("default_min_passing_score").default(70),
+  defaultTrainingHoursPerYear: real("default_training_hours_per_year").default(40),
+  defaultSessionsPerYear: integer("default_sessions_per_year").default(12),
+  
+  // Penalty Settings / Configuración de Penalizaciones
+  enablePenalties: boolean("enable_penalties").default(true),
+  penaltyPercentage: real("penalty_percentage").default(30), // 30% penalty for retakes
+  maxRetakeAttempts: integer("max_retake_attempts").default(3),
+  
+  // Report Settings / Configuración de Reportes
+  reportHeaderText: text("report_header_text"),
+  reportFooterText: text("report_footer_text"),
+  supervisorEmailDefault: text("supervisor_email_default"),
+  
+  // Active Evaluation Topics / Temas de Evaluación Activos
+  activeTopics: text("active_topics").array(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+export type CompanySettings = typeof companySettings.$inferSelect;
+
+// User Preferences Table (Preferencias de usuario)
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id).unique(),
+  
+  // UI Preferences / Preferencias de UI
+  language: text("language").default("es"),
+  timezone: text("timezone").default("America/Mexico_City"),
+  dateFormat: text("date_format").default("DD/MM/YYYY"),
+  
+  // Notification Preferences / Preferencias de Notificaciones
+  emailNotifications: boolean("email_notifications").default(true),
+  reportNotifications: boolean("report_notifications").default(true),
+  evaluationReminders: boolean("evaluation_reminders").default(true),
+  
+  // Dashboard Preferences / Preferencias de Dashboard
+  dashboardLayout: text("dashboard_layout").default("default"),
+  showQuickStats: boolean("show_quick_stats").default(true),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
+
+// Relations for Settings Module
+export const companySettingsRelations = relations(companySettings, ({ one }) => ({
+  company: one(companies, {
+    fields: [companySettings.companyId],
+    references: [companies.id],
+  }),
+}));
+
+export const userPreferencesRelations = relations(userPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [userPreferences.userId],
+    references: [users.id],
+  }),
+}));

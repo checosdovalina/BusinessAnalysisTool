@@ -1238,5 +1238,138 @@ export async function registerRoutes(
     }
   });
 
+  // ============= SETTINGS ROUTES =============
+
+  // Company Settings
+  app.get("/api/settings/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver configuraciones de otra empresa" });
+      }
+      
+      let settings = await storage.getCompanySettings(companyId);
+      
+      if (!settings) {
+        settings = await storage.createCompanySettings({ companyId });
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch company settings" });
+    }
+  });
+
+  app.patch("/api/settings/company/:companyId", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== companyId) {
+        return res.status(403).json({ error: "No tienes permisos para modificar configuraciones de otra empresa" });
+      }
+      
+      let settings = await storage.getCompanySettings(companyId);
+      
+      if (!settings) {
+        settings = await storage.createCompanySettings({ companyId, ...req.body });
+      } else {
+        settings = await storage.updateCompanySettings(companyId, req.body);
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update company settings" });
+    }
+  });
+
+  // User Preferences
+  app.get("/api/settings/user/:userId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (req.user?.id !== userId && req.user?.role !== "super_admin" && req.user?.role !== "admin") {
+        return res.status(403).json({ error: "No tienes permisos para ver preferencias de otro usuario" });
+      }
+      
+      let preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences) {
+        preferences = await storage.createUserPreferences({ userId });
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user preferences" });
+    }
+  });
+
+  app.patch("/api/settings/user/:userId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (req.user?.id !== userId && req.user?.role !== "super_admin") {
+        return res.status(403).json({ error: "No tienes permisos para modificar preferencias de otro usuario" });
+      }
+      
+      let preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences) {
+        preferences = await storage.createUserPreferences({ userId, ...req.body });
+      } else {
+        preferences = await storage.updateUserPreferences(userId, req.body);
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update user preferences" });
+    }
+  });
+
+  // User Profile Update (change password, avatar, name)
+  app.patch("/api/profile", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "No autenticado" });
+      }
+      
+      const { name, avatar, currentPassword, newPassword } = req.body;
+      const updates: Partial<{ name: string; avatar: string; password: string }> = {};
+      
+      if (name) updates.name = name;
+      if (avatar !== undefined) updates.avatar = avatar;
+      
+      if (newPassword) {
+        if (!currentPassword) {
+          return res.status(400).json({ error: "Debe proporcionar la contraseña actual" });
+        }
+        
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        
+        const bcrypt = await import("bcrypt");
+        const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+        if (!isValidPassword) {
+          return res.status(400).json({ error: "Contraseña actual incorrecta" });
+        }
+        
+        updates.password = await bcrypt.hash(newPassword, 10);
+      }
+      
+      const updatedUser = await storage.updateUser(userId, updates);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update profile" });
+    }
+  });
+
   return httpServer;
 }

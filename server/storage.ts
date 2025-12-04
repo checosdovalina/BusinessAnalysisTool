@@ -3,6 +3,7 @@ import {
   scenarioSteps, sessionStepResults,
   evaluationTopics, evaluationTopicItems, cycleTopicItems,
   trainingReports, annualTrainingPrograms,
+  companySettings, userPreferences,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -16,6 +17,8 @@ import {
   type CycleTopicItem, type InsertCycleTopicItem,
   type TrainingReport, type InsertTrainingReport,
   type AnnualTrainingProgram, type InsertAnnualTrainingProgram,
+  type CompanySettings, type InsertCompanySettings,
+  type UserPreferences, type InsertUserPreferences,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
@@ -119,6 +122,16 @@ export interface IStorage {
   getAnnualTrainingProgramByStudent(studentId: number, year: number): Promise<AnnualTrainingProgram | undefined>;
   createAnnualTrainingProgram(program: InsertAnnualTrainingProgram): Promise<AnnualTrainingProgram>;
   updateAnnualTrainingProgram(id: number, updates: Partial<InsertAnnualTrainingProgram>): Promise<AnnualTrainingProgram | undefined>;
+  
+  // Company Settings
+  getCompanySettings(companyId: number): Promise<CompanySettings | undefined>;
+  createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings>;
+  updateCompanySettings(companyId: number, updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined>;
+  
+  // User Preferences
+  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+  createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
+  updateUserPreferences(userId: number, updates: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -525,6 +538,44 @@ export class DatabaseStorage implements IStorage {
   async updateAnnualTrainingProgram(id: number, updates: Partial<InsertAnnualTrainingProgram>): Promise<AnnualTrainingProgram | undefined> {
     const [program] = await db.update(annualTrainingPrograms).set(updates).where(eq(annualTrainingPrograms.id, id)).returning();
     return program || undefined;
+  }
+
+  // Company Settings
+  async getCompanySettings(companyId: number): Promise<CompanySettings | undefined> {
+    const [settings] = await db.select().from(companySettings).where(eq(companySettings.companyId, companyId));
+    return settings || undefined;
+  }
+
+  async createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings> {
+    const [newSettings] = await db.insert(companySettings).values(settings).returning();
+    return newSettings;
+  }
+
+  async updateCompanySettings(companyId: number, updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined> {
+    const [settings] = await db.update(companySettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(companySettings.companyId, companyId))
+      .returning();
+    return settings || undefined;
+  }
+
+  // User Preferences
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    const [preferences] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+    return preferences || undefined;
+  }
+
+  async createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences> {
+    const [newPreferences] = await db.insert(userPreferences).values(preferences).returning();
+    return newPreferences;
+  }
+
+  async updateUserPreferences(userId: number, updates: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined> {
+    const [preferences] = await db.update(userPreferences)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userPreferences.userId, userId))
+      .returning();
+    return preferences || undefined;
   }
 }
 
