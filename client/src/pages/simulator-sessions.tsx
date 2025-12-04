@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Play, Activity, Zap, AlertTriangle, Server, GitBranch, X, Plus, Trash2, ChevronRight, ChevronLeft, Settings, CheckCircle2 } from "lucide-react";
+import { Play, Activity, Zap, AlertTriangle, Server, GitBranch, X, Plus, Trash2, ChevronRight, ChevronLeft, Settings, CheckCircle2, Edit, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { SimulatorScenario } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { simulatorScenariosAPI, scenarioStepsAPI } from "@/lib/api";
@@ -51,6 +54,20 @@ export default function SimulatorSessions() {
     description: "",
   });
   const [steps, setSteps] = useState<StepConfig[]>([]);
+  
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingScenario, setEditingScenario] = useState<SimulatorScenario | null>(null);
+  const [editFormData, setEditFormData] = useState<{title: string; category: "Fault" | "Overload" | "Topology"; difficulty: "Easy" | "Medium" | "Hard"; description: string}>({
+    title: "",
+    category: "Fault",
+    difficulty: "Medium",
+    description: "",
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [scenarioToDelete, setScenarioToDelete] = useState<SimulatorScenario | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: scenarios = [], isLoading } = useQuery({
     queryKey: ["simulator-scenarios"],
@@ -88,6 +105,59 @@ export default function SimulatorSessions() {
     setSteps([]);
     setCreateStep(1);
     setIsCreateOpen(false);
+  };
+
+  const handleEditClick = (scenario: SimulatorScenario) => {
+    setEditingScenario(scenario);
+    setEditFormData({
+      title: scenario.title,
+      category: scenario.category as "Fault" | "Overload" | "Topology",
+      difficulty: scenario.difficulty as "Easy" | "Medium" | "Hard",
+      description: scenario.description || "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateScenario = async () => {
+    if (!editingScenario || !editFormData.title.trim()) {
+      toast.error("El nombre del escenario es obligatorio");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await simulatorScenariosAPI.update(editingScenario.id, editFormData);
+      toast.success("Escenario actualizado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["simulator-scenarios"] });
+      setIsEditOpen(false);
+      setEditingScenario(null);
+    } catch (error) {
+      toast.error("Error al actualizar el escenario");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteClick = (scenario: SimulatorScenario) => {
+    setScenarioToDelete(scenario);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!scenarioToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await simulatorScenariosAPI.delete(scenarioToDelete.id);
+      toast.success("Escenario eliminado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["simulator-scenarios"] });
+      setDeleteDialogOpen(false);
+      setScenarioToDelete(null);
+    } catch (error) {
+      toast.error("Error al eliminar el escenario");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleCreateScenario = async () => {
@@ -456,7 +526,7 @@ export default function SimulatorSessions() {
           <h3 className="text-xl font-bold font-heading">Escenarios Disponibles</h3>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {scenarios.map((scenario) => (
-              <Card key={scenario.id} className="group border-border/60 bg-card hover:border-accent/50 transition-all hover:shadow-lg hover:shadow-accent/5 cursor-pointer">
+              <Card key={scenario.id} className="group border-border/60 bg-card hover:border-accent/50 transition-all hover:shadow-lg hover:shadow-accent/5">
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">
                     <Badge variant="secondary" className={
@@ -469,7 +539,26 @@ export default function SimulatorSessions() {
                       {scenario.category === 'Topology' && <GitBranch className="h-3 w-3 mr-1" />}
                       {scenario.category}
                     </Badge>
-                    <Badge variant="outline" className="text-xs font-normal">{scenario.difficulty}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs font-normal">{scenario.difficulty}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`menu-scenario-${scenario.id}`}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditClick(scenario)} data-testid={`edit-scenario-${scenario.id}`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteClick(scenario)} className="text-destructive focus:text-destructive" data-testid={`delete-scenario-${scenario.id}`}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <CardTitle className="text-lg font-bold group-hover:text-accent transition-colors">{scenario.title}</CardTitle>
                   <CardDescription>{scenario.description}</CardDescription>
@@ -478,6 +567,7 @@ export default function SimulatorSessions() {
                   <Button 
                     onClick={() => setLocation(`/simulator/run/${scenario.id}`)}
                     className="w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
+                    data-testid={`start-scenario-${scenario.id}`}
                   >
                     Iniciar Simulación <Play className="ml-2 h-4 w-4" />
                   </Button>
@@ -566,6 +656,116 @@ export default function SimulatorSessions() {
            </Card>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg border-border/60">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <Edit className="h-5 w-5 text-accent" />
+                    Editar Escenario
+                  </CardTitle>
+                  <CardDescription>Modifica los detalles del escenario</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsEditOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Nombre del Escenario</label>
+                <Input
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  placeholder="Ej: Falla en Línea de 230kV"
+                  className="mt-1"
+                  data-testid="input-edit-title"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Categoría</label>
+                  <select
+                    value={editFormData.category}
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value as "Fault" | "Overload" | "Topology" })}
+                    className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
+                    data-testid="select-edit-category"
+                  >
+                    <option value="Fault">Falla</option>
+                    <option value="Overload">Sobrecarga</option>
+                    <option value="Topology">Topología</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Dificultad</label>
+                  <select
+                    value={editFormData.difficulty}
+                    onChange={(e) => setEditFormData({ ...editFormData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
+                    className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
+                    data-testid="select-edit-difficulty"
+                  >
+                    <option value="Easy">Fácil</option>
+                    <option value="Medium">Medio</option>
+                    <option value="Hard">Difícil</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Descripción</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  placeholder="Describe el escenario..."
+                  className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md resize-none h-24"
+                  data-testid="input-edit-description"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={() => setIsEditOpen(false)} className="flex-1">
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleUpdateScenario}
+                  disabled={isUpdating}
+                  className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                  data-testid="button-save-edit"
+                >
+                  {isUpdating ? "Guardando..." : "Guardar Cambios"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar escenario?</DialogTitle>
+            <DialogDescription>
+              Esta acción eliminará permanentemente el escenario "{scenarioToDelete?.title}" y todos sus pasos configurados. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              data-testid="button-confirm-delete"
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
   );
 }
