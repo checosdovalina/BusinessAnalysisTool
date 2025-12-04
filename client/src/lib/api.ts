@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -129,4 +129,50 @@ export const sessionStepResultsAPI = {
     method: "POST",
     body: JSON.stringify(data),
   }),
+};
+
+// Evaluation Topics API
+export const evaluationTopicsAPI = {
+  getAll: () => fetcher<EvaluationTopic[]>("/evaluation-topics"),
+  getById: (id: number) => fetcher<EvaluationTopic>(`/evaluation-topics/${id}`),
+  create: (data: Partial<EvaluationTopic>) => fetcher<EvaluationTopic>("/evaluation-topics", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<EvaluationTopic>) => fetcher<EvaluationTopic>(`/evaluation-topics/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: number) => fetch(`${API_BASE}/evaluation-topics/${id}`, { method: "DELETE" }),
+};
+
+// Evaluation Topic Items API
+export const evaluationTopicItemsAPI = {
+  getByTopic: (topicId: number) => fetcher<EvaluationTopicItem[]>(`/evaluation-topic-items/topic/${topicId}`),
+  getByCompany: (companyId: number | null) => fetcher<EvaluationTopicItem[]>(`/evaluation-topic-items/company/${companyId}`),
+  getById: (id: number) => fetcher<EvaluationTopicItem>(`/evaluation-topic-items/${id}`),
+  create: (data: Partial<EvaluationTopicItem>) => fetcher<EvaluationTopicItem>("/evaluation-topic-items", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<EvaluationTopicItem>) => fetcher<EvaluationTopicItem>(`/evaluation-topic-items/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: number) => fetch(`${API_BASE}/evaluation-topic-items/${id}`, { method: "DELETE" }),
+};
+
+// Cycle Topic Items API
+export const cycleTopicItemsAPI = {
+  getByCycle: (cycleId: number) => fetcher<CycleTopicItem[]>(`/cycle-topic-items/cycle/${cycleId}`),
+  create: (data: Partial<CycleTopicItem>) => fetcher<CycleTopicItem>("/cycle-topic-items", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<CycleTopicItem>) => fetcher<CycleTopicItem>(`/cycle-topic-items/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: number) => fetch(`${API_BASE}/cycle-topic-items/${id}`, { method: "DELETE" }),
+  deleteByCycle: (cycleId: number) => fetch(`${API_BASE}/cycle-topic-items/cycle/${cycleId}`, { method: "DELETE" }),
 };

@@ -265,3 +265,92 @@ export const sessionStepResultsRelations = relations(sessionStepResults, ({ one 
     references: [scenarioSteps.id],
   }),
 }));
+
+// ============================================
+// Evaluation Topics Module (Módulo de Temas de Evaluación)
+// ============================================
+
+// Evaluation Topics Table (Temas base de evaluación)
+export const evaluationTopics = pgTable("evaluation_topics", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // Nombre del tema: "Control de Voltaje", etc.
+  code: text("code").notNull().unique(), // Código: "control_voltaje", etc.
+  description: text("description"), // Descripción del tema
+  icon: text("icon"), // Icono para UI
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertEvaluationTopicSchema = createInsertSchema(evaluationTopics).omit({ id: true, createdAt: true });
+export type InsertEvaluationTopic = z.infer<typeof insertEvaluationTopicSchema>;
+export type EvaluationTopic = typeof evaluationTopics.$inferSelect;
+
+// Evaluation Topic Items Table (Elementos específicos de cada tema - creados por instructores)
+export const evaluationTopicItems = pgTable("evaluation_topic_items", {
+  id: serial("id").primaryKey(),
+  topicId: integer("topic_id").notNull().references(() => evaluationTopics.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").references(() => companies.id), // null = global
+  createdById: integer("created_by_id").references(() => users.id), // Instructor que lo creó
+  name: text("name").notNull(), // Nombre del elemento
+  description: text("description"), // Descripción detallada
+  expectedOutcomes: text("expected_outcomes").array(), // Resultados esperados
+  gradingCriteria: text("grading_criteria"), // Criterios de calificación
+  defaultWeight: real("default_weight").notNull().default(1), // Ponderación por defecto
+  difficulty: difficultyEnum("difficulty").default("Medium"),
+  estimatedTime: integer("estimated_time"), // Tiempo estimado en minutos
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertEvaluationTopicItemSchema = createInsertSchema(evaluationTopicItems).omit({ id: true, createdAt: true });
+export type InsertEvaluationTopicItem = z.infer<typeof insertEvaluationTopicItemSchema>;
+export type EvaluationTopicItem = typeof evaluationTopicItems.$inferSelect;
+
+// Cycle Topic Items Table (Elementos de temas seleccionados para un ciclo)
+export const cycleTopicItems = pgTable("cycle_topic_items", {
+  id: serial("id").primaryKey(),
+  cycleId: integer("cycle_id").notNull().references(() => cycles.id, { onDelete: "cascade" }),
+  topicItemId: integer("topic_item_id").notNull().references(() => evaluationTopicItems.id, { onDelete: "cascade" }),
+  customFocus: text("custom_focus"), // Enfoque personalizado para este ciclo
+  weight: real("weight").notNull().default(1), // Ponderación específica para este ciclo
+  targetScore: real("target_score"), // Puntuación objetivo
+  notes: text("notes"), // Notas del instructor
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCycleTopicItemSchema = createInsertSchema(cycleTopicItems).omit({ id: true, createdAt: true });
+export type InsertCycleTopicItem = z.infer<typeof insertCycleTopicItemSchema>;
+export type CycleTopicItem = typeof cycleTopicItems.$inferSelect;
+
+// Relations for Evaluation Topics Module
+export const evaluationTopicsRelations = relations(evaluationTopics, ({ many }) => ({
+  items: many(evaluationTopicItems),
+}));
+
+export const evaluationTopicItemsRelations = relations(evaluationTopicItems, ({ one, many }) => ({
+  topic: one(evaluationTopics, {
+    fields: [evaluationTopicItems.topicId],
+    references: [evaluationTopics.id],
+  }),
+  company: one(companies, {
+    fields: [evaluationTopicItems.companyId],
+    references: [companies.id],
+  }),
+  createdBy: one(users, {
+    fields: [evaluationTopicItems.createdById],
+    references: [users.id],
+  }),
+  cycleItems: many(cycleTopicItems),
+}));
+
+export const cycleTopicItemsRelations = relations(cycleTopicItems, ({ one }) => ({
+  cycle: one(cycles, {
+    fields: [cycleTopicItems.cycleId],
+    references: [cycles.id],
+  }),
+  topicItem: one(evaluationTopicItems, {
+    fields: [cycleTopicItems.topicItemId],
+    references: [evaluationTopicItems.id],
+  }),
+}));

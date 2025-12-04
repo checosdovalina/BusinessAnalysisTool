@@ -1,6 +1,7 @@
 import { 
   users, companies, cycles, events, simulatorScenarios, simulatorSessions,
   scenarioSteps, sessionStepResults,
+  evaluationTopics, evaluationTopicItems, cycleTopicItems,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -9,9 +10,12 @@ import {
   type SimulatorSession, type InsertSimulatorSession,
   type ScenarioStep, type InsertScenarioStep,
   type SessionStepResult, type InsertSessionStepResult,
+  type EvaluationTopic, type InsertEvaluationTopic,
+  type EvaluationTopicItem, type InsertEvaluationTopicItem,
+  type CycleTopicItem, type InsertCycleTopicItem,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc } from "drizzle-orm";
+import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -68,6 +72,29 @@ export interface IStorage {
   getSessionStepResult(id: number): Promise<SessionStepResult | undefined>;
   getSessionStepResults(sessionId: number): Promise<SessionStepResult[]>;
   createSessionStepResult(result: InsertSessionStepResult): Promise<SessionStepResult>;
+  
+  // Evaluation Topics
+  getEvaluationTopic(id: number): Promise<EvaluationTopic | undefined>;
+  getAllEvaluationTopics(): Promise<EvaluationTopic[]>;
+  createEvaluationTopic(topic: InsertEvaluationTopic): Promise<EvaluationTopic>;
+  updateEvaluationTopic(id: number, updates: Partial<InsertEvaluationTopic>): Promise<EvaluationTopic | undefined>;
+  deleteEvaluationTopic(id: number): Promise<void>;
+  
+  // Evaluation Topic Items
+  getEvaluationTopicItem(id: number): Promise<EvaluationTopicItem | undefined>;
+  getEvaluationTopicItems(topicId: number): Promise<EvaluationTopicItem[]>;
+  getEvaluationTopicItemsByCompany(companyId: number | null): Promise<EvaluationTopicItem[]>;
+  createEvaluationTopicItem(item: InsertEvaluationTopicItem): Promise<EvaluationTopicItem>;
+  updateEvaluationTopicItem(id: number, updates: Partial<InsertEvaluationTopicItem>): Promise<EvaluationTopicItem | undefined>;
+  deleteEvaluationTopicItem(id: number): Promise<void>;
+  
+  // Cycle Topic Items
+  getCycleTopicItem(id: number): Promise<CycleTopicItem | undefined>;
+  getCycleTopicItems(cycleId: number): Promise<CycleTopicItem[]>;
+  createCycleTopicItem(item: InsertCycleTopicItem): Promise<CycleTopicItem>;
+  updateCycleTopicItem(id: number, updates: Partial<InsertCycleTopicItem>): Promise<CycleTopicItem | undefined>;
+  deleteCycleTopicItem(id: number): Promise<void>;
+  deleteCycleTopicItems(cycleId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -265,6 +292,113 @@ export class DatabaseStorage implements IStorage {
   async createSessionStepResult(insertResult: InsertSessionStepResult): Promise<SessionStepResult> {
     const [result] = await db.insert(sessionStepResults).values(insertResult).returning();
     return result;
+  }
+
+  // Evaluation Topics
+  async getEvaluationTopic(id: number): Promise<EvaluationTopic | undefined> {
+    const [topic] = await db.select().from(evaluationTopics).where(eq(evaluationTopics.id, id));
+    return topic || undefined;
+  }
+
+  async getAllEvaluationTopics(): Promise<EvaluationTopic[]> {
+    return await db.select().from(evaluationTopics)
+      .where(eq(evaluationTopics.isActive, true))
+      .orderBy(asc(evaluationTopics.sortOrder));
+  }
+
+  async createEvaluationTopic(insertTopic: InsertEvaluationTopic): Promise<EvaluationTopic> {
+    const [topic] = await db.insert(evaluationTopics).values(insertTopic).returning();
+    return topic;
+  }
+
+  async updateEvaluationTopic(id: number, updates: Partial<InsertEvaluationTopic>): Promise<EvaluationTopic | undefined> {
+    const [topic] = await db.update(evaluationTopics).set(updates).where(eq(evaluationTopics.id, id)).returning();
+    return topic || undefined;
+  }
+
+  async deleteEvaluationTopic(id: number): Promise<void> {
+    await db.delete(evaluationTopicItems).where(eq(evaluationTopicItems.topicId, id));
+    await db.delete(evaluationTopics).where(eq(evaluationTopics.id, id));
+  }
+
+  // Evaluation Topic Items
+  async getEvaluationTopicItem(id: number): Promise<EvaluationTopicItem | undefined> {
+    const [item] = await db.select().from(evaluationTopicItems).where(eq(evaluationTopicItems.id, id));
+    return item || undefined;
+  }
+
+  async getEvaluationTopicItems(topicId: number): Promise<EvaluationTopicItem[]> {
+    return await db.select().from(evaluationTopicItems)
+      .where(and(
+        eq(evaluationTopicItems.topicId, topicId),
+        eq(evaluationTopicItems.isActive, true)
+      ))
+      .orderBy(asc(evaluationTopicItems.name));
+  }
+
+  async getEvaluationTopicItemsByCompany(companyId: number | null): Promise<EvaluationTopicItem[]> {
+    if (companyId === null) {
+      return await db.select().from(evaluationTopicItems)
+        .where(and(
+          isNull(evaluationTopicItems.companyId),
+          eq(evaluationTopicItems.isActive, true)
+        ))
+        .orderBy(asc(evaluationTopicItems.name));
+    }
+    return await db.select().from(evaluationTopicItems)
+      .where(and(
+        or(
+          eq(evaluationTopicItems.companyId, companyId),
+          isNull(evaluationTopicItems.companyId)
+        ),
+        eq(evaluationTopicItems.isActive, true)
+      ))
+      .orderBy(asc(evaluationTopicItems.name));
+  }
+
+  async createEvaluationTopicItem(insertItem: InsertEvaluationTopicItem): Promise<EvaluationTopicItem> {
+    const [item] = await db.insert(evaluationTopicItems).values(insertItem).returning();
+    return item;
+  }
+
+  async updateEvaluationTopicItem(id: number, updates: Partial<InsertEvaluationTopicItem>): Promise<EvaluationTopicItem | undefined> {
+    const [item] = await db.update(evaluationTopicItems).set(updates).where(eq(evaluationTopicItems.id, id)).returning();
+    return item || undefined;
+  }
+
+  async deleteEvaluationTopicItem(id: number): Promise<void> {
+    await db.delete(cycleTopicItems).where(eq(cycleTopicItems.topicItemId, id));
+    await db.delete(evaluationTopicItems).where(eq(evaluationTopicItems.id, id));
+  }
+
+  // Cycle Topic Items
+  async getCycleTopicItem(id: number): Promise<CycleTopicItem | undefined> {
+    const [item] = await db.select().from(cycleTopicItems).where(eq(cycleTopicItems.id, id));
+    return item || undefined;
+  }
+
+  async getCycleTopicItems(cycleId: number): Promise<CycleTopicItem[]> {
+    return await db.select().from(cycleTopicItems)
+      .where(eq(cycleTopicItems.cycleId, cycleId))
+      .orderBy(asc(cycleTopicItems.id));
+  }
+
+  async createCycleTopicItem(insertItem: InsertCycleTopicItem): Promise<CycleTopicItem> {
+    const [item] = await db.insert(cycleTopicItems).values(insertItem).returning();
+    return item;
+  }
+
+  async updateCycleTopicItem(id: number, updates: Partial<InsertCycleTopicItem>): Promise<CycleTopicItem | undefined> {
+    const [item] = await db.update(cycleTopicItems).set(updates).where(eq(cycleTopicItems.id, id)).returning();
+    return item || undefined;
+  }
+
+  async deleteCycleTopicItem(id: number): Promise<void> {
+    await db.delete(cycleTopicItems).where(eq(cycleTopicItems.id, id));
+  }
+
+  async deleteCycleTopicItems(cycleId: number): Promise<void> {
+    await db.delete(cycleTopicItems).where(eq(cycleTopicItems.cycleId, cycleId));
   }
 }
 

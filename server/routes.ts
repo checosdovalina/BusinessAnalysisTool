@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema } from "@shared/schema";
+import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 
@@ -444,6 +444,189 @@ export async function registerRoutes(
       res.status(201).json(newResult);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create step result" });
+    }
+  });
+
+  // ============= EVALUATION TOPICS ROUTES =============
+  
+  app.get("/api/evaluation-topics", async (req, res) => {
+    try {
+      const topics = await storage.getAllEvaluationTopics();
+      res.json(topics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch evaluation topics" });
+    }
+  });
+
+  app.get("/api/evaluation-topics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const topic = await storage.getEvaluationTopic(id);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(topic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topic" });
+    }
+  });
+
+  app.post("/api/evaluation-topics", async (req, res) => {
+    try {
+      const topicData = insertEvaluationTopicSchema.parse(req.body);
+      const newTopic = await storage.createEvaluationTopic(topicData);
+      res.status(201).json(newTopic);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create topic" });
+    }
+  });
+
+  app.patch("/api/evaluation-topics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedTopic = await storage.updateEvaluationTopic(id, updates);
+      if (!updatedTopic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(updatedTopic);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update topic" });
+    }
+  });
+
+  app.delete("/api/evaluation-topics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteEvaluationTopic(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete topic" });
+    }
+  });
+
+  // ============= EVALUATION TOPIC ITEMS ROUTES =============
+  
+  app.get("/api/evaluation-topic-items/topic/:topicId", async (req, res) => {
+    try {
+      const topicId = parseInt(req.params.topicId);
+      const items = await storage.getEvaluationTopicItems(topicId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topic items" });
+    }
+  });
+
+  app.get("/api/evaluation-topic-items/company/:companyId", async (req, res) => {
+    try {
+      const companyId = req.params.companyId === 'null' ? null : parseInt(req.params.companyId);
+      const items = await storage.getEvaluationTopicItemsByCompany(companyId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topic items" });
+    }
+  });
+
+  app.get("/api/evaluation-topic-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const item = await storage.getEvaluationTopicItem(id);
+      if (!item) {
+        return res.status(404).json({ error: "Topic item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topic item" });
+    }
+  });
+
+  app.post("/api/evaluation-topic-items", async (req, res) => {
+    try {
+      const itemData = insertEvaluationTopicItemSchema.parse(req.body);
+      const newItem = await storage.createEvaluationTopicItem(itemData);
+      res.status(201).json(newItem);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create topic item" });
+    }
+  });
+
+  app.patch("/api/evaluation-topic-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedItem = await storage.updateEvaluationTopicItem(id, updates);
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Topic item not found" });
+      }
+      res.json(updatedItem);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update topic item" });
+    }
+  });
+
+  app.delete("/api/evaluation-topic-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteEvaluationTopicItem(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete topic item" });
+    }
+  });
+
+  // ============= CYCLE TOPIC ITEMS ROUTES =============
+  
+  app.get("/api/cycle-topic-items/cycle/:cycleId", async (req, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      const items = await storage.getCycleTopicItems(cycleId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cycle topic items" });
+    }
+  });
+
+  app.post("/api/cycle-topic-items", async (req, res) => {
+    try {
+      const itemData = insertCycleTopicItemSchema.parse(req.body);
+      const newItem = await storage.createCycleTopicItem(itemData);
+      res.status(201).json(newItem);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create cycle topic item" });
+    }
+  });
+
+  app.patch("/api/cycle-topic-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedItem = await storage.updateCycleTopicItem(id, updates);
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Cycle topic item not found" });
+      }
+      res.json(updatedItem);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update cycle topic item" });
+    }
+  });
+
+  app.delete("/api/cycle-topic-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCycleTopicItem(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cycle topic item" });
+    }
+  });
+
+  app.delete("/api/cycle-topic-items/cycle/:cycleId", async (req, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      await storage.deleteCycleTopicItems(cycleId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cycle topic items" });
     }
   });
 
