@@ -6,7 +6,15 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "ots-energy-secret-key-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("FATAL: JWT_SECRET debe estar configurado en producción");
+}
+if (!JWT_SECRET) {
+  console.error("⚠️ SEGURIDAD: JWT_SECRET no configurado. Usando clave temporal - NO usar en producción!");
+}
+const DEV_SECRET = "ots-dev-secret-key-not-for-production";
+const getJwtSecret = () => JWT_SECRET || DEV_SECRET;
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -25,7 +33,7 @@ const authenticateToken = async (req: AuthenticatedRequest, res: Response, next:
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string; companyId: number };
+    const decoded = jwt.verify(token, getJwtSecret()) as { userId: number; role: string; companyId: number };
     req.user = {
       id: decoded.userId,
       role: decoded.role,
@@ -88,7 +96,7 @@ export async function registerRoutes(
       
       const token = jwt.sign(
         { userId: user.id, role: user.role, companyId: user.companyId },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: "24h" }
       );
       
@@ -139,9 +147,16 @@ export async function registerRoutes(
 
   // ============= USERS ROUTES =============
   
-  app.get("/api/users/company/:companyId", async (req, res) => {
+  app.get("/api/users/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const companyId = parseInt(req.params.companyId);
+      
+      // Solo super_admin puede ver usuarios de cualquier empresa
+      // Otros usuarios solo pueden ver usuarios de su propia empresa
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver usuarios de otra empresa" });
+      }
+      
       const users = await storage.getUsersByCompany(companyId);
       res.json(users.map(u => ({ ...u, password: undefined })));
     } catch (error) {
@@ -149,13 +164,20 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+      
+      // Solo super_admin puede ver cualquier usuario
+      // Otros usuarios solo pueden ver usuarios de su propia empresa
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== user.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver este usuario" });
+      }
+      
       res.json({ ...user, password: undefined });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
