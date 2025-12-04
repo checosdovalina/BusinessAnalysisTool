@@ -112,6 +112,10 @@ export const events = pgTable("events", {
   score: real("score").notNull().default(0), // Calificación de cada evento
   maxScore: real("max_score").notNull(),
   weight: real("weight").default(1), // Ponderación
+  attemptNumber: integer("attempt_number").notNull().default(1), // Número de intento
+  hasPenalty: boolean("has_penalty").notNull().default(false), // Si tiene penalización
+  penaltyAmount: real("penalty_amount").default(0), // Monto de penalización (0.30 por reprobación previa)
+  originalScore: real("original_score"), // Calificación antes de penalización
   expectedActions: text("expected_actions").array(), // Acciones operativas esperadas durante la actuación
   gradingCriteria: text("grading_criteria"), // Definición de criterios de calificación
   feedback: text("feedback"),
@@ -375,5 +379,119 @@ export const cycleTopicItemsRelations = relations(cycleTopicItems, ({ one }) => 
   topicItem: one(evaluationTopicItems, {
     fields: [cycleTopicItems.topicItemId],
     references: [evaluationTopicItems.id],
+  }),
+}));
+
+// ============================================
+// Reports Module (Módulo de Generación de Reportes)
+// ============================================
+
+// Report Status Enum
+export const reportStatusEnum = pgEnum("report_status", ["draft", "generated", "sent", "archived"]);
+
+// Training Reports Table (Reportes generados de entrenamiento)
+export const trainingReports = pgTable("training_reports", {
+  id: serial("id").primaryKey(),
+  reportCode: text("report_code").notNull().unique(), // Código único del reporte
+  cycleId: integer("cycle_id").notNull().references(() => cycles.id),
+  studentId: integer("student_id").notNull().references(() => users.id),
+  trainerId: integer("trainer_id").notNull().references(() => users.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  status: reportStatusEnum("status").notNull().default("draft"),
+  
+  // Calificaciones
+  totalScore: real("total_score"), // Calificación general calculada
+  passingScore: real("passing_score").default(70), // Calificación mínima aprobatoria
+  isPassed: boolean("is_passed"), // Si aprobó o no
+  
+  // Datos del radar (JSON con competencias y puntuaciones)
+  radarData: text("radar_data"), // JSON: [{subject: "Control Voltaje", score: 85, max: 100}, ...]
+  
+  // Resumen ejecutivo
+  executiveSummary: text("executive_summary"),
+  conclusions: text("conclusions"),
+  recommendations: text("recommendations"),
+  
+  // Datos de envío
+  sentToSupervisor: boolean("sent_to_supervisor").default(false),
+  sentToStudent: boolean("sent_to_student").default(false),
+  supervisorEmail: text("supervisor_email"),
+  sentAt: timestamp("sent_at"),
+  
+  // Metadatos
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  generatedById: integer("generated_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertTrainingReportSchema = createInsertSchema(trainingReports).omit({ id: true, createdAt: true });
+export type InsertTrainingReport = z.infer<typeof insertTrainingReportSchema>;
+export type TrainingReport = typeof trainingReports.$inferSelect;
+
+// Annual Training Program Table (Programa anual de entrenamiento por operador)
+export const annualTrainingPrograms = pgTable("annual_training_programs", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => users.id),
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  year: integer("year").notNull(),
+  
+  // Horas objetivo y completadas
+  targetHours: real("target_hours").notNull().default(40), // Horas objetivo anuales
+  completedHours: real("completed_hours").notNull().default(0), // Horas completadas
+  
+  // Sesiones objetivo y completadas
+  targetSessions: integer("target_sessions").default(12), // Sesiones objetivo
+  completedSessions: integer("completed_sessions").notNull().default(0), // Sesiones completadas
+  
+  // Avance general
+  progressPercentage: real("progress_percentage").notNull().default(0), // Porcentaje de avance
+  
+  // Estado
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAnnualTrainingProgramSchema = createInsertSchema(annualTrainingPrograms).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAnnualTrainingProgram = z.infer<typeof insertAnnualTrainingProgramSchema>;
+export type AnnualTrainingProgram = typeof annualTrainingPrograms.$inferSelect;
+
+// Relations for Reports Module
+export const trainingReportsRelations = relations(trainingReports, ({ one }) => ({
+  cycle: one(cycles, {
+    fields: [trainingReports.cycleId],
+    references: [cycles.id],
+  }),
+  student: one(users, {
+    fields: [trainingReports.studentId],
+    references: [users.id],
+    relationName: "reportStudent",
+  }),
+  trainer: one(users, {
+    fields: [trainingReports.trainerId],
+    references: [users.id],
+    relationName: "reportTrainer",
+  }),
+  company: one(companies, {
+    fields: [trainingReports.companyId],
+    references: [companies.id],
+  }),
+  generatedBy: one(users, {
+    fields: [trainingReports.generatedById],
+    references: [users.id],
+    relationName: "reportGenerator",
+  }),
+}));
+
+export const annualTrainingProgramsRelations = relations(annualTrainingPrograms, ({ one }) => ({
+  student: one(users, {
+    fields: [annualTrainingPrograms.studentId],
+    references: [users.id],
+  }),
+  company: one(companies, {
+    fields: [annualTrainingPrograms.companyId],
+    references: [companies.id],
   }),
 }));

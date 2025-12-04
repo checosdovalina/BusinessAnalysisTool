@@ -2,6 +2,7 @@ import {
   users, companies, cycles, events, simulatorScenarios, simulatorSessions,
   scenarioSteps, sessionStepResults,
   evaluationTopics, evaluationTopicItems, cycleTopicItems,
+  trainingReports, annualTrainingPrograms,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -13,6 +14,8 @@ import {
   type EvaluationTopic, type InsertEvaluationTopic,
   type EvaluationTopicItem, type InsertEvaluationTopicItem,
   type CycleTopicItem, type InsertCycleTopicItem,
+  type TrainingReport, type InsertTrainingReport,
+  type AnnualTrainingProgram, type InsertAnnualTrainingProgram,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
@@ -100,6 +103,22 @@ export interface IStorage {
   deleteCycleTopicItem(id: number): Promise<void>;
   deleteCycleTopicItems(cycleId: number): Promise<void>;
   syncCycleTopicItems(cycleId: number, items: Array<{ topicItemId: number; weight: number; customFocus?: string }>): Promise<CycleTopicItem[]>;
+  
+  // Training Reports
+  getTrainingReport(id: number): Promise<TrainingReport | undefined>;
+  getTrainingReportsByCompany(companyId: number): Promise<TrainingReport[]>;
+  getTrainingReportsByStudent(studentId: number): Promise<TrainingReport[]>;
+  getTrainingReportByCycle(cycleId: number): Promise<TrainingReport | undefined>;
+  createTrainingReport(report: InsertTrainingReport): Promise<TrainingReport>;
+  updateTrainingReport(id: number, updates: Partial<InsertTrainingReport>): Promise<TrainingReport | undefined>;
+  deleteTrainingReport(id: number): Promise<void>;
+  
+  // Annual Training Programs
+  getAnnualTrainingProgram(id: number): Promise<AnnualTrainingProgram | undefined>;
+  getAnnualTrainingProgramsByCompany(companyId: number, year?: number): Promise<AnnualTrainingProgram[]>;
+  getAnnualTrainingProgramByStudent(studentId: number, year: number): Promise<AnnualTrainingProgram | undefined>;
+  createAnnualTrainingProgram(program: InsertAnnualTrainingProgram): Promise<AnnualTrainingProgram>;
+  updateAnnualTrainingProgram(id: number, updates: Partial<InsertAnnualTrainingProgram>): Promise<AnnualTrainingProgram | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -443,6 +462,69 @@ export class DatabaseStorage implements IStorage {
     
     const insertedItems = await db.insert(cycleTopicItems).values(itemsToInsert).returning();
     return insertedItems;
+  }
+
+  // Training Reports
+  async getTrainingReport(id: number): Promise<TrainingReport | undefined> {
+    const [report] = await db.select().from(trainingReports).where(eq(trainingReports.id, id));
+    return report || undefined;
+  }
+
+  async getTrainingReportsByCompany(companyId: number): Promise<TrainingReport[]> {
+    return db.select().from(trainingReports).where(eq(trainingReports.companyId, companyId)).orderBy(desc(trainingReports.createdAt));
+  }
+
+  async getTrainingReportsByStudent(studentId: number): Promise<TrainingReport[]> {
+    return db.select().from(trainingReports).where(eq(trainingReports.studentId, studentId)).orderBy(desc(trainingReports.createdAt));
+  }
+
+  async getTrainingReportByCycle(cycleId: number): Promise<TrainingReport | undefined> {
+    const [report] = await db.select().from(trainingReports).where(eq(trainingReports.cycleId, cycleId));
+    return report || undefined;
+  }
+
+  async createTrainingReport(report: InsertTrainingReport): Promise<TrainingReport> {
+    const [newReport] = await db.insert(trainingReports).values(report).returning();
+    return newReport;
+  }
+
+  async updateTrainingReport(id: number, updates: Partial<InsertTrainingReport>): Promise<TrainingReport | undefined> {
+    const [report] = await db.update(trainingReports).set(updates).where(eq(trainingReports.id, id)).returning();
+    return report || undefined;
+  }
+
+  async deleteTrainingReport(id: number): Promise<void> {
+    await db.delete(trainingReports).where(eq(trainingReports.id, id));
+  }
+
+  // Annual Training Programs
+  async getAnnualTrainingProgram(id: number): Promise<AnnualTrainingProgram | undefined> {
+    const [program] = await db.select().from(annualTrainingPrograms).where(eq(annualTrainingPrograms.id, id));
+    return program || undefined;
+  }
+
+  async getAnnualTrainingProgramsByCompany(companyId: number, year?: number): Promise<AnnualTrainingProgram[]> {
+    if (year) {
+      return db.select().from(annualTrainingPrograms)
+        .where(and(eq(annualTrainingPrograms.companyId, companyId), eq(annualTrainingPrograms.year, year)));
+    }
+    return db.select().from(annualTrainingPrograms).where(eq(annualTrainingPrograms.companyId, companyId));
+  }
+
+  async getAnnualTrainingProgramByStudent(studentId: number, year: number): Promise<AnnualTrainingProgram | undefined> {
+    const [program] = await db.select().from(annualTrainingPrograms)
+      .where(and(eq(annualTrainingPrograms.studentId, studentId), eq(annualTrainingPrograms.year, year)));
+    return program || undefined;
+  }
+
+  async createAnnualTrainingProgram(program: InsertAnnualTrainingProgram): Promise<AnnualTrainingProgram> {
+    const [newProgram] = await db.insert(annualTrainingPrograms).values(program).returning();
+    return newProgram;
+  }
+
+  async updateAnnualTrainingProgram(id: number, updates: Partial<InsertAnnualTrainingProgram>): Promise<AnnualTrainingProgram | undefined> {
+    const [program] = await db.update(annualTrainingPrograms).set(updates).where(eq(annualTrainingPrograms.id, id)).returning();
+    return program || undefined;
   }
 }
 

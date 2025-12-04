@@ -868,5 +868,219 @@ export async function registerRoutes(
     }
   });
 
+  // ============= TRAINING REPORTS ROUTES =============
+
+  app.get("/api/reports/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver reportes de otra empresa" });
+      }
+      
+      const reports = await storage.getTrainingReportsByCompany(companyId);
+      res.json(reports);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
+  app.get("/api/reports/student/:studentId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const reports = await storage.getTrainingReportsByStudent(studentId);
+      res.json(reports);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
+  app.get("/api/reports/cycle/:cycleId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      const report = await storage.getTrainingReportByCycle(cycleId);
+      res.json(report || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  app.get("/api/reports/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const report = await storage.getTrainingReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  app.post("/api/reports/generate/:cycleId", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      const cycle = await storage.getCycle(cycleId);
+      
+      if (!cycle) {
+        return res.status(404).json({ error: "Cycle not found" });
+      }
+
+      // Calculate scores from events
+      const events = await storage.getEventsByCycle(cycleId);
+      let totalScore = 0;
+      let totalWeight = 0;
+      const radarData: Array<{ subject: string; score: number; max: number }> = [];
+      
+      for (const event of events) {
+        const weight = event.weight || 1;
+        totalWeight += weight;
+        const eventScore = (event.score / event.maxScore) * 100 * weight;
+        totalScore += eventScore;
+        
+        radarData.push({
+          subject: event.evaluationTopic || event.title,
+          score: Math.round((event.score / event.maxScore) * 100),
+          max: 100,
+        });
+      }
+      
+      const finalScore = totalWeight > 0 ? totalScore / totalWeight : 0;
+      const passingScore = cycle.minPassingScore || 70;
+      const isPassed = finalScore >= passingScore;
+
+      // Generate unique report code
+      const reportCode = `OTS-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
+
+      const reportData = {
+        reportCode,
+        cycleId,
+        studentId: cycle.studentId,
+        trainerId: cycle.trainerId,
+        companyId: cycle.companyId,
+        status: "generated" as const,
+        totalScore: Math.round(finalScore * 100) / 100,
+        passingScore,
+        isPassed,
+        radarData: JSON.stringify(radarData),
+        generatedById: req.user?.id,
+        generatedAt: new Date(),
+      };
+
+      const report = await storage.createTrainingReport(reportData);
+      
+      // Update cycle with score
+      await storage.updateCycle(cycleId, { score: finalScore });
+      
+      res.status(201).json(report);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate report" });
+    }
+  });
+
+  app.patch("/api/reports/:id", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const report = await storage.updateTrainingReport(id, updates);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update report" });
+    }
+  });
+
+  app.post("/api/reports/:id/send", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { sendToSupervisor, sendToStudent, supervisorEmail } = req.body;
+      
+      const updates: Partial<{ sentToSupervisor: boolean; sentToStudent: boolean; supervisorEmail: string; sentAt: Date; status: "sent" }> = {
+        sentAt: new Date(),
+        status: "sent",
+      };
+      
+      if (sendToSupervisor !== undefined) {
+        updates.sentToSupervisor = sendToSupervisor;
+        if (supervisorEmail) updates.supervisorEmail = supervisorEmail;
+      }
+      if (sendToStudent !== undefined) {
+        updates.sentToStudent = sendToStudent;
+      }
+      
+      const report = await storage.updateTrainingReport(id, updates);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      res.json({ success: true, report });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send report" });
+    }
+  });
+
+  app.delete("/api/reports/:id", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteTrainingReport(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete report" });
+    }
+  });
+
+  // ============= ANNUAL TRAINING PROGRAMS ROUTES =============
+
+  app.get("/api/annual-programs/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver programas de otra empresa" });
+      }
+      
+      const programs = await storage.getAnnualTrainingProgramsByCompany(companyId, year);
+      res.json(programs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch annual programs" });
+    }
+  });
+
+  app.get("/api/annual-programs/student/:studentId/:year", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const year = parseInt(req.params.year);
+      const program = await storage.getAnnualTrainingProgramByStudent(studentId, year);
+      res.json(program || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch annual program" });
+    }
+  });
+
+  app.post("/api/annual-programs", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const program = await storage.createAnnualTrainingProgram(req.body);
+      res.status(201).json(program);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to create annual program" });
+    }
+  });
+
+  app.patch("/api/annual-programs/:id", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const program = await storage.updateAnnualTrainingProgram(id, req.body);
+      if (!program) {
+        return res.status(404).json({ error: "Annual program not found" });
+      }
+      res.json(program);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update annual program" });
+    }
+  });
+
   return httpServer;
 }
