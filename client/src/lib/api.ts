@@ -2,13 +2,24 @@ import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, 
 
 const API_BASE = "/api";
 
+function getAuthToken(): string | null {
+  return localStorage.getItem("ots_token");
+}
+
 async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  };
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE}${url}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -22,7 +33,7 @@ async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
 // Auth API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    return fetcher<{ user: User; company: Company }>("/auth/login", {
+    return fetcher<{ user: User; company: Company; token: string }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
@@ -49,7 +60,21 @@ export const usersAPI = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  delete: (id: number) => fetch(`${API_BASE}/users/${id}`, { method: "DELETE" }),
+  delete: async (id: number) => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/users/${id}`, { 
+      method: "DELETE",
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || "Failed to delete user");
+    }
+  },
 };
 
 // Cycles API

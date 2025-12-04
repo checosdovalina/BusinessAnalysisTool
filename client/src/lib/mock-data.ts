@@ -174,8 +174,8 @@ export const navItems = [
   { label: "Evaluaciones", icon: BookOpen, href: "/evaluations" },
   { label: "Temas de Evaluación", icon: Target, href: "/evaluation-topics" },
   { label: "Simuladores", icon: MonitorPlay, href: "/simulator" },
-  { label: "Operadores", icon: Users, href: "/users" },
-  { label: "Empresas", icon: Building2, href: "/companies", role: "super_admin" },
+  { label: "Operadores", icon: Users, href: "/operators", roles: ["admin", "super_admin"] },
+  { label: "Empresas", icon: Building2, href: "/companies", roles: ["super_admin"] },
   { label: "Reportes Ejecutivos", icon: BarChart3, href: "/reports" },
   { label: "Configuración", icon: Settings, href: "/settings" },
 ];

@@ -1,14 +1,66 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "ots-energy-secret-key-change-in-production";
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    role: string;
+    companyId: number;
+  };
+}
+
+const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Token de autenticación requerido" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string; companyId: number };
+    req.user = {
+      id: decoded.userId,
+      role: decoded.role,
+      companyId: decoded.companyId,
+    };
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: "Token inválido o expirado" });
+  }
+};
+
+const authorizeRoles = (...allowedRoles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "No autenticado" });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "No tienes permisos para realizar esta acción" });
+    }
+    next();
+  };
+};
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+const updateUserSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  password: z.string().min(6).optional(),
+  role: z.enum(["super_admin", "admin", "trainer", "student"]).optional(),
+  avatar: z.string().url().nullable().optional(),
+}).strict();
 
 export async function registerRoutes(
   httpServer: Server,
@@ -34,9 +86,16 @@ export async function registerRoutes(
 
       const company = await storage.getCompany(user.companyId);
       
+      const token = jwt.sign(
+        { userId: user.id, role: user.role, companyId: user.companyId },
+        JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+      
       res.json({ 
         user: { ...user, password: undefined },
-        company 
+        company,
+        token
       });
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Login failed" });
@@ -103,9 +162,18 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
+      
+      if (req.user?.role !== "super_admin" && userData.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "No puedes crear usuarios en otra empresa" });
+      }
+      
+      if (userData.role === "super_admin" && req.user?.role !== "super_admin") {
+        return res.status(403).json({ error: "Solo un super_admin puede crear otro super_admin" });
+      }
+      
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const newUser = await storage.createUser({ ...userData, password: hashedPassword });
       res.status(201).json({ ...newUser, password: undefined });
@@ -117,21 +185,35 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/users/:id", async (req, res) => {
+  app.patch("/api/users/:id", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updates = req.body;
+      const validatedData = updateUserSchema.parse(req.body);
       
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (req.user?.role !== "super_admin" && targetUser.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "No puedes modificar usuarios de otra empresa" });
+      }
+      
+      if (validatedData.role === "super_admin" && req.user?.role !== "super_admin") {
+        return res.status(403).json({ error: "Solo un super_admin puede asignar rol super_admin" });
+      }
+      
+      const updates: Record<string, any> = { ...validatedData };
       if (updates.password) {
         updates.password = await bcrypt.hash(updates.password, 10);
       }
       
       const user = await storage.updateUser(id, updates);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
       res.json({ ...user, password: undefined });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Datos inválidos: " + error.errors.map(e => e.message).join(", ") });
+      }
       if (error instanceof Error && error.message.includes("unique")) {
         return res.status(400).json({ error: "El correo electrónico ya está registrado" });
       }
@@ -139,9 +221,23 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (req.user?.role !== "super_admin" && targetUser.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "No puedes eliminar usuarios de otra empresa" });
+      }
+      
+      if (req.user?.id === id) {
+        return res.status(400).json({ error: "No puedes eliminar tu propia cuenta" });
+      }
+      
       await storage.deleteUser(id);
       res.status(204).send();
     } catch (error) {

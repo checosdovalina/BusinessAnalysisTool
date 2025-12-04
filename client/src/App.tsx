@@ -13,6 +13,7 @@ import EvaluationTopics from "@/pages/evaluation-topics";
 import Reports from "@/pages/reports";
 import SimulatorSessions from "@/pages/simulator-sessions";
 import SimulatorRun from "@/pages/simulator-run";
+import Operators from "@/pages/operators";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -50,6 +51,7 @@ function Router() {
       <Route path="/reports" component={(props) => <ProtectedRoute component={Reports} {...props} />} />
       <Route path="/simulator" component={(props) => <ProtectedRoute component={SimulatorSessions} {...props} />} />
       <Route path="/simulator/run/:id" component={(props) => <ProtectedRoute component={SimulatorRun} {...props} />} />
+      <Route path="/operators" component={(props) => <ProtectedRoute component={Operators} {...props} />} />
       <Route component={NotFound} />
     </Switch>
   );

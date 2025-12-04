@@ -43,7 +43,10 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         <div className="px-3 mb-3 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-[0.2em]">
           Sistema de Control
         </div>
-        {navItems.map((item) => {
+        {navItems.filter((item: any) => {
+          if (!item.roles) return true;
+          return user?.role && item.roles.includes(user.role);
+        }).map((item) => {
           const isActive = location === item.href;
           return (
             <Link 

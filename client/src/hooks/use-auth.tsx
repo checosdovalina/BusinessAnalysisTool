@@ -22,8 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedUser = localStorage.getItem("ots_user");
     const storedCompany = localStorage.getItem("ots_company");
+    const storedToken = localStorage.getItem("ots_token");
     
-    if (storedUser && storedCompany) {
+    if (storedUser && storedCompany && storedToken) {
       setUser(JSON.parse(storedUser));
       setCompany(JSON.parse(storedCompany));
     }
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCompany(response.company);
       localStorage.setItem("ots_user", JSON.stringify(response.user));
       localStorage.setItem("ots_company", JSON.stringify(response.company));
+      localStorage.setItem("ots_token", response.token);
       toast({
         title: "Bienvenido",
         description: `Has iniciado sesión como ${response.user.name}`,
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCompany(null);
     localStorage.removeItem("ots_user");
     localStorage.removeItem("ots_company");
+    localStorage.removeItem("ots_token");
     toast({
       title: "Sesión cerrada",
       description: "Has cerrado sesión exitosamente",
