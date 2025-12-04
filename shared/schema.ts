@@ -23,11 +23,34 @@ export const evaluationTopicEnum = pgEnum("evaluation_topic", [
   "personalizado"
 ]);
 
+// Industry Enum
+export const industryEnum = pgEnum("industry", [
+  "electric_utility",
+  "transmission",
+  "distribution", 
+  "generation",
+  "renewable_energy",
+  "oil_gas",
+  "mining",
+  "manufacturing",
+  "government",
+  "other"
+]);
+
 // Companies Table
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   logo: text("logo"),
+  description: text("description"),
+  industry: industryEnum("industry").default("electric_utility"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country").default("México"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
