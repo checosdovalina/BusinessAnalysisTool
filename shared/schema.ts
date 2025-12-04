@@ -96,7 +96,10 @@ export const cycles = pgTable("cycles", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertCycleSchema = createInsertSchema(cycles).omit({ id: true, createdAt: true });
+export const insertCycleSchema = createInsertSchema(cycles).omit({ id: true, createdAt: true }).extend({
+  startDate: z.union([z.date(), z.string()]).transform((val) => typeof val === 'string' ? new Date(val) : val),
+  endDate: z.union([z.date(), z.string(), z.null()]).optional().transform((val) => val && typeof val === 'string' ? new Date(val) : val),
+});
 export type InsertCycle = z.infer<typeof insertCycleSchema>;
 export type Cycle = typeof cycles.$inferSelect;
 
