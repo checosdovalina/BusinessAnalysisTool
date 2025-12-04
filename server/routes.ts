@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema } from "@shared/schema";
+import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema, insertCompanySchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -142,6 +142,50 @@ export async function registerRoutes(
       res.json(company);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch company" });
+    }
+  });
+
+  app.post("/api/companies", authenticateToken, authorizeRoles("super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyData = insertCompanySchema.parse(req.body);
+      const newCompany = await storage.createCompany(companyData);
+      res.status(201).json(newCompany);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Datos inválidos" });
+      }
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create company" });
+    }
+  });
+
+  app.patch("/api/companies/:id", authenticateToken, authorizeRoles("super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const company = await storage.getCompany(id);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+
+      const updates = req.body;
+      const updatedCompany = await storage.updateCompany(id, updates);
+      res.json(updatedCompany);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update company" });
+    }
+  });
+
+  app.delete("/api/companies/:id", authenticateToken, authorizeRoles("super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const company = await storage.getCompany(id);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+
+      await storage.deleteCompany(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete company" });
     }
   });
 

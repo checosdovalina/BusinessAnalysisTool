@@ -107,9 +107,24 @@ npx tsx server/seed.ts  # Poblar base de datos con datos de prueba
 - **Tema**: Oscuro con acentos cyan eléctrico
 - **Estilo**: SCADA/Centro de control de energía
 
+## Módulos Completados
+- ✅ Gestión de Empresas (super_admin)
+- ✅ Gestión de Operadores/Usuarios (admin)
+- ✅ Evaluaciones y Temas
+- ✅ Simulador de Escenarios
+- ✅ Sistema de Autenticación JWT
+
+## API Endpoints de Empresas
+- `GET /api/companies` - Listar todas las empresas
+- `GET /api/companies/:id` - Obtener empresa por ID
+- `POST /api/companies` - Crear nueva empresa (requiere super_admin)
+- `PATCH /api/companies/:id` - Actualizar empresa (requiere super_admin)
+- `DELETE /api/companies/:id` - Eliminar empresa (requiere super_admin)
+
 ## Próximos Pasos Sugeridos
 1. Implementar gráficas de radar para reportes individuales
 2. Agregar generación de PDF para reportes
 3. Sistema de notificaciones en tiempo real
 4. Gestión de anexos (reportes de fallas, solicitudes de entrenamiento)
 5. Dashboard de avance de programa anual
+6. Panel de gestión de empresas asociadas por super_admin

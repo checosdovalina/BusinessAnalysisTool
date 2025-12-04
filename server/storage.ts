@@ -30,6 +30,8 @@ export interface IStorage {
   getCompany(id: number): Promise<Company | undefined>;
   getAllCompanies(): Promise<Company[]>;
   createCompany(company: InsertCompany): Promise<Company>;
+  updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company | undefined>;
+  deleteCompany(id: number): Promise<void>;
   
   // Cycles
   getCycle(id: number): Promise<Cycle | undefined>;
@@ -143,6 +145,15 @@ export class DatabaseStorage implements IStorage {
   async createCompany(insertCompany: InsertCompany): Promise<Company> {
     const [company] = await db.insert(companies).values(insertCompany).returning();
     return company;
+  }
+
+  async updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company | undefined> {
+    const [company] = await db.update(companies).set(updates).where(eq(companies.id, id)).returning();
+    return company || undefined;
+  }
+
+  async deleteCompany(id: number): Promise<void> {
+    await db.delete(companies).where(eq(companies.id, id));
   }
 
   // Cycles
