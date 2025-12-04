@@ -38,6 +38,18 @@ export const companiesAPI = {
 // Users API
 export const usersAPI = {
   getByCompany: (companyId: number) => fetcher<User[]>(`/users/company/${companyId}`),
+  getById: (id: number) => fetcher<User>(`/users/${id}`),
+  create: (data: { name: string; email: string; password: string; role: string; companyId: number; avatar?: string }) => 
+    fetcher<User>("/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<{ name: string; email: string; password: string; role: string; avatar?: string }>) =>
+    fetcher<User>(`/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) => fetch(`${API_BASE}/users/${id}`, { method: "DELETE" }),
 };
 
 // Cycles API
