@@ -47,17 +47,35 @@ async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+interface VerifyResult {
+  canGenerate: boolean;
+  issues: string[];
+  blockingIssues: string[];
+  warnings: string[];
+  eventsCount: number;
+  cycle: Cycle;
+}
+
 const reportsAPI = {
   getByCompany: (companyId: number) => fetcher<TrainingReport[]>(`/reports/company/${companyId}`),
   getByStudent: (studentId: number) => fetcher<TrainingReport[]>(`/reports/student/${studentId}`),
   getByCycle: (cycleId: number) => fetcher<TrainingReport | null>(`/reports/cycle/${cycleId}`),
+  verify: (cycleId: number) => fetcher<VerifyResult>(`/reports/verify/${cycleId}`),
   generate: (cycleId: number) => fetcher<TrainingReport>(`/reports/generate/${cycleId}`, { method: "POST" }),
   send: (id: number, data: { sendToSupervisor?: boolean; sendToStudent?: boolean; supervisorEmail?: string }) =>
     fetcher<{ success: boolean; report: TrainingReport }>(`/reports/${id}/send`, { method: "POST", body: JSON.stringify(data) }),
-  delete: (id: number) => fetch(`${API_BASE}/reports/${id}`, { 
-    method: "DELETE",
-    headers: { "Authorization": `Bearer ${getAuthToken()}` }
-  }),
+  delete: async (id: number) => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/reports/${id}`, { 
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || "Error al eliminar reporte");
+    }
+    return response;
+  },
 };
 
 const statusLabels: Record<string, string> = {
@@ -170,16 +188,37 @@ export default function Reports() {
     return trainer?.name || "Desconocido";
   };
 
-  const handleGenerateReport = async (cycleId: number) => {
-    setIsGenerating(true);
+  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [verifyingCycleId, setVerifyingCycleId] = useState<number | null>(null);
+
+  const handleVerifyAndGenerate = async (cycleId: number) => {
+    setVerifyingCycleId(cycleId);
     try {
-      await reportsAPI.generate(cycleId);
+      const result = await reportsAPI.verify(cycleId);
+      setVerifyResult(result);
+      setIsVerifyOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al verificar contenido");
+      setVerifyingCycleId(null);
+    }
+  };
+
+  const handleConfirmGenerate = async () => {
+    if (!verifyingCycleId) return;
+    setIsGenerating(true);
+    setIsVerifyOpen(false);
+    try {
+      await reportsAPI.generate(verifyingCycleId);
       await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      await queryClient.invalidateQueries({ queryKey: ["cycles"] });
       toast.success("Reporte generado exitosamente");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al generar reporte");
     } finally {
       setIsGenerating(false);
+      setVerifyingCycleId(null);
+      setVerifyResult(null);
     }
   };
 
@@ -496,14 +535,14 @@ export default function Reports() {
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    {!report && canGenerateReport && cycle.status === "completed" && (
+                                    {!report && canGenerateReport && (
                                       <DropdownMenuItem 
-                                        onClick={() => handleGenerateReport(cycle.id)}
-                                        disabled={isGenerating}
+                                        onClick={() => handleVerifyAndGenerate(cycle.id)}
+                                        disabled={isGenerating || verifyingCycleId === cycle.id}
                                         data-testid={`menu-generate-${cycle.id}`}
                                       >
-                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                        Generar Reporte
+                                        <RefreshCw className={`h-4 w-4 mr-2 ${verifyingCycleId === cycle.id ? "animate-spin" : ""}`} />
+                                        {verifyingCycleId === cycle.id ? "Verificando..." : "Generar Reporte"}
                                       </DropdownMenuItem>
                                     )}
                                     {report && (
@@ -824,6 +863,7 @@ export default function Reports() {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detalle del Reporte</DialogTitle>
+              <DialogDescription>Información completa del reporte de entrenamiento</DialogDescription>
             </DialogHeader>
             {selectedReport && (
               <div className="space-y-6">
@@ -921,6 +961,104 @@ export default function Reports() {
               <Button onClick={() => openSendDialog(selectedReport?.id || 0)}>
                 <Send className="h-4 w-4 mr-2" />
                 Enviar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Verify Content Dialog */}
+        <Dialog open={isVerifyOpen} onOpenChange={(open) => { setIsVerifyOpen(open); if (!open) { setVerifyingCycleId(null); setVerifyResult(null); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Verificación de Contenido</DialogTitle>
+              <DialogDescription>
+                Revisión del ciclo antes de generar el reporte
+              </DialogDescription>
+            </DialogHeader>
+            {verifyResult && (
+              <div className="space-y-4 py-2">
+                <div className="p-4 rounded-lg bg-muted/50 border">
+                  <p className="font-medium mb-2">{verifyResult.cycle?.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Eventos de evaluación: <span className="font-semibold text-foreground">{verifyResult.eventsCount}</span>
+                  </p>
+                </div>
+                
+                {verifyResult.blockingIssues?.length > 0 && (
+                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 space-y-2">
+                    <p className="text-sm font-medium text-red-400 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      Problemas que impiden generar:
+                    </p>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {verifyResult.blockingIssues.map((issue, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-red-400 mt-0.5">•</span>
+                          {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {verifyResult.warnings?.length > 0 && (
+                  <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 space-y-2">
+                    <p className="text-sm font-medium text-yellow-400 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Advertencias (puede continuar):
+                    </p>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {verifyResult.warnings.map((warning, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-yellow-400 mt-0.5">•</span>
+                          {warning}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {verifyResult.canGenerate && verifyResult.blockingIssues?.length === 0 && verifyResult.warnings?.length === 0 && (
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                    <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-400">Listo para generar</p>
+                      <p className="text-sm text-muted-foreground">Todos los requisitos están completos</p>
+                    </div>
+                  </div>
+                )}
+                
+                {verifyResult.canGenerate && verifyResult.warnings?.length > 0 && (
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                    <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-400">Se puede generar</p>
+                      <p className="text-sm text-muted-foreground">Las advertencias no impiden la generación</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setIsVerifyOpen(false); setVerifyingCycleId(null); setVerifyResult(null); }}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleConfirmGenerate}
+                disabled={isGenerating || !verifyResult?.canGenerate}
+                data-testid="button-confirm-generate"
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generar Reporte
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

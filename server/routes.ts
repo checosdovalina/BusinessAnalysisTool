@@ -888,6 +888,16 @@ export async function registerRoutes(
   app.get("/api/reports/student/:studentId", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const studentId = parseInt(req.params.studentId);
+      
+      // Verify student belongs to user's company
+      const student = await storage.getUser(studentId);
+      if (!student) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== student.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver reportes de este estudiante" });
+      }
+      
       const reports = await storage.getTrainingReportsByStudent(studentId);
       res.json(reports);
     } catch (error) {
@@ -898,6 +908,16 @@ export async function registerRoutes(
   app.get("/api/reports/cycle/:cycleId", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const cycleId = parseInt(req.params.cycleId);
+      
+      // Verify cycle belongs to user's company
+      const cycle = await storage.getCycle(cycleId);
+      if (!cycle) {
+        return res.status(404).json({ error: "Cycle not found" });
+      }
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== cycle.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver este ciclo" });
+      }
+      
       const report = await storage.getTrainingReportByCycle(cycleId);
       res.json(report || null);
     } catch (error) {
@@ -912,9 +932,81 @@ export async function registerRoutes(
       if (!report) {
         return res.status(404).json({ error: "Report not found" });
       }
+      
+      // Verify report belongs to user's company
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== report.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para ver este reporte" });
+      }
+      
       res.json(report);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  // Endpoint to verify content before generating report
+  app.get("/api/reports/verify/:cycleId", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const cycleId = parseInt(req.params.cycleId);
+      const cycle = await storage.getCycle(cycleId);
+      
+      if (!cycle) {
+        return res.status(404).json({ error: "Cycle not found" });
+      }
+      
+      // Verify cycle belongs to user's company
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== cycle.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para este ciclo" });
+      }
+      
+      const events = await storage.getEventsByCycle(cycleId);
+      const issues: string[] = [];
+      const warnings: string[] = [];
+      let hasBlockingIssue = false;
+      
+      // Check for existing report - BLOCKING
+      const existingReport = await storage.getTrainingReportByCycle(cycleId);
+      if (existingReport) {
+        issues.push("Ya existe un reporte generado para este ciclo");
+        hasBlockingIssue = true;
+      }
+      
+      // Check if there are events - BLOCKING
+      if (events.length === 0) {
+        issues.push("No hay eventos de evaluación registrados en este ciclo");
+        hasBlockingIssue = true;
+      }
+      
+      // Check if cycle is completed - WARNING (can still generate)
+      if (cycle.status !== "completed") {
+        warnings.push("El ciclo no está marcado como completado");
+      }
+      
+      // Check if all events have scores (null means no score, 0 is a valid failing score)
+      const eventsWithoutScore = events.filter(e => e.score === null || e.score === undefined);
+      if (eventsWithoutScore.length > 0) {
+        warnings.push(`${eventsWithoutScore.length} evento(s) no tienen calificación asignada`);
+      }
+      
+      // Check if all events have feedback (whitespace-only is invalid)
+      const eventsWithoutFeedback = events.filter(e => e.feedback === null || e.feedback === undefined || (typeof e.feedback === 'string' && e.feedback.trim() === ""));
+      if (eventsWithoutFeedback.length > 0) {
+        warnings.push(`${eventsWithoutFeedback.length} evento(s) no tienen retroalimentación`);
+      }
+      
+      // Combine issues and warnings for display
+      const allIssues = [...issues, ...warnings];
+      
+      res.json({
+        canGenerate: !hasBlockingIssue,
+        issues: allIssues,
+        blockingIssues: issues,
+        warnings,
+        eventsCount: events.length,
+        cycle,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify content" });
     }
   });
 
@@ -926,22 +1018,61 @@ export async function registerRoutes(
       if (!cycle) {
         return res.status(404).json({ error: "Cycle not found" });
       }
+      
+      // Verify cycle belongs to user's company
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== cycle.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para generar reportes de otra empresa" });
+      }
+      
+      // Check if report already exists
+      const existingReport = await storage.getTrainingReportByCycle(cycleId);
+      if (existingReport) {
+        return res.status(400).json({ error: "Ya existe un reporte para este ciclo" });
+      }
 
-      // Calculate scores from events
+      // Calculate scores from events with penalty support
       const events = await storage.getEventsByCycle(cycleId);
+      
+      if (events.length === 0) {
+        return res.status(400).json({ error: "No hay eventos de evaluación para generar el reporte" });
+      }
+      
       let totalScore = 0;
       let totalWeight = 0;
+      let totalPenalties = 0;
       const radarData: Array<{ subject: string; score: number; max: number }> = [];
+      
+      // Group scores by evaluation topic for radar chart
+      const topicScores: Record<string, { total: number; count: number; weight: number }> = {};
       
       for (const event of events) {
         const weight = event.weight || 1;
-        totalWeight += weight;
-        const eventScore = (event.score / event.maxScore) * 100 * weight;
-        totalScore += eventScore;
+        const maxScore = event.maxScore || 100;
+        const score = event.score || 0;
         
+        // Calculate penalty deductions
+        const penaltyDeduction = (event.penaltyPoints || 0) * (event.attempts || 0);
+        const adjustedScore = Math.max(0, score - penaltyDeduction);
+        
+        totalWeight += weight;
+        totalScore += (adjustedScore / maxScore) * 100 * weight;
+        totalPenalties += penaltyDeduction;
+        
+        // Group by evaluation topic
+        const topic = event.evaluationTopic || "General";
+        if (!topicScores[topic]) {
+          topicScores[topic] = { total: 0, count: 0, weight: 0 };
+        }
+        topicScores[topic].total += (adjustedScore / maxScore) * 100;
+        topicScores[topic].count++;
+        topicScores[topic].weight += weight;
+      }
+      
+      // Build radar data from grouped topics
+      for (const [topic, data] of Object.entries(topicScores)) {
         radarData.push({
-          subject: event.evaluationTopic || event.title,
-          score: Math.round((event.score / event.maxScore) * 100),
+          subject: topic,
+          score: Math.round(data.total / data.count),
           max: 100,
         });
       }
@@ -964,6 +1095,7 @@ export async function registerRoutes(
         passingScore,
         isPassed,
         radarData: JSON.stringify(radarData),
+        executiveSummary: `Reporte de evaluación para el ciclo "${cycle.title}". Total de eventos evaluados: ${events.length}. Penalizaciones aplicadas: ${totalPenalties} puntos.`,
         generatedById: req.user?.id,
         generatedAt: new Date(),
       };
@@ -982,11 +1114,18 @@ export async function registerRoutes(
   app.patch("/api/reports/:id", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updates = req.body;
-      const report = await storage.updateTrainingReport(id, updates);
-      if (!report) {
+      
+      // Verify report exists and belongs to user's company
+      const existingReport = await storage.getTrainingReport(id);
+      if (!existingReport) {
         return res.status(404).json({ error: "Report not found" });
       }
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== existingReport.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para modificar este reporte" });
+      }
+      
+      const updates = req.body;
+      const report = await storage.updateTrainingReport(id, updates);
       res.json(report);
     } catch (error) {
       res.status(400).json({ error: "Failed to update report" });
@@ -996,6 +1135,16 @@ export async function registerRoutes(
   app.post("/api/reports/:id/send", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Verify report exists and belongs to user's company
+      const existingReport = await storage.getTrainingReport(id);
+      if (!existingReport) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== existingReport.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para enviar este reporte" });
+      }
+      
       const { sendToSupervisor, sendToStudent, supervisorEmail } = req.body;
       
       const updates: Partial<{ sentToSupervisor: boolean; sentToStudent: boolean; supervisorEmail: string; sentAt: Date; status: "sent" }> = {
@@ -1012,9 +1161,6 @@ export async function registerRoutes(
       }
       
       const report = await storage.updateTrainingReport(id, updates);
-      if (!report) {
-        return res.status(404).json({ error: "Report not found" });
-      }
       res.json({ success: true, report });
     } catch (error) {
       res.status(500).json({ error: "Failed to send report" });
@@ -1024,6 +1170,16 @@ export async function registerRoutes(
   app.delete("/api/reports/:id", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Verify report exists and belongs to user's company
+      const existingReport = await storage.getTrainingReport(id);
+      if (!existingReport) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      if (req.user?.role !== "super_admin" && req.user?.companyId !== existingReport.companyId) {
+        return res.status(403).json({ error: "No tienes permisos para eliminar este reporte" });
+      }
+      
       await storage.deleteTrainingReport(id);
       res.status(204).send();
     } catch (error) {
