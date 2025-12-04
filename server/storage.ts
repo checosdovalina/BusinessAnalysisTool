@@ -32,6 +32,7 @@ export interface IStorage {
   getCyclesByTrainer(trainerId: number): Promise<Cycle[]>;
   createCycle(cycle: InsertCycle): Promise<Cycle>;
   updateCycle(id: number, updates: Partial<InsertCycle>): Promise<Cycle | undefined>;
+  deleteCycle(id: number): Promise<void>;
   
   // Events
   getEvent(id: number): Promise<Event | undefined>;
@@ -131,6 +132,11 @@ export class DatabaseStorage implements IStorage {
   async updateCycle(id: number, updates: Partial<InsertCycle>): Promise<Cycle | undefined> {
     const [cycle] = await db.update(cycles).set(updates).where(eq(cycles.id, id)).returning();
     return cycle || undefined;
+  }
+
+  async deleteCycle(id: number): Promise<void> {
+    await db.delete(events).where(eq(events.cycleId, id));
+    await db.delete(cycles).where(eq(cycles.id, id));
   }
 
   // Events

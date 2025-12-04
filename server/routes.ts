@@ -159,6 +159,16 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/cycles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCycle(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cycle" });
+    }
+  });
+
   // ============= EVENTS ROUTES =============
   
   app.get("/api/events/cycle/:cycleId", async (req, res) => {

@@ -54,6 +54,7 @@ export const cyclesAPI = {
     method: "PATCH",
     body: JSON.stringify(data),
   }),
+  delete: (id: number) => fetch(`${API_BASE}/cycles/${id}`, { method: "DELETE" }),
 };
 
 // Events API
