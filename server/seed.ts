@@ -38,7 +38,7 @@ async function seed() {
   console.log("✅ Companies created");
 
   // Create Users with hashed passwords
-  const [admin, trainer, student, superAdmin, student2] = await db.insert(users).values([
+  const [admin, trainer, student, superAdmin, student2, superAdmin2] = await db.insert(users).values([
     {
       name: "Ing. Carlos Supervisor",
       email: "admin@red-electrica.com",
@@ -72,6 +72,13 @@ async function seed() {
       email: "maria@red-electrica.com",
       password: studentPass,
       role: "student",
+      companyId: company1.id,
+    },
+    {
+      name: "Sergio Dovalina",
+      email: "admin@otsenergy.com",
+      password: superPass,
+      role: "super_admin",
       companyId: company1.id,
     },
   ]).returning();

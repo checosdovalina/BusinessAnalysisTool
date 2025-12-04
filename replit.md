@@ -64,6 +64,7 @@ Plataforma integral de evaluación y entrenamiento para operadores de redes elé
 | Student | juan@red-electrica.com | student123 |
 | Student 2 | maria@red-electrica.com | student123 |
 | SuperAdmin | ana@ots-system.com | super123 |
+| SuperAdmin | admin@otsenergy.com | super123 |
 
 ## API Endpoints
 
