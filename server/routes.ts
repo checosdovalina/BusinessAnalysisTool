@@ -90,6 +90,65 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ ...user, password: undefined });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const newUser = await storage.createUser({ ...userData, password: hashedPassword });
+      res.status(201).json({ ...newUser, password: undefined });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("unique")) {
+        return res.status(400).json({ error: "El correo electrónico ya está registrado" });
+      }
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+      
+      const user = await storage.updateUser(id, updates);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ ...user, password: undefined });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("unique")) {
+        return res.status(400).json({ error: "El correo electrónico ya está registrado" });
+      }
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteUser(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // ============= CYCLES ROUTES =============
   
   app.get("/api/cycles/company/:companyId", async (req, res) => {
