@@ -157,12 +157,12 @@ export default function EvaluationList() {
         }
       }
       
-      for (const topicId of itemTopicIds) {
+      Array.from(itemTopicIds).forEach(topicId => {
         const topic = currentTopics.find((t: EvaluationTopic) => t.id === topicId);
         if (topic && !derivedTopicCodes.includes(topic.code)) {
           derivedTopicCodes = [...derivedTopicCodes, topic.code];
         }
-      }
+      });
     } catch (error) {
       console.error("Error loading cycle topic items:", error);
     }
@@ -329,7 +329,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Título del Ciclo *</label>
           <Input
             value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
             placeholder="Ej: Restablecimiento de Línea 115kV"
             className="mt-1"
             data-testid="input-cycle-title"
@@ -339,7 +339,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Código de Calidad</label>
           <Input
             value={formData.qualityCode}
-            onChange={(e) => setFormData({ ...formData, qualityCode: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, qualityCode: e.target.value }))}
             placeholder="Ej: OTS-2024-001"
             className="mt-1"
             data-testid="input-cycle-code"
@@ -349,7 +349,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Tipo</label>
           <select
             value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value as "field" | "simulator" })}
+            onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as "field" | "simulator" }))}
             className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
             data-testid="select-cycle-type"
           >
@@ -361,7 +361,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Estudiante *</label>
           <select
             value={formData.studentId || ""}
-            onChange={(e) => setFormData({ ...formData, studentId: e.target.value ? parseInt(e.target.value) : undefined })}
+            onChange={(e) => setFormData(prev => ({ ...prev, studentId: e.target.value ? parseInt(e.target.value) : undefined }))}
             className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
             data-testid="select-cycle-student"
           >
@@ -375,7 +375,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Entrenador *</label>
           <select
             value={formData.trainerId || ""}
-            onChange={(e) => setFormData({ ...formData, trainerId: e.target.value ? parseInt(e.target.value) : undefined })}
+            onChange={(e) => setFormData(prev => ({ ...prev, trainerId: e.target.value ? parseInt(e.target.value) : undefined }))}
             className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
             data-testid="select-cycle-trainer"
           >
@@ -392,7 +392,7 @@ export default function EvaluationList() {
             min="0"
             max="100"
             value={formData.minPassingScore}
-            onChange={(e) => setFormData({ ...formData, minPassingScore: parseInt(e.target.value) || 0 })}
+            onChange={(e) => setFormData(prev => ({ ...prev, minPassingScore: parseInt(e.target.value) || 0 }))}
             className="mt-1"
             data-testid="input-cycle-min-score"
           />
@@ -401,7 +401,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Estado</label>
           <select
             value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as "pending" | "in_progress" | "completed" })}
+            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as "pending" | "in_progress" | "completed" }))}
             className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
             data-testid="select-cycle-status"
           >
@@ -414,7 +414,7 @@ export default function EvaluationList() {
           <label className="text-sm font-medium">Objetivo General</label>
           <textarea
             value={formData.generalObjective}
-            onChange={(e) => setFormData({ ...formData, generalObjective: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, generalObjective: e.target.value }))}
             placeholder="Describe el objetivo principal de esta evaluación..."
             className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md resize-none h-20"
             data-testid="input-cycle-objective"
