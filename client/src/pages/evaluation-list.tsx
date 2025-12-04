@@ -322,7 +322,7 @@ export default function EvaluationList() {
     );
   }
 
-  const FormContent = () => (
+  const formContent = (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
@@ -655,7 +655,7 @@ export default function EvaluationList() {
             </DialogTitle>
             <DialogDescription>Crea un nuevo ciclo de entrenamiento para un operador.</DialogDescription>
           </DialogHeader>
-          <FormContent />
+          {formContent}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancelar
@@ -693,7 +693,7 @@ export default function EvaluationList() {
               <span className="ml-3 text-muted-foreground">Cargando datos...</span>
             </div>
           ) : (
-            <FormContent />
+            {formContent}
           )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
