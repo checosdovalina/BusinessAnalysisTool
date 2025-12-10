@@ -354,14 +354,20 @@ export default function TrainingRequestsPage() {
           
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Título de la Solicitud *</Label>
+              <Label htmlFor="title" className="text-base font-semibold text-accent">
+                Título de la Solicitud * (Obligatorio)
+              </Label>
               <Input
                 id="title"
                 placeholder="Ej: Entrenamiento de Fallas en Líneas 115kV"
                 value={newRequest.title}
                 onChange={(e) => setNewRequest(prev => ({ ...prev, title: e.target.value }))}
                 data-testid="input-request-title"
+                className={!newRequest.title.trim() ? "border-destructive ring-1 ring-destructive" : ""}
               />
+              {!newRequest.title.trim() && (
+                <p className="text-sm text-destructive">Este campo es obligatorio para crear la solicitud</p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -483,12 +489,14 @@ export default function TrainingRequestsPage() {
             </Button>
             <Button 
               onClick={handleCreate}
-              disabled={!newRequest.title || createMutation.isPending}
+              disabled={!newRequest.title.trim() || createMutation.isPending}
               className="bg-accent text-accent-foreground"
               data-testid="button-create-request"
             >
               {createMutation.isPending ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creando...</>
+              ) : !newRequest.title.trim() ? (
+                "Falta el Título"
               ) : (
                 "Crear Solicitud"
               )}
