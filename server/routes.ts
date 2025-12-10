@@ -1373,7 +1373,7 @@ export async function registerRoutes(
 
   // ============= EVALUATION TEMPLATES ROUTES =============
 
-  app.get("/api/evaluation-templates", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/evaluation-templates", async (req, res) => {
     try {
       const templates = await storage.getAllEvaluationTemplates();
       res.json(templates);
@@ -1382,7 +1382,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evaluation-templates/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/evaluation-templates/company/:companyId", async (req, res) => {
     try {
       const companyId = req.params.companyId === 'null' ? null : parseInt(req.params.companyId);
       const templates = await storage.getEvaluationTemplatesByCompany(companyId);
@@ -1392,7 +1392,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evaluation-templates/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/evaluation-templates/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const template = await storage.getEvaluationTemplate(id);
@@ -1405,7 +1405,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evaluation-templates/:id/full", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/evaluation-templates/:id/full", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const result = await storage.getEvaluationTemplateWithDetails(id);
