@@ -8,7 +8,7 @@ export const roleEnum = pgEnum("role", ["super_admin", "admin", "trainer", "stud
 export const cycleStatusEnum = pgEnum("cycle_status", ["pending", "in_progress", "completed"]);
 export const cycleTypeEnum = pgEnum("cycle_type", ["field", "simulator"]);
 export const eventStatusEnum = pgEnum("event_status", ["pending", "pass", "fail", "skipped"]);
-export const scenarioCategoryEnum = pgEnum("scenario_category", ["Fault", "Maintenance", "Overload", "Topology"]);
+export const scenarioCategoryEnum = pgEnum("scenario_category", ["Fault", "Maintenance", "Overload", "Topology", "Emergency", "Stability", "Verification", "Protection", "Frequency", "Training"]);
 export const difficultyEnum = pgEnum("difficulty", ["Easy", "Medium", "Hard"]);
 
 // Evaluation Topics / Temas de Evaluación

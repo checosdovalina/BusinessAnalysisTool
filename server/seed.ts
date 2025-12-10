@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { companies, users, cycles, events, simulatorScenarios, evaluationTopics, evaluationTopicItems, cycleTopicItems } from "@shared/schema";
+import { companies, users, cycles, events, simulatorScenarios, evaluationTopics, evaluationTopicItems, cycleTopicItems, trainingReports, trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -12,7 +12,14 @@ async function hashPassword(password: string): Promise<string> {
 async function seed() {
   console.log("🌱 Seeding database...");
 
-  // Clear existing data
+  // Clear existing data (order matters due to foreign keys)
+  await db.delete(requestRecipients);
+  await db.delete(requestTopics);
+  await db.delete(requestProcedures);
+  await db.delete(requestRoles);
+  await db.delete(requestIncidents);
+  await db.delete(trainingRequests);
+  await db.delete(trainingReports);
   await db.delete(cycleTopicItems);
   await db.delete(evaluationTopicItems);
   await db.delete(evaluationTopics);
@@ -139,7 +146,7 @@ async function seed() {
   await db.insert(evaluationTopicItems).values(topicItemsData);
   console.log("✅ Evaluation topic items created");
 
-  // Create Global Simulator Scenarios
+  // Create Global Simulator Scenarios - Based on CENACE real evaluation scenarios
   const [scenario1, scenario2, scenario3, scenario4] = await db.insert(simulatorScenarios).values([
     {
       title: "Falla Trifásica en Línea 400kV",
@@ -170,6 +177,87 @@ async function seed() {
       companyId: null,
     },
   ]).returning();
+
+  // Additional CENACE-style scenarios
+  await db.insert(simulatorScenarios).values([
+    {
+      title: "Licencia en Muerto de Emergencia sobre CEV",
+      category: "Emergency",
+      difficulty: "Hard",
+      description: "Entrenando debe preguntar trabajos a realizar, equipo, duración de L.M.E., condiciones climatológicas, confirmar personal en P.T., llevar a 0 MVAR CEV y utilizar centrales fotovoltaicas para modificar potencia reactiva.",
+      companyId: null,
+    },
+    {
+      title: "D L.T. AND 93710 TRS, DRM no exitoso y pérdida de generación de VSU y VST",
+      category: "Fault",
+      difficulty: "Hard",
+      description: "Detectar falla, determinar DRM no exitoso, determinar protecciones operadas, si existió CAD, indicio de falla, coordinar con ZOT para restablecimiento, esperar 3 min para segunda prueba, detectar disminución súbita de generación.",
+      companyId: null,
+    },
+    {
+      title: "Oscilaciones de Q de VSU y VST",
+      category: "Stability",
+      difficulty: "Medium",
+      description: "Observar variaciones en los voltajes de la ZOTLGA, detectar oscilaciones de Q en VSU y VST, cuestionar a la central, solicitar cambiar modo de control de Q, solicitar desconectar de emergencia la central por confiabilidad de la red.",
+      companyId: null,
+    },
+    {
+      title: "P.V.C. a CCC IEL",
+      category: "Verification",
+      difficulty: "Medium",
+      description: "Confirmar solicitud de realizar P.V.C. a la CCC, confirmar valor de generación ofertado, cuestionar a solicitud de quien se realiza, ejecutar orden de despacho, solicitar confirmación de la solicitud, conceder LVE a central para realizar PVC.",
+      companyId: null,
+    },
+    {
+      title: "D L.T. FVL 73370 DLD con sobre alcance en MOQ, VCM, LCS y DEL",
+      category: "Fault",
+      difficulty: "Hard",
+      description: "Detectar falla, determinar protecciones operadas, si existió CAD, indicio de falla, sobre alcance en los demás interruptores, coordinar con ZOTCGO para restablecimiento, recuperar en primera instancia carga de subestaciones.",
+      companyId: null,
+    },
+    {
+      title: "D REMOTOS DE B-01 115 KV DE S.E. CZU SIN INDICIO",
+      category: "Fault",
+      difficulty: "Hard",
+      description: "Detectar falla, determinar interruptores disparados, protecciones operadas, si existió CAD y/o carga afectada, indicio de falla, coordinarse con ZOTLGA y CCD para restablecimiento, seccionar LT's en anillo que convergen a la S.E.",
+      companyId: null,
+    },
+    {
+      title: "Disparo TER AT-99 con operación de DAC de TER",
+      category: "Protection",
+      difficulty: "Medium",
+      description: "Detectar falla, determinar interruptores disparados, protecciones operadas, si existió CAD, indicio de falla, determinar operación del EAR, coordinar con ZOT para proceder con restablecimiento, poner en servicio TER AT-99 con cierre.",
+      companyId: null,
+    },
+    {
+      title: "D LT NCG 93950 AOD DRM N.E. con operación de DAC de NCG sin LT 93950",
+      category: "Fault",
+      difficulty: "Hard",
+      description: "Detectar falla, determinar interruptores disparados, protecciones operadas, si existió CAD, indicio de falla, determinar operación del EAR, esperar 3 min para segunda prueba sobre LT, seccionar red de 115 para evitar sobrecarga.",
+      companyId: null,
+    },
+    {
+      title: "D L.T. CGD 93160 SGD, DRM NO EXITOSO",
+      category: "Fault",
+      difficulty: "Medium",
+      description: "Detectar falla, determinar DRM no exitoso, protecciones operadas, si existió CAD, indicio de falla, coordinar con ZOT para restablecimiento, recuperar carga de PAI y ALV antes de cumplirse los 3 minutos para realizar segunda prueba.",
+      companyId: null,
+    },
+    {
+      title: "Operación de 81 en la GCRNTE",
+      category: "Frequency",
+      difficulty: "Medium",
+      description: "Detectar decremento de frecuencia, determinar interruptores disparados, protecciones operadas, determinar operación de EPS, si existió indicio dentro de la GCRNTE, coordinar con CENAL para identificar causa de la caída de la frecuencia.",
+      companyId: null,
+    },
+    {
+      title: "FAMILIARIZACIÓN CON DESPLEGADOS DE COLAPSO",
+      category: "Training",
+      difficulty: "Easy",
+      description: "Detectar Colapso, determinar interruptores disparados, protecciones operadas, si existió indicio de falla, solicitar ejecutar macroinstrucciones de Etapa 0, 1 y 2, solicitar recuperación de EAR y EPS.",
+      companyId: null,
+    },
+  ]);
 
   console.log("✅ Simulator scenarios created");
 
