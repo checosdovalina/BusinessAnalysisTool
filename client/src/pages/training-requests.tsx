@@ -191,6 +191,7 @@ export default function TrainingRequestsPage() {
           onBack={() => { setViewMode("list"); setSelectedRequest(null); }}
           onSubmit={handleSubmitRequest}
           onDelete={() => deleteMutation.mutate(selectedRequest.id)}
+          onRefresh={() => loadRequestDetails(selectedRequest.id)}
           canEdit={canEdit}
           companyUsers={companyUsers}
           queryClient={queryClient}
@@ -516,12 +517,14 @@ function RequestDetailView({
   onBack, 
   onSubmit, 
   onDelete,
+  onRefresh,
   canEdit,
   companyUsers,
   queryClient,
 }: { 
   request: TrainingRequestFull;
   onBack: () => void;
+  onRefresh: () => void;
   onSubmit: () => void;
   onDelete: () => void;
   canEdit: boolean;
@@ -543,6 +546,7 @@ function RequestDetailView({
       setShowAddDialog(null);
       setIncidentForm({ title: "", description: "", severity: "", gridZone: "", simulationGoal: "" });
       toast.success("Reporte de falla agregado");
+      onRefresh();
     },
   });
 
@@ -553,6 +557,7 @@ function RequestDetailView({
       setShowAddDialog(null);
       setRoleForm({ participantName: "", roleType: "operator", responsibilities: "", contactEmail: "" });
       toast.success("Rol agregado");
+      onRefresh();
     },
   });
 
@@ -563,6 +568,7 @@ function RequestDetailView({
       setShowAddDialog(null);
       setProcedureForm({ procedureTitle: "", referenceCode: "", description: "", isMandatory: true });
       toast.success("Procedimiento agregado");
+      onRefresh();
     },
   });
 
@@ -573,6 +579,7 @@ function RequestDetailView({
       setShowAddDialog(null);
       setTopicForm({ topicTitle: "", description: "", simulationGoal: "", scenarioCategory: "" });
       toast.success("Tema agregado");
+      onRefresh();
     },
   });
 
@@ -581,6 +588,7 @@ function RequestDetailView({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["training-requests"] });
       toast.success("Reporte eliminado");
+      onRefresh();
     },
   });
 
@@ -589,6 +597,7 @@ function RequestDetailView({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["training-requests"] });
       toast.success("Rol eliminado");
+      onRefresh();
     },
   });
 
@@ -597,6 +606,7 @@ function RequestDetailView({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["training-requests"] });
       toast.success("Procedimiento eliminado");
+      onRefresh();
     },
   });
 
@@ -605,6 +615,7 @@ function RequestDetailView({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["training-requests"] });
       toast.success("Tema eliminado");
+      onRefresh();
     },
   });
 
