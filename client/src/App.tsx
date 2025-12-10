@@ -16,6 +16,7 @@ import SimulatorRun from "@/pages/simulator-run";
 import Operators from "@/pages/operators";
 import Companies from "@/pages/companies";
 import SettingsPage from "@/pages/settings";
+import TrainingRequests from "@/pages/training-requests";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/operators" component={(props) => <ProtectedRoute component={Operators} {...props} />} />
       <Route path="/companies" component={(props) => <ProtectedRoute component={Companies} {...props} />} />
       <Route path="/settings" component={(props) => <ProtectedRoute component={SettingsPage} {...props} />} />
+      <Route path="/training-requests" component={(props) => <ProtectedRoute component={TrainingRequests} {...props} />} />
       <Route component={NotFound} />
     </Switch>
   );

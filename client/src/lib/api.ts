@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -217,4 +217,103 @@ export const cycleTopicItemsAPI = {
       method: "POST",
       body: JSON.stringify({ items }),
     }),
+};
+
+// Training Request with full details
+export interface TrainingRequestFull extends TrainingRequest {
+  incidents: RequestIncident[];
+  roles: RequestRole[];
+  procedures: RequestProcedure[];
+  topics: RequestTopic[];
+  recipients: RequestRecipient[];
+}
+
+// Training Requests API
+export const trainingRequestsAPI = {
+  getByCompany: (companyId: number) => fetcher<TrainingRequest[]>(`/training-requests/company/${companyId}`),
+  getById: (id: number) => fetcher<TrainingRequest>(`/training-requests/${id}`),
+  getFull: (id: number) => fetcher<TrainingRequestFull>(`/training-requests/${id}/full`),
+  create: (data: Partial<TrainingRequest>) => fetcher<TrainingRequest>("/training-requests", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  update: (id: number, data: Partial<TrainingRequest>) => fetcher<TrainingRequest>(`/training-requests/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: (id: number) => fetch(`${API_BASE}/training-requests/${id}`, { 
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${getAuthToken()}` },
+  }),
+  
+  // Incidents
+  getIncidents: (requestId: number) => fetcher<RequestIncident[]>(`/training-requests/${requestId}/incidents`),
+  createIncident: (requestId: number, data: Partial<RequestIncident>) => fetcher<RequestIncident>(`/training-requests/${requestId}/incidents`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  updateIncident: (id: number, data: Partial<RequestIncident>) => fetcher<RequestIncident>(`/request-incidents/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  deleteIncident: (id: number) => fetch(`${API_BASE}/request-incidents/${id}`, { 
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${getAuthToken()}` },
+  }),
+  
+  // Roles
+  getRoles: (requestId: number) => fetcher<RequestRole[]>(`/training-requests/${requestId}/roles`),
+  createRole: (requestId: number, data: Partial<RequestRole>) => fetcher<RequestRole>(`/training-requests/${requestId}/roles`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  updateRole: (id: number, data: Partial<RequestRole>) => fetcher<RequestRole>(`/request-roles/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  deleteRole: (id: number) => fetch(`${API_BASE}/request-roles/${id}`, { 
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${getAuthToken()}` },
+  }),
+  
+  // Procedures
+  getProcedures: (requestId: number) => fetcher<RequestProcedure[]>(`/training-requests/${requestId}/procedures`),
+  createProcedure: (requestId: number, data: Partial<RequestProcedure>) => fetcher<RequestProcedure>(`/training-requests/${requestId}/procedures`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  updateProcedure: (id: number, data: Partial<RequestProcedure>) => fetcher<RequestProcedure>(`/request-procedures/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  deleteProcedure: (id: number) => fetch(`${API_BASE}/request-procedures/${id}`, { 
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${getAuthToken()}` },
+  }),
+  
+  // Topics
+  getTopics: (requestId: number) => fetcher<RequestTopic[]>(`/training-requests/${requestId}/topics`),
+  createTopic: (requestId: number, data: Partial<RequestTopic>) => fetcher<RequestTopic>(`/training-requests/${requestId}/topics`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  updateTopic: (id: number, data: Partial<RequestTopic>) => fetcher<RequestTopic>(`/request-topics/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  deleteTopic: (id: number) => fetch(`${API_BASE}/request-topics/${id}`, { 
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${getAuthToken()}` },
+  }),
+  
+  // Recipients
+  getRecipients: (requestId: number) => fetcher<RequestRecipient[]>(`/training-requests/${requestId}/recipients`),
+  addRecipient: (requestId: number, data: Partial<RequestRecipient>) => fetcher<RequestRecipient>(`/training-requests/${requestId}/recipients`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  removeRecipient: (id: number) => fetch(`${API_BASE}/request-recipients/${id}`, { 
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${getAuthToken()}` },
+  }),
 };

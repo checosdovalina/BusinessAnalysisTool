@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema, insertCompanySchema } from "@shared/schema";
+import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema, insertCompanySchema, insertTrainingRequestSchema, insertRequestIncidentSchema, insertRequestRoleSchema, insertRequestProcedureSchema, insertRequestTopicSchema, insertRequestRecipientSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -1368,6 +1368,319 @@ export async function registerRoutes(
       res.json(userWithoutPassword);
     } catch (error) {
       res.status(400).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // ============= TRAINING REQUESTS ROUTES =============
+
+  app.get("/api/training-requests/company/:companyId", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const requests = await storage.getTrainingRequestsByCompany(companyId);
+      res.json(requests);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch training requests" });
+    }
+  });
+
+  app.get("/api/training-requests/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const request = await storage.getTrainingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Training request not found" });
+      }
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch training request" });
+    }
+  });
+
+  app.get("/api/training-requests/:id/full", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const request = await storage.getTrainingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Training request not found" });
+      }
+      
+      const [incidents, roles, procedures, topics, recipients] = await Promise.all([
+        storage.getRequestIncidents(id),
+        storage.getRequestRoles(id),
+        storage.getRequestProcedures(id),
+        storage.getRequestTopics(id),
+        storage.getRequestRecipients(id),
+      ]);
+      
+      res.json({ ...request, incidents, roles, procedures, topics, recipients });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch training request details" });
+    }
+  });
+
+  app.post("/api/training-requests", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const year = new Date().getFullYear();
+      const existingRequests = await storage.getTrainingRequestsByCompany(req.body.companyId);
+      const requestNumber = existingRequests.length + 1;
+      const requestCode = `SOL-${year}-${String(requestNumber).padStart(3, '0')}`;
+      
+      const requestData = insertTrainingRequestSchema.parse({
+        ...req.body,
+        requestCode,
+        requestedById: req.user?.id,
+      });
+      const newRequest = await storage.createTrainingRequest(requestData);
+      res.status(201).json(newRequest);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create training request" });
+    }
+  });
+
+  app.patch("/api/training-requests/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      if (updates.status === "submitted" && !updates.submittedAt) {
+        updates.submittedAt = new Date();
+      }
+      if (updates.status === "approved" && !updates.approvedAt) {
+        updates.approvedAt = new Date();
+      }
+      if (updates.status === "rejected" && !updates.rejectedAt) {
+        updates.rejectedAt = new Date();
+      }
+      
+      const updatedRequest = await storage.updateTrainingRequest(id, updates);
+      if (!updatedRequest) {
+        return res.status(404).json({ error: "Training request not found" });
+      }
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update training request" });
+    }
+  });
+
+  app.delete("/api/training-requests/:id", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteTrainingRequest(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete training request" });
+    }
+  });
+
+  // Request Incidents
+  app.get("/api/training-requests/:requestId/incidents", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const incidents = await storage.getRequestIncidents(requestId);
+      res.json(incidents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch incidents" });
+    }
+  });
+
+  app.post("/api/training-requests/:requestId/incidents", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const incidentData = insertRequestIncidentSchema.parse({ ...req.body, requestId });
+      const newIncident = await storage.createRequestIncident(incidentData);
+      res.status(201).json(newIncident);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create incident" });
+    }
+  });
+
+  app.patch("/api/request-incidents/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateRequestIncident(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Incident not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update incident" });
+    }
+  });
+
+  app.delete("/api/request-incidents/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteRequestIncident(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete incident" });
+    }
+  });
+
+  // Request Roles
+  app.get("/api/training-requests/:requestId/roles", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const roles = await storage.getRequestRoles(requestId);
+      res.json(roles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch roles" });
+    }
+  });
+
+  app.post("/api/training-requests/:requestId/roles", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const roleData = insertRequestRoleSchema.parse({ ...req.body, requestId });
+      const newRole = await storage.createRequestRole(roleData);
+      res.status(201).json(newRole);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create role" });
+    }
+  });
+
+  app.patch("/api/request-roles/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateRequestRole(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Role not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update role" });
+    }
+  });
+
+  app.delete("/api/request-roles/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteRequestRole(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete role" });
+    }
+  });
+
+  // Request Procedures
+  app.get("/api/training-requests/:requestId/procedures", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const procedures = await storage.getRequestProcedures(requestId);
+      res.json(procedures);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch procedures" });
+    }
+  });
+
+  app.post("/api/training-requests/:requestId/procedures", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const procedureData = insertRequestProcedureSchema.parse({ ...req.body, requestId });
+      const newProcedure = await storage.createRequestProcedure(procedureData);
+      res.status(201).json(newProcedure);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create procedure" });
+    }
+  });
+
+  app.patch("/api/request-procedures/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateRequestProcedure(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Procedure not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update procedure" });
+    }
+  });
+
+  app.delete("/api/request-procedures/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteRequestProcedure(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete procedure" });
+    }
+  });
+
+  // Request Topics
+  app.get("/api/training-requests/:requestId/topics", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const topics = await storage.getRequestTopics(requestId);
+      res.json(topics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topics" });
+    }
+  });
+
+  app.post("/api/training-requests/:requestId/topics", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const topicData = insertRequestTopicSchema.parse({ ...req.body, requestId });
+      const newTopic = await storage.createRequestTopic(topicData);
+      res.status(201).json(newTopic);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create topic" });
+    }
+  });
+
+  app.patch("/api/request-topics/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateRequestTopic(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update topic" });
+    }
+  });
+
+  app.delete("/api/request-topics/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteRequestTopic(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete topic" });
+    }
+  });
+
+  // Request Recipients
+  app.get("/api/training-requests/:requestId/recipients", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const recipients = await storage.getRequestRecipients(requestId);
+      res.json(recipients);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recipients" });
+    }
+  });
+
+  app.post("/api/training-requests/:requestId/recipients", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = parseInt(req.params.requestId);
+      const recipientData = insertRequestRecipientSchema.parse({ ...req.body, requestId });
+      const newRecipient = await storage.createRequestRecipient(recipientData);
+      res.status(201).json(newRecipient);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to add recipient" });
+    }
+  });
+
+  app.delete("/api/request-recipients/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteRequestRecipient(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove recipient" });
     }
   });
 
