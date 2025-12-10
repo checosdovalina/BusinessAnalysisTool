@@ -131,7 +131,10 @@ export default function TrainingRequestsPage() {
   };
 
   const handleCreate = () => {
-    if (!company?.id || !user?.id) return;
+    if (!company?.id || !user?.id) {
+      toast.error("Error de autenticación. Por favor, cierra sesión y vuelve a iniciar sesión.");
+      return;
+    }
     createMutation.mutate({
       companyId: company.id,
       title: newRequest.title,
