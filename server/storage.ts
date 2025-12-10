@@ -4,6 +4,7 @@ import {
   evaluationTopics, evaluationTopicItems, cycleTopicItems,
   trainingReports, annualTrainingPrograms,
   companySettings, userPreferences,
+  trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -19,6 +20,12 @@ import {
   type AnnualTrainingProgram, type InsertAnnualTrainingProgram,
   type CompanySettings, type InsertCompanySettings,
   type UserPreferences, type InsertUserPreferences,
+  type TrainingRequest, type InsertTrainingRequest,
+  type RequestIncident, type InsertRequestIncident,
+  type RequestRole, type InsertRequestRole,
+  type RequestProcedure, type InsertRequestProcedure,
+  type RequestTopic, type InsertRequestTopic,
+  type RequestRecipient, type InsertRequestRecipient,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
@@ -132,6 +139,42 @@ export interface IStorage {
   getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
   createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
   updateUserPreferences(userId: number, updates: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined>;
+  
+  // Training Requests
+  getTrainingRequest(id: number): Promise<TrainingRequest | undefined>;
+  getTrainingRequestsByCompany(companyId: number): Promise<TrainingRequest[]>;
+  createTrainingRequest(request: InsertTrainingRequest): Promise<TrainingRequest>;
+  updateTrainingRequest(id: number, updates: Partial<InsertTrainingRequest>): Promise<TrainingRequest | undefined>;
+  deleteTrainingRequest(id: number): Promise<void>;
+  
+  // Request Incidents
+  getRequestIncidents(requestId: number): Promise<RequestIncident[]>;
+  createRequestIncident(incident: InsertRequestIncident): Promise<RequestIncident>;
+  updateRequestIncident(id: number, updates: Partial<InsertRequestIncident>): Promise<RequestIncident | undefined>;
+  deleteRequestIncident(id: number): Promise<void>;
+  
+  // Request Roles
+  getRequestRoles(requestId: number): Promise<RequestRole[]>;
+  createRequestRole(role: InsertRequestRole): Promise<RequestRole>;
+  updateRequestRole(id: number, updates: Partial<InsertRequestRole>): Promise<RequestRole | undefined>;
+  deleteRequestRole(id: number): Promise<void>;
+  
+  // Request Procedures
+  getRequestProcedures(requestId: number): Promise<RequestProcedure[]>;
+  createRequestProcedure(procedure: InsertRequestProcedure): Promise<RequestProcedure>;
+  updateRequestProcedure(id: number, updates: Partial<InsertRequestProcedure>): Promise<RequestProcedure | undefined>;
+  deleteRequestProcedure(id: number): Promise<void>;
+  
+  // Request Topics
+  getRequestTopics(requestId: number): Promise<RequestTopic[]>;
+  createRequestTopic(topic: InsertRequestTopic): Promise<RequestTopic>;
+  updateRequestTopic(id: number, updates: Partial<InsertRequestTopic>): Promise<RequestTopic | undefined>;
+  deleteRequestTopic(id: number): Promise<void>;
+  
+  // Request Recipients
+  getRequestRecipients(requestId: number): Promise<RequestRecipient[]>;
+  createRequestRecipient(recipient: InsertRequestRecipient): Promise<RequestRecipient>;
+  deleteRequestRecipient(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -576,6 +619,125 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userPreferences.userId, userId))
       .returning();
     return preferences || undefined;
+  }
+
+  // Training Requests
+  async getTrainingRequest(id: number): Promise<TrainingRequest | undefined> {
+    const [request] = await db.select().from(trainingRequests).where(eq(trainingRequests.id, id));
+    return request || undefined;
+  }
+
+  async getTrainingRequestsByCompany(companyId: number): Promise<TrainingRequest[]> {
+    return db.select().from(trainingRequests)
+      .where(eq(trainingRequests.companyId, companyId))
+      .orderBy(desc(trainingRequests.createdAt));
+  }
+
+  async createTrainingRequest(request: InsertTrainingRequest): Promise<TrainingRequest> {
+    const [newRequest] = await db.insert(trainingRequests).values(request).returning();
+    return newRequest;
+  }
+
+  async updateTrainingRequest(id: number, updates: Partial<InsertTrainingRequest>): Promise<TrainingRequest | undefined> {
+    const [request] = await db.update(trainingRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(trainingRequests.id, id))
+      .returning();
+    return request || undefined;
+  }
+
+  async deleteTrainingRequest(id: number): Promise<void> {
+    await db.delete(trainingRequests).where(eq(trainingRequests.id, id));
+  }
+
+  // Request Incidents
+  async getRequestIncidents(requestId: number): Promise<RequestIncident[]> {
+    return db.select().from(requestIncidents).where(eq(requestIncidents.requestId, requestId));
+  }
+
+  async createRequestIncident(incident: InsertRequestIncident): Promise<RequestIncident> {
+    const [newIncident] = await db.insert(requestIncidents).values(incident).returning();
+    return newIncident;
+  }
+
+  async updateRequestIncident(id: number, updates: Partial<InsertRequestIncident>): Promise<RequestIncident | undefined> {
+    const [incident] = await db.update(requestIncidents).set(updates).where(eq(requestIncidents.id, id)).returning();
+    return incident || undefined;
+  }
+
+  async deleteRequestIncident(id: number): Promise<void> {
+    await db.delete(requestIncidents).where(eq(requestIncidents.id, id));
+  }
+
+  // Request Roles
+  async getRequestRoles(requestId: number): Promise<RequestRole[]> {
+    return db.select().from(requestRoles).where(eq(requestRoles.requestId, requestId));
+  }
+
+  async createRequestRole(role: InsertRequestRole): Promise<RequestRole> {
+    const [newRole] = await db.insert(requestRoles).values(role).returning();
+    return newRole;
+  }
+
+  async updateRequestRole(id: number, updates: Partial<InsertRequestRole>): Promise<RequestRole | undefined> {
+    const [role] = await db.update(requestRoles).set(updates).where(eq(requestRoles.id, id)).returning();
+    return role || undefined;
+  }
+
+  async deleteRequestRole(id: number): Promise<void> {
+    await db.delete(requestRoles).where(eq(requestRoles.id, id));
+  }
+
+  // Request Procedures
+  async getRequestProcedures(requestId: number): Promise<RequestProcedure[]> {
+    return db.select().from(requestProcedures).where(eq(requestProcedures.requestId, requestId));
+  }
+
+  async createRequestProcedure(procedure: InsertRequestProcedure): Promise<RequestProcedure> {
+    const [newProcedure] = await db.insert(requestProcedures).values(procedure).returning();
+    return newProcedure;
+  }
+
+  async updateRequestProcedure(id: number, updates: Partial<InsertRequestProcedure>): Promise<RequestProcedure | undefined> {
+    const [procedure] = await db.update(requestProcedures).set(updates).where(eq(requestProcedures.id, id)).returning();
+    return procedure || undefined;
+  }
+
+  async deleteRequestProcedure(id: number): Promise<void> {
+    await db.delete(requestProcedures).where(eq(requestProcedures.id, id));
+  }
+
+  // Request Topics
+  async getRequestTopics(requestId: number): Promise<RequestTopic[]> {
+    return db.select().from(requestTopics).where(eq(requestTopics.requestId, requestId));
+  }
+
+  async createRequestTopic(topic: InsertRequestTopic): Promise<RequestTopic> {
+    const [newTopic] = await db.insert(requestTopics).values(topic).returning();
+    return newTopic;
+  }
+
+  async updateRequestTopic(id: number, updates: Partial<InsertRequestTopic>): Promise<RequestTopic | undefined> {
+    const [topic] = await db.update(requestTopics).set(updates).where(eq(requestTopics.id, id)).returning();
+    return topic || undefined;
+  }
+
+  async deleteRequestTopic(id: number): Promise<void> {
+    await db.delete(requestTopics).where(eq(requestTopics.id, id));
+  }
+
+  // Request Recipients
+  async getRequestRecipients(requestId: number): Promise<RequestRecipient[]> {
+    return db.select().from(requestRecipients).where(eq(requestRecipients.requestId, requestId));
+  }
+
+  async createRequestRecipient(recipient: InsertRequestRecipient): Promise<RequestRecipient> {
+    const [newRecipient] = await db.insert(requestRecipients).values(recipient).returning();
+    return newRecipient;
+  }
+
+  async deleteRequestRecipient(id: number): Promise<void> {
+    await db.delete(requestRecipients).where(eq(requestRecipients.id, id));
   }
 }
 

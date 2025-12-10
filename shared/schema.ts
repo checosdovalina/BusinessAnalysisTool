@@ -585,3 +585,251 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
     references: [users.id],
   }),
 }));
+
+// ============================================
+// Training Requests Module (Solicitudes de Entrenamiento)
+// ============================================
+
+// Training Request Status Enum
+export const trainingRequestStatusEnum = pgEnum("training_request_status", [
+  "draft",      // Borrador
+  "submitted",  // Enviada
+  "approved",   // Aprobada
+  "rejected",   // Rechazada
+  "completed"   // Completada
+]);
+
+// Training Request Priority Enum
+export const trainingRequestPriorityEnum = pgEnum("training_request_priority", [
+  "low",
+  "medium",
+  "high",
+  "critical"
+]);
+
+// Role Type Enum
+export const roleTypeEnum = pgEnum("role_type", [
+  "operator",     // Operador
+  "supervisor",   // Supervisor
+  "observer",     // Observador
+  "trainer",      // Entrenador
+  "external",     // Externo
+  "custom"        // Personalizado
+]);
+
+// Training Requests Table (Solicitudes de Entrenamiento)
+export const trainingRequests = pgTable("training_requests", {
+  id: serial("id").primaryKey(),
+  requestCode: text("request_code").notNull(), // Código único: SOL-2024-001
+  companyId: integer("company_id").notNull().references(() => companies.id),
+  
+  // Información general
+  title: text("title").notNull(),
+  description: text("description"),
+  objective: text("objective"), // Objetivo del entrenamiento
+  justification: text("justification"), // Justificación
+  
+  // Estado y prioridad
+  status: trainingRequestStatusEnum("status").notNull().default("draft"),
+  priority: trainingRequestPriorityEnum("priority").notNull().default("medium"),
+  
+  // Responsables
+  requestedById: integer("requested_by_id").notNull().references(() => users.id),
+  responsibleId: integer("responsible_id").references(() => users.id), // Responsable asignado
+  
+  // Fechas
+  proposedStartDate: timestamp("proposed_start_date"),
+  proposedEndDate: timestamp("proposed_end_date"),
+  estimatedHours: real("estimated_hours"),
+  
+  // Audiencia
+  targetAudience: text("target_audience"), // Descripción del público objetivo
+  participantCount: integer("participant_count"),
+  
+  // Notas adicionales
+  notes: text("notes"),
+  
+  // Fechas de auditoría
+  submittedAt: timestamp("submitted_at"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertTrainingRequestSchema = createInsertSchema(trainingRequests).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  proposedStartDate: z.union([z.date(), z.string(), z.null()]).optional().transform((val) => val && typeof val === 'string' ? new Date(val) : val),
+  proposedEndDate: z.union([z.date(), z.string(), z.null()]).optional().transform((val) => val && typeof val === 'string' ? new Date(val) : val),
+});
+export type InsertTrainingRequest = z.infer<typeof insertTrainingRequestSchema>;
+export type TrainingRequest = typeof trainingRequests.$inferSelect;
+
+// Request Incidents Table (Anexo: Reportes de fallas a reproducir)
+export const requestIncidents = pgTable("request_incidents", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => trainingRequests.id, { onDelete: "cascade" }),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  severity: text("severity"), // Severidad de la falla
+  gridZone: text("grid_zone"), // Zona de la red
+  incidentDate: timestamp("incident_date"), // Fecha del incidente original
+  referenceCode: text("reference_code"), // Código de referencia del reporte
+  lessonsLearned: text("lessons_learned"), // Lecciones aprendidas
+  simulationGoal: text("simulation_goal"), // Objetivo de la simulación
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRequestIncidentSchema = createInsertSchema(requestIncidents).omit({ id: true, createdAt: true });
+export type InsertRequestIncident = z.infer<typeof insertRequestIncidentSchema>;
+export type RequestIncident = typeof requestIncidents.$inferSelect;
+
+// Request Roles Table (Anexo: Roles del entrenamiento)
+export const requestRoles = pgTable("request_roles", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => trainingRequests.id, { onDelete: "cascade" }),
+  
+  participantName: text("participant_name").notNull(),
+  roleType: roleTypeEnum("role_type").notNull().default("operator"),
+  customRoleTitle: text("custom_role_title"), // Si roleType es "custom"
+  responsibilities: text("responsibilities"), // Responsabilidades durante el entrenamiento
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  department: text("department"), // Departamento
+  isConfirmed: boolean("is_confirmed").notNull().default(false),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRequestRoleSchema = createInsertSchema(requestRoles).omit({ id: true, createdAt: true });
+export type InsertRequestRole = z.infer<typeof insertRequestRoleSchema>;
+export type RequestRole = typeof requestRoles.$inferSelect;
+
+// Request Procedures Table (Anexo: Procedimientos y criterios operativos)
+export const requestProcedures = pgTable("request_procedures", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => trainingRequests.id, { onDelete: "cascade" }),
+  
+  procedureTitle: text("procedure_title").notNull(),
+  referenceCode: text("reference_code"), // Código de referencia del procedimiento
+  version: text("version"), // Versión del procedimiento
+  description: text("description"),
+  isMandatory: boolean("is_mandatory").notNull().default(true),
+  operationalCriteria: text("operational_criteria").array(), // Criterios operativos a evaluar
+  evaluationMethod: text("evaluation_method"), // Método de evaluación
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRequestProcedureSchema = createInsertSchema(requestProcedures).omit({ id: true, createdAt: true });
+export type InsertRequestProcedure = z.infer<typeof insertRequestProcedureSchema>;
+export type RequestProcedure = typeof requestProcedures.$inferSelect;
+
+// Request Topics Table (Anexo: Temas/Situaciones a simular)
+export const requestTopics = pgTable("request_topics", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => trainingRequests.id, { onDelete: "cascade" }),
+  
+  topicTitle: text("topic_title").notNull(),
+  scenarioCategory: text("scenario_category"), // Categoría del escenario
+  description: text("description"),
+  simulationGoal: text("simulation_goal"), // Objetivo de la simulación
+  successMetrics: text("success_metrics").array(), // Métricas de éxito
+  estimatedDuration: integer("estimated_duration"), // Duración estimada en minutos
+  difficulty: difficultyEnum("difficulty").default("Medium"),
+  referenceScenarioId: integer("reference_scenario_id").references(() => simulatorScenarios.id),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRequestTopicSchema = createInsertSchema(requestTopics).omit({ id: true, createdAt: true });
+export type InsertRequestTopic = z.infer<typeof insertRequestTopicSchema>;
+export type RequestTopic = typeof requestTopics.$inferSelect;
+
+// Request Recipients Table (Destinatarios de la solicitud)
+export const requestRecipients = pgTable("request_recipients", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => trainingRequests.id, { onDelete: "cascade" }),
+  
+  userId: integer("user_id").references(() => users.id),
+  email: text("email"), // Email si no es usuario del sistema
+  name: text("name"), // Nombre si no es usuario del sistema
+  notificationStatus: text("notification_status").notNull().default("pending"), // pending, sent, viewed
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRequestRecipientSchema = createInsertSchema(requestRecipients).omit({ id: true, createdAt: true });
+export type InsertRequestRecipient = z.infer<typeof insertRequestRecipientSchema>;
+export type RequestRecipient = typeof requestRecipients.$inferSelect;
+
+// Relations for Training Requests Module
+export const trainingRequestsRelations = relations(trainingRequests, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [trainingRequests.companyId],
+    references: [companies.id],
+  }),
+  requestedBy: one(users, {
+    fields: [trainingRequests.requestedById],
+    references: [users.id],
+    relationName: "requestCreator",
+  }),
+  responsible: one(users, {
+    fields: [trainingRequests.responsibleId],
+    references: [users.id],
+    relationName: "requestResponsible",
+  }),
+  incidents: many(requestIncidents),
+  roles: many(requestRoles),
+  procedures: many(requestProcedures),
+  topics: many(requestTopics),
+  recipients: many(requestRecipients),
+}));
+
+export const requestIncidentsRelations = relations(requestIncidents, ({ one }) => ({
+  request: one(trainingRequests, {
+    fields: [requestIncidents.requestId],
+    references: [trainingRequests.id],
+  }),
+}));
+
+export const requestRolesRelations = relations(requestRoles, ({ one }) => ({
+  request: one(trainingRequests, {
+    fields: [requestRoles.requestId],
+    references: [trainingRequests.id],
+  }),
+}));
+
+export const requestProceduresRelations = relations(requestProcedures, ({ one }) => ({
+  request: one(trainingRequests, {
+    fields: [requestProcedures.requestId],
+    references: [trainingRequests.id],
+  }),
+}));
+
+export const requestTopicsRelations = relations(requestTopics, ({ one }) => ({
+  request: one(trainingRequests, {
+    fields: [requestTopics.requestId],
+    references: [trainingRequests.id],
+  }),
+  referenceScenario: one(simulatorScenarios, {
+    fields: [requestTopics.referenceScenarioId],
+    references: [simulatorScenarios.id],
+  }),
+}));
+
+export const requestRecipientsRelations = relations(requestRecipients, ({ one }) => ({
+  request: one(trainingRequests, {
+    fields: [requestRecipients.requestId],
+    references: [trainingRequests.id],
+  }),
+  user: one(users, {
+    fields: [requestRecipients.userId],
+    references: [users.id],
+  }),
+}));
