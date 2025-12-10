@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { companies, users, cycles, events, simulatorScenarios, evaluationTopics, evaluationTopicItems, cycleTopicItems, trainingReports, trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients } from "@shared/schema";
+import { companies, users, cycles, events, simulatorScenarios, evaluationTopics, evaluationTopicItems, cycleTopicItems, trainingReports, trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients, evaluationTemplates, templateTopics, templateEvents } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -20,6 +20,9 @@ async function seed() {
   await db.delete(requestIncidents);
   await db.delete(trainingRequests);
   await db.delete(trainingReports);
+  await db.delete(templateEvents);
+  await db.delete(templateTopics);
+  await db.delete(evaluationTemplates);
   await db.delete(cycleTopicItems);
   await db.delete(evaluationTopicItems);
   await db.delete(evaluationTopics);
@@ -443,6 +446,200 @@ async function seed() {
 
   console.log("✅ Events created");
 
+  // Create Evaluation Templates (Plantillas de Evaluación)
+  const [templateCenace, templateSimulador, templateCampo] = await db.insert(evaluationTemplates).values([
+    {
+      code: "CENACE_STANDARD",
+      name: "Evaluación CENACE Estándar",
+      description: "Plantilla basada en los estándares de evaluación del Centro Nacional de Control de Energía (CENACE). Incluye todos los temas de competencia operativa.",
+      templateType: "cenace",
+      cycleType: "field",
+      defaultMinPassingScore: 80,
+      estimatedDuration: 240,
+      icon: "Shield",
+      color: "#00F0FF",
+      isActive: true,
+      isSystem: true,
+      sortOrder: 1,
+    },
+    {
+      code: "SIMULADOR_BASICO",
+      name: "Evaluación en Simulador",
+      description: "Plantilla para evaluaciones prácticas en simulador de operaciones. Enfocada en respuesta ante contingencias y manejo de emergencias.",
+      templateType: "simulador",
+      cycleType: "simulator",
+      defaultMinPassingScore: 75,
+      estimatedDuration: 120,
+      icon: "Monitor",
+      color: "#22C55E",
+      isActive: true,
+      isSystem: true,
+      sortOrder: 2,
+    },
+    {
+      code: "CAMPO_PRACTICO",
+      name: "Evaluación de Campo",
+      description: "Plantilla para evaluaciones prácticas en campo. Incluye maniobras, coordinación con cuadrillas y uso de EPP.",
+      templateType: "campo",
+      cycleType: "field",
+      defaultMinPassingScore: 70,
+      estimatedDuration: 180,
+      icon: "Wrench",
+      color: "#F59E0B",
+      isActive: true,
+      isSystem: true,
+      sortOrder: 3,
+    },
+  ]).returning();
+
+  console.log("✅ Evaluation templates created");
+
+  // Create Template Topics (Temas por plantilla)
+  await db.insert(templateTopics).values([
+    // CENACE Standard - Todos los temas
+    { templateId: templateCenace.id, topicId: createdTopics[0].id, categoryTag: "operacional", defaultMaxPoints: 100, defaultWeight: 1.5, isRequired: true, sortOrder: 1 },
+    { templateId: templateCenace.id, topicId: createdTopics[1].id, categoryTag: "tecnico", defaultMaxPoints: 100, defaultWeight: 1.0, isRequired: true, sortOrder: 2 },
+    { templateId: templateCenace.id, topicId: createdTopics[2].id, categoryTag: "operacional", defaultMaxPoints: 100, defaultWeight: 2.0, isRequired: true, sortOrder: 3 },
+    { templateId: templateCenace.id, topicId: createdTopics[3].id, categoryTag: "operacional", defaultMaxPoints: 100, defaultWeight: 1.5, isRequired: true, sortOrder: 4 },
+    { templateId: templateCenace.id, topicId: createdTopics[4].id, categoryTag: "tecnico", defaultMaxPoints: 100, defaultWeight: 1.0, isRequired: true, sortOrder: 5 },
+    { templateId: templateCenace.id, topicId: createdTopics[5].id, categoryTag: "comunicacion", defaultMaxPoints: 100, defaultWeight: 1.0, isRequired: true, sortOrder: 6 },
+    { templateId: templateCenace.id, topicId: createdTopics[6].id, categoryTag: "tecnico", defaultMaxPoints: 100, defaultWeight: 1.5, isRequired: true, sortOrder: 7 },
+    
+    // Simulador - Temas enfocados a emergencias
+    { templateId: templateSimulador.id, topicId: createdTopics[2].id, categoryTag: "operacional", defaultMaxPoints: 100, defaultWeight: 2.0, isRequired: true, sortOrder: 1 },
+    { templateId: templateSimulador.id, topicId: createdTopics[3].id, categoryTag: "operacional", defaultMaxPoints: 100, defaultWeight: 1.5, isRequired: true, sortOrder: 2 },
+    { templateId: templateSimulador.id, topicId: createdTopics[6].id, categoryTag: "tecnico", defaultMaxPoints: 100, defaultWeight: 2.0, isRequired: true, sortOrder: 3 },
+    { templateId: templateSimulador.id, topicId: createdTopics[4].id, categoryTag: "tecnico", defaultMaxPoints: 100, defaultWeight: 1.0, isRequired: false, sortOrder: 4 },
+    
+    // Campo Práctico - Temas de ejecución
+    { templateId: templateCampo.id, topicId: createdTopics[2].id, categoryTag: "operacional", defaultMaxPoints: 100, defaultWeight: 2.0, isRequired: true, sortOrder: 1 },
+    { templateId: templateCampo.id, topicId: createdTopics[5].id, categoryTag: "comunicacion", defaultMaxPoints: 100, defaultWeight: 1.5, isRequired: true, sortOrder: 2 },
+    { templateId: templateCampo.id, topicId: createdTopics[4].id, categoryTag: "tecnico", defaultMaxPoints: 100, defaultWeight: 1.0, isRequired: true, sortOrder: 3 },
+  ]);
+
+  console.log("✅ Template topics created");
+
+  // Create Template Events (Eventos predefinidos por plantilla)
+  await db.insert(templateEvents).values([
+    // CENACE Standard Events
+    {
+      templateId: templateCenace.id,
+      title: "Análisis de Condiciones Iniciales",
+      description: "Evaluación de la capacidad del operador para identificar el estado actual de la red.",
+      evaluationTopic: "topologia",
+      maxScore: 100,
+      weight: 1.0,
+      expectedActions: ["Revisar diagrama unifilar", "Identificar alarmas activas", "Verificar niveles de tensión"],
+      gradingCriteria: "Identificación completa en menos de 5 minutos.",
+      sortOrder: 1,
+    },
+    {
+      templateId: templateCenace.id,
+      title: "Respuesta ante Contingencia",
+      description: "Evaluación de la respuesta operativa ante un evento de contingencia.",
+      evaluationTopic: "ejecucion_procedimientos",
+      maxScore: 100,
+      weight: 2.0,
+      expectedActions: ["Detectar la contingencia", "Evaluar impacto", "Ejecutar acciones correctivas", "Informar a centro de control"],
+      gradingCriteria: "Respuesta correcta dentro del tiempo establecido por procedimiento.",
+      sortOrder: 2,
+    },
+    {
+      templateId: templateCenace.id,
+      title: "Control de Voltaje y Frecuencia",
+      description: "Evaluación del manejo de parámetros eléctricos del sistema.",
+      evaluationTopic: "control_voltaje",
+      maxScore: 100,
+      weight: 1.5,
+      expectedActions: ["Monitorear niveles", "Ajustar reactivos", "Coordinar con generadores"],
+      gradingCriteria: "Mantener parámetros dentro de límites operativos.",
+      sortOrder: 3,
+    },
+    {
+      templateId: templateCenace.id,
+      title: "Comunicación Operativa",
+      description: "Evaluación de las habilidades de comunicación durante la operación.",
+      evaluationTopic: "comunicacion_operativa",
+      maxScore: 100,
+      weight: 1.0,
+      expectedActions: ["Usar protocolo estándar", "Confirmar instrucciones", "Registrar comunicaciones"],
+      gradingCriteria: "Comunicación clara y sin ambigüedades.",
+      sortOrder: 4,
+    },
+    
+    // Simulador Events
+    {
+      templateId: templateSimulador.id,
+      title: "Detección de Falla",
+      description: "Identificación rápida de la condición de falla en el sistema.",
+      evaluationTopic: "protecciones_electricas",
+      maxScore: 100,
+      weight: 2.0,
+      expectedActions: ["Identificar protecciones operadas", "Determinar tipo de falla", "Localizar zona afectada"],
+      gradingCriteria: "Detección correcta en menos de 60 segundos.",
+      sortOrder: 1,
+    },
+    {
+      templateId: templateSimulador.id,
+      title: "Aislamiento y Restablecimiento",
+      description: "Ejecución de maniobras de aislamiento y recuperación del sistema.",
+      evaluationTopic: "ejecucion_procedimientos",
+      maxScore: 100,
+      weight: 2.0,
+      expectedActions: ["Aislar zona fallada", "Verificar ausencia de falla", "Restablecer servicio por etapas"],
+      gradingCriteria: "Restablecimiento completo sin disparos secundarios.",
+      sortOrder: 2,
+    },
+    {
+      templateId: templateSimulador.id,
+      title: "Gestión de Carga Post-Contingencia",
+      description: "Manejo de flujos de potencia después del evento.",
+      evaluationTopic: "control_frecuencia",
+      maxScore: 100,
+      weight: 1.5,
+      expectedActions: ["Monitorear flujos", "Identificar sobrecargas", "Redistribuir carga"],
+      gradingCriteria: "Mantener sistema dentro de límites térmicos.",
+      sortOrder: 3,
+    },
+    
+    // Campo Práctico Events
+    {
+      templateId: templateCampo.id,
+      title: "Preparación de Maniobra",
+      description: "Verificación de condiciones previas a la ejecución de maniobra.",
+      evaluationTopic: "conocimiento_procedimientos",
+      maxScore: 100,
+      weight: 1.0,
+      expectedActions: ["Revisar procedimiento aplicable", "Verificar EPP", "Confirmar condiciones de seguridad"],
+      gradingCriteria: "Checklist completo antes de iniciar.",
+      sortOrder: 1,
+    },
+    {
+      templateId: templateCampo.id,
+      title: "Ejecución de Maniobra en Campo",
+      description: "Ejecución física de la secuencia de maniobra.",
+      evaluationTopic: "ejecucion_procedimientos",
+      maxScore: 100,
+      weight: 2.0,
+      expectedActions: ["Seguir secuencia del procedimiento", "Verificar cada paso", "Registrar tiempos"],
+      gradingCriteria: "Ejecución sin errores y dentro del tiempo establecido.",
+      sortOrder: 2,
+    },
+    {
+      templateId: templateCampo.id,
+      title: "Comunicación con Centro de Control",
+      description: "Reportes durante la ejecución de la maniobra.",
+      evaluationTopic: "comunicacion_operativa",
+      maxScore: 100,
+      weight: 1.5,
+      expectedActions: ["Reportar inicio de maniobra", "Informar avances", "Confirmar finalización"],
+      gradingCriteria: "Comunicación oportuna y completa.",
+      sortOrder: 3,
+    },
+  ]);
+
+  console.log("✅ Template events created");
+
   console.log("🎉 Database seeded successfully!");
   console.log("\n📊 Created:");
   console.log(`  - ${3} Companies`);
@@ -452,6 +649,7 @@ async function seed() {
   console.log(`  - ${4} Simulator Scenarios`);
   console.log(`  - ${3} Training Cycles`);
   console.log(`  - ${8} Events`);
+  console.log(`  - ${3} Evaluation Templates`);
   console.log("\n🔑 Test Credentials:");
   console.log(`  Admin:      admin@red-electrica.com / admin123`);
   console.log(`  Trainer:    roberto@red-electrica.com / trainer123`);

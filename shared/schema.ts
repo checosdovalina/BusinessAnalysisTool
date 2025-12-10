@@ -386,6 +386,98 @@ export const cycleTopicItemsRelations = relations(cycleTopicItems, ({ one }) => 
 }));
 
 // ============================================
+// Evaluation Templates Module (Plantillas de Evaluación)
+// ============================================
+
+// Template Type Enum
+export const templateTypeEnum = pgEnum("template_type", ["cenace", "simulador", "campo", "personalizado"]);
+
+// Evaluation Templates Table (Plantillas predefinidas de evaluación)
+export const evaluationTemplates = pgTable("evaluation_templates", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(), // Código único: "CENACE_STANDARD", "SIMULADOR_BASICO"
+  name: text("name").notNull(), // Nombre: "Evaluación CENACE Estándar"
+  description: text("description"), // Descripción detallada
+  templateType: templateTypeEnum("template_type").notNull().default("personalizado"),
+  cycleType: cycleTypeEnum("cycle_type").notNull().default("field"), // Tipo de ciclo asociado
+  companyId: integer("company_id").references(() => companies.id), // null = plantilla global
+  defaultMinPassingScore: real("default_min_passing_score").default(70),
+  estimatedDuration: integer("estimated_duration"), // Duración estimada en minutos
+  icon: text("icon"), // Icono para UI
+  color: text("color"), // Color para UI
+  isActive: boolean("is_active").notNull().default(true),
+  isSystem: boolean("is_system").notNull().default(false), // Plantillas del sistema vs personalizadas
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertEvaluationTemplateSchema = createInsertSchema(evaluationTemplates).omit({ id: true, createdAt: true });
+export type InsertEvaluationTemplate = z.infer<typeof insertEvaluationTemplateSchema>;
+export type EvaluationTemplate = typeof evaluationTemplates.$inferSelect;
+
+// Template Topics Table (Temas incluidos en cada plantilla)
+export const templateTopics = pgTable("template_topics", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => evaluationTemplates.id, { onDelete: "cascade" }),
+  topicId: integer("topic_id").notNull().references(() => evaluationTopics.id, { onDelete: "cascade" }),
+  categoryTag: text("category_tag"), // Categoría: "operacional", "comunicacion", "tecnico"
+  defaultMaxPoints: real("default_max_points").default(100),
+  defaultWeight: real("default_weight").default(1),
+  isRequired: boolean("is_required").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertTemplateTopicSchema = createInsertSchema(templateTopics).omit({ id: true });
+export type InsertTemplateTopic = z.infer<typeof insertTemplateTopicSchema>;
+export type TemplateTopic = typeof templateTopics.$inferSelect;
+
+// Template Events Table (Eventos predefinidos en cada plantilla)
+export const templateEvents = pgTable("template_events", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => evaluationTemplates.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  evaluationTopic: text("evaluation_topic"), // Código del tema de evaluación
+  maxScore: real("max_score").notNull().default(100),
+  weight: real("weight").default(1),
+  expectedActions: text("expected_actions").array(),
+  gradingCriteria: text("grading_criteria"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertTemplateEventSchema = createInsertSchema(templateEvents).omit({ id: true });
+export type InsertTemplateEvent = z.infer<typeof insertTemplateEventSchema>;
+export type TemplateEvent = typeof templateEvents.$inferSelect;
+
+// Relations for Evaluation Templates Module
+export const evaluationTemplatesRelations = relations(evaluationTemplates, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [evaluationTemplates.companyId],
+    references: [companies.id],
+  }),
+  topics: many(templateTopics),
+  events: many(templateEvents),
+}));
+
+export const templateTopicsRelations = relations(templateTopics, ({ one }) => ({
+  template: one(evaluationTemplates, {
+    fields: [templateTopics.templateId],
+    references: [evaluationTemplates.id],
+  }),
+  topic: one(evaluationTopics, {
+    fields: [templateTopics.topicId],
+    references: [evaluationTopics.id],
+  }),
+}));
+
+export const templateEventsRelations = relations(templateEvents, ({ one }) => ({
+  template: one(evaluationTemplates, {
+    fields: [templateEvents.templateId],
+    references: [evaluationTemplates.id],
+  }),
+}));
+
+// ============================================
 // Reports Module (Módulo de Generación de Reportes)
 // ============================================
 
