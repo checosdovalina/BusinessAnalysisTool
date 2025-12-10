@@ -90,6 +90,7 @@ export default function EvaluationList() {
   const { data: evaluationTemplates = [] } = useQuery({
     queryKey: ["evaluation-templates"],
     queryFn: () => evaluationTemplatesAPI.getAll(),
+    enabled: !!user,
   });
 
   const applyTemplate = async (templateId: number) => {
