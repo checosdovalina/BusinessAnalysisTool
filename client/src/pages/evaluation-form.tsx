@@ -11,8 +11,9 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useLocation, useRoute } from "wouter";
-import { ArrowLeft, CheckCircle2, XCircle, Camera, Save, AlertCircle, Loader2, Plus, ClipboardList } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, CheckCircle2, XCircle, Camera, Save, AlertCircle, Loader2, Plus, ClipboardList, Percent } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cyclesAPI, eventsAPI } from "@/lib/api";
@@ -48,8 +49,45 @@ export default function EvaluationForm() {
   
   const [currentEventIndex, setCurrentEventIndex] = useState(0);
   const [scores, setScores] = useState<Record<number, string>>({});
+  const [partialPercentages, setPartialPercentages] = useState<Record<number, number>>({});
   const [feedback, setFeedback] = useState<Record<number, string>>({});
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    if (cycleEvents.length > 0 && !hasHydrated) {
+      const initialScores: Record<number, string> = {};
+      const initialPartialPercentages: Record<number, number> = {};
+      const initialFeedback: Record<number, string> = {};
+      
+      cycleEvents.forEach((event) => {
+        if (event.status === "pass") {
+          if (event.score === event.maxScore) {
+            initialScores[event.id] = "pass";
+          } else if (event.score > 0 && event.score < event.maxScore) {
+            initialScores[event.id] = "partial";
+            const percentage = Math.round((event.score / event.maxScore) * 100);
+            initialPartialPercentages[event.id] = Math.min(80, Math.max(10, Math.round(percentage / 10) * 10));
+          } else {
+            initialScores[event.id] = "pass";
+          }
+        } else if (event.status === "fail") {
+          initialScores[event.id] = "fail";
+        } else if (event.status === "skipped") {
+          initialScores[event.id] = "na";
+        }
+        
+        if (event.feedback) {
+          initialFeedback[event.id] = event.feedback;
+        }
+      });
+      
+      setScores(initialScores);
+      setPartialPercentages(initialPartialPercentages);
+      setFeedback(initialFeedback);
+      setHasHydrated(true);
+    }
+  }, [cycleEvents, hasHydrated]);
   const [newEvent, setNewEvent] = useState({
     title: "",
     description: "",
@@ -267,6 +305,15 @@ export default function EvaluationForm() {
   const handleScoreChange = (value: string) => {
     if (currentEvent) {
       setScores(prev => ({ ...prev, [currentEvent.id]: value }));
+      if (value === "partial" && !partialPercentages[currentEvent.id]) {
+        setPartialPercentages(prev => ({ ...prev, [currentEvent.id]: 50 }));
+      }
+    }
+  };
+
+  const handlePartialPercentageChange = (value: number[]) => {
+    if (currentEvent) {
+      setPartialPercentages(prev => ({ ...prev, [currentEvent.id]: value[0] }));
     }
   };
 
@@ -288,6 +335,10 @@ export default function EvaluationForm() {
     if (scoreValue === "pass") {
       status = "pass";
       score = currentEvent.maxScore;
+    } else if (scoreValue === "partial") {
+      status = "pass";
+      const percentage = partialPercentages[currentEvent.id] || 50;
+      score = Math.round((currentEvent.maxScore * percentage) / 100);
     } else if (scoreValue === "fail") {
       status = "fail";
       score = 0;
@@ -327,7 +378,13 @@ export default function EvaluationForm() {
     if (isLastEvent) {
       const totalScore = cycleEvents.reduce((acc, event) => {
         const scoreVal = scores[event.id];
-        return acc + (scoreVal === "pass" ? event.maxScore : 0);
+        if (scoreVal === "pass") {
+          return acc + event.maxScore;
+        } else if (scoreVal === "partial") {
+          const percentage = partialPercentages[event.id] || 50;
+          return acc + Math.round((event.maxScore * percentage) / 100);
+        }
+        return acc;
       }, 0);
       const maxTotalScore = cycleEvents.reduce((acc, event) => acc + event.maxScore, 0);
       const finalScore = Math.round((totalScore / maxTotalScore) * 100);
@@ -436,29 +493,41 @@ export default function EvaluationForm() {
                   <RadioGroup 
                     value={scores[currentEvent.id] || "pending"} 
                     onValueChange={handleScoreChange}
-                    className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                    className="grid grid-cols-2 sm:grid-cols-4 gap-3"
                   >
                     <Label
                       htmlFor="r-pass"
-                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent-foreground [&:has([data-state=checked])]:border-emerald-500 [&:has([data-state=checked])]:bg-emerald-50/50 cursor-pointer transition-all"
+                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent-foreground [&:has([data-state=checked])]:border-emerald-500 [&:has([data-state=checked])]:bg-emerald-500/10 cursor-pointer transition-all"
                     >
                       <RadioGroupItem value="pass" id="r-pass" className="sr-only" />
-                      <CheckCircle2 className="mb-3 h-6 w-6 text-emerald-500" />
+                      <CheckCircle2 className="mb-2 h-5 w-5 text-emerald-500" />
                       <div className="text-center">
-                        <div className="font-bold">Cumple Estándar</div>
-                        <span className="text-xs text-muted-foreground">Ejecución correcta y segura</span>
+                        <div className="font-bold text-sm">Cumple 100%</div>
+                        <span className="text-xs text-muted-foreground">Ejecución correcta</span>
+                      </div>
+                    </Label>
+
+                    <Label
+                      htmlFor="r-partial"
+                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent-foreground [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-amber-500/10 cursor-pointer transition-all"
+                    >
+                      <RadioGroupItem value="partial" id="r-partial" className="sr-only" />
+                      <Percent className="mb-2 h-5 w-5 text-amber-500" />
+                      <div className="text-center">
+                        <div className="font-bold text-sm">Parcial</div>
+                        <span className="text-xs text-muted-foreground">10% - 80%</span>
                       </div>
                     </Label>
 
                     <Label
                       htmlFor="r-fail"
-                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent-foreground [&:has([data-state=checked])]:border-destructive [&:has([data-state=checked])]:bg-red-50/50 cursor-pointer transition-all"
+                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent-foreground [&:has([data-state=checked])]:border-destructive [&:has([data-state=checked])]:bg-red-500/10 cursor-pointer transition-all"
                     >
                       <RadioGroupItem value="fail" id="r-fail" className="sr-only" />
-                      <XCircle className="mb-3 h-6 w-6 text-destructive" />
+                      <XCircle className="mb-2 h-5 w-5 text-destructive" />
                       <div className="text-center">
-                        <div className="font-bold">No Cumple</div>
-                        <span className="text-xs text-muted-foreground">Desviación crítica o error</span>
+                        <div className="font-bold text-sm">No Cumple</div>
+                        <span className="text-xs text-muted-foreground">Error crítico</span>
                       </div>
                     </Label>
 
@@ -467,13 +536,45 @@ export default function EvaluationForm() {
                       className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent-foreground [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 cursor-pointer transition-all"
                     >
                       <RadioGroupItem value="na" id="r-na" className="sr-only" />
-                      <AlertCircle className="mb-3 h-6 w-6 text-muted-foreground" />
+                      <AlertCircle className="mb-2 h-5 w-5 text-muted-foreground" />
                       <div className="text-center">
-                        <div className="font-bold">No Aplica</div>
-                        <span className="text-xs text-muted-foreground">Evento no realizado</span>
+                        <div className="font-bold text-sm">No Aplica</div>
+                        <span className="text-xs text-muted-foreground">No realizado</span>
                       </div>
                     </Label>
                   </RadioGroup>
+
+                  {scores[currentEvent.id] === "partial" && (
+                    <div className="mt-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-amber-200 font-medium">Porcentaje de Calificación</Label>
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-lg px-3">
+                          {partialPercentages[currentEvent.id] || 50}%
+                        </Badge>
+                      </div>
+                      <Slider
+                        value={[partialPercentages[currentEvent.id] || 50]}
+                        onValueChange={handlePartialPercentageChange}
+                        min={10}
+                        max={80}
+                        step={10}
+                        className="py-2"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>10%</span>
+                        <span>20%</span>
+                        <span>30%</span>
+                        <span>40%</span>
+                        <span>50%</span>
+                        <span>60%</span>
+                        <span>70%</span>
+                        <span>80%</span>
+                      </div>
+                      <p className="text-xs text-amber-300/70 mt-2">
+                        Puntos a otorgar: <span className="font-bold">{Math.round((currentEvent.maxScore * (partialPercentages[currentEvent.id] || 50)) / 100)}</span> de {currentEvent.maxScore}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
