@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2, ExternalLink } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2, ExternalLink, Shield, Monitor, Wrench, FileQuestion } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { cyclesAPI, usersAPI, evaluationTopicsAPI, evaluationTopicItemsAPI, cycleTopicItemsAPI } from "@/lib/api";
+import { cyclesAPI, usersAPI, evaluationTopicsAPI, evaluationTopicItemsAPI, cycleTopicItemsAPI, evaluationTemplatesAPI, type EvaluationTemplateWithDetails } from "@/lib/api";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,6 +61,8 @@ export default function EvaluationList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   
   const { data: cycles = [], isLoading } = useQuery({
     queryKey: ["cycles", user?.companyId],
@@ -84,6 +86,51 @@ export default function EvaluationList() {
     queryFn: () => user?.companyId ? evaluationTopicItemsAPI.getByCompany(user.companyId) : Promise.resolve([]),
     enabled: !!user?.companyId,
   });
+
+  const { data: evaluationTemplates = [] } = useQuery({
+    queryKey: ["evaluation-templates"],
+    queryFn: () => evaluationTemplatesAPI.getAll(),
+  });
+
+  const applyTemplate = async (templateId: number) => {
+    setIsLoadingTemplate(true);
+    try {
+      const templateDetails = await evaluationTemplatesAPI.getWithDetails(templateId);
+      
+      const topicCodes: string[] = [];
+      templateDetails.topics.forEach((tt) => {
+        if (tt.topic?.code) {
+          topicCodes.push(tt.topic.code);
+        }
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        type: templateDetails.cycleType as "field" | "simulator",
+        minPassingScore: templateDetails.defaultMinPassingScore || 80,
+        evaluationTopics: topicCodes,
+        generalObjective: templateDetails.description || "",
+        selectedTopicItems: [],
+      }));
+      
+      setSelectedTemplateId(templateId);
+      toast.success(`Plantilla "${templateDetails.name}" aplicada`);
+    } catch (error) {
+      console.error("Error applying template:", error);
+      toast.error("Error al aplicar la plantilla");
+    } finally {
+      setIsLoadingTemplate(false);
+    }
+  };
+
+  const getTemplateIcon = (templateType: string) => {
+    switch (templateType) {
+      case "cenace": return Shield;
+      case "simulador": return Monitor;
+      case "campo": return Wrench;
+      default: return FileQuestion;
+    }
+  };
 
   const getItemsForTopic = (topicCode: string) => {
     const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
@@ -111,6 +158,7 @@ export default function EvaluationList() {
   const resetForm = () => {
     setFormData(initialFormData);
     setSelectedCycle(null);
+    setSelectedTemplateId(null);
   };
 
   const handleOpenCreate = () => {
@@ -324,6 +372,58 @@ export default function EvaluationList() {
 
   const formContent = (
     <div className="space-y-4">
+      {!selectedCycle && evaluationTemplates.length > 0 && (
+        <div className="mb-4">
+          <label className="text-sm font-medium block mb-2">Tipo de Evaluación (Plantilla)</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {evaluationTemplates.map((template: any) => {
+              const IconComponent = getTemplateIcon(template.templateType);
+              const isSelected = selectedTemplateId === template.id;
+              return (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => applyTemplate(template.id)}
+                  disabled={isLoadingTemplate}
+                  className={`relative flex flex-col items-center p-4 rounded-lg border-2 transition-all hover:border-accent/50 ${
+                    isSelected 
+                      ? "border-accent bg-accent/10" 
+                      : "border-border bg-card hover:bg-accent/5"
+                  }`}
+                  style={{ borderColor: isSelected ? template.color : undefined }}
+                  data-testid={`button-template-${template.code}`}
+                >
+                  {isSelected && (
+                    <div className="absolute top-2 right-2">
+                      <CheckCircle2 className="h-4 w-4 text-accent" />
+                    </div>
+                  )}
+                  <div 
+                    className="p-2 rounded-full mb-2"
+                    style={{ backgroundColor: `${template.color}20` }}
+                  >
+                    <IconComponent className="h-6 w-6" style={{ color: template.color }} />
+                  </div>
+                  <span className="font-medium text-sm text-center">{template.name}</span>
+                  <span className="text-xs text-muted-foreground mt-1">
+                    {template.templateType === "cenace" && "Estándar CENACE"}
+                    {template.templateType === "simulador" && "Práctica en Simulador"}
+                    {template.templateType === "campo" && "Evaluación en Campo"}
+                    {template.templateType === "personalizado" && "Personalizado"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {isLoadingTemplate && (
+            <div className="flex items-center justify-center mt-2">
+              <div className="h-4 w-4 border-2 border-accent border-t-transparent rounded-full animate-spin mr-2" />
+              <span className="text-sm text-muted-foreground">Aplicando plantilla...</span>
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="text-sm font-medium">Título del Ciclo *</label>

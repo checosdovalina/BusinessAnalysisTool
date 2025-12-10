@@ -317,3 +317,52 @@ export const trainingRequestsAPI = {
     headers: { "Authorization": `Bearer ${getAuthToken()}` },
   }),
 };
+
+// Evaluation Templates API
+export interface EvaluationTemplateWithDetails {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  templateType: string;
+  cycleType: string;
+  companyId: number | null;
+  defaultMinPassingScore: number | null;
+  estimatedDuration: number | null;
+  icon: string | null;
+  color: string | null;
+  isActive: boolean;
+  isSystem: boolean;
+  sortOrder: number;
+  topics: Array<{
+    id: number;
+    templateId: number;
+    topicId: number;
+    categoryTag: string | null;
+    defaultMaxPoints: number | null;
+    defaultWeight: number | null;
+    isRequired: boolean;
+    sortOrder: number;
+    topic: EvaluationTopic | null;
+  }>;
+  events: Array<{
+    id: number;
+    templateId: number;
+    title: string;
+    description: string | null;
+    evaluationTopic: string | null;
+    maxScore: number;
+    weight: number | null;
+    expectedActions: string[] | null;
+    gradingCriteria: string | null;
+    sortOrder: number;
+  }>;
+}
+
+export const evaluationTemplatesAPI = {
+  getAll: () => fetcher<any[]>("/evaluation-templates"),
+  getByCompany: (companyId: number | null) => 
+    fetcher<any[]>(`/evaluation-templates/company/${companyId}`),
+  getById: (id: number) => fetcher<any>(`/evaluation-templates/${id}`),
+  getWithDetails: (id: number) => fetcher<EvaluationTemplateWithDetails>(`/evaluation-templates/${id}/full`),
+};
