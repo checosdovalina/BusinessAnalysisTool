@@ -2,18 +2,32 @@ import DashboardShell from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useLocation, useRoute } from "wouter";
-import { ArrowLeft, CheckCircle2, XCircle, Camera, Save, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Camera, Save, AlertCircle, Loader2, Plus, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cyclesAPI, eventsAPI } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+
+const EVALUATION_TOPICS = [
+  { value: "control_voltaje", label: "Control de Voltaje" },
+  { value: "conocimiento_procedimientos", label: "Conocimiento de Procedimientos Operativos" },
+  { value: "ejecucion_procedimientos", label: "Ejecución de Procedimientos Operativos" },
+  { value: "control_frecuencia", label: "Control de Frecuencia" },
+  { value: "topologia", label: "Topología" },
+  { value: "comunicacion_operativa", label: "Comunicación Operativa" },
+  { value: "protecciones_electricas", label: "Conceptos de Protecciones Eléctricas" },
+  { value: "personalizado", label: "Personalizado" },
+];
 
 export default function EvaluationForm() {
   const [location, setLocation] = useLocation();
@@ -35,11 +49,53 @@ export default function EvaluationForm() {
   const [currentEventIndex, setCurrentEventIndex] = useState(0);
   const [scores, setScores] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<Record<number, string>>({});
+  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: "",
+    description: "",
+    specificObjective: "",
+    evaluationTopic: "",
+    maxScore: "20",
+  });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const createEventMutation = useMutation({
+    mutationFn: async (data: { cycleId: number; title: string; description: string; specificObjective?: string; evaluationTopic?: string; maxScore: number }) => {
+      return eventsAPI.create(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events", cycleId] });
+      setShowEventDialog(false);
+      setNewEvent({ title: "", description: "", specificObjective: "", evaluationTopic: "", maxScore: "20" });
+      toast({
+        title: "Evento creado",
+        description: "El evento de evaluación se agregó correctamente.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo crear el evento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateEvent = () => {
+    if (!cycleId || !newEvent.title || !newEvent.description) return;
+    createEventMutation.mutate({
+      cycleId,
+      title: newEvent.title,
+      description: newEvent.description,
+      specificObjective: newEvent.specificObjective || undefined,
+      evaluationTopic: newEvent.evaluationTopic || undefined,
+      maxScore: parseFloat(newEvent.maxScore) || 20,
+    });
+  };
+
   const updateEventMutation = useMutation({
-    mutationFn: async ({ eventId, data }: { eventId: number; data: { status: string; score: number; feedback?: string } }) => {
+    mutationFn: async ({ eventId, data }: { eventId: number; data: { status: "pending" | "pass" | "fail" | "skipped"; score: number; feedback?: string } }) => {
       return eventsAPI.update(eventId, data);
     },
     onSuccess: () => {
@@ -48,7 +104,7 @@ export default function EvaluationForm() {
   });
 
   const updateCycleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: { status?: string; progress?: number; score?: number } }) => {
+    mutationFn: async ({ id, data }: { id: number; data: { status?: "pending" | "in_progress" | "completed"; progress?: number; score?: number } }) => {
       return cyclesAPI.update(id, data);
     },
     onSuccess: () => {
@@ -83,10 +139,124 @@ export default function EvaluationForm() {
   if (cycleEvents.length === 0) {
     return (
       <DashboardShell>
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-          <p className="text-muted-foreground">Este ciclo no tiene eventos de evaluación configurados</p>
-          <Button onClick={() => setLocation("/evaluations")}>Volver a Evaluaciones</Button>
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-4 mb-8">
+            <Button variant="ghost" size="icon" onClick={() => setLocation("/evaluations")}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h2 className="text-xl font-bold font-heading">{cycle.title}</h2>
+              <p className="text-sm text-muted-foreground">{cycle.qualityCode}</p>
+            </div>
+          </div>
+
+          <Card className="border-border/60 shadow-md">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+                <ClipboardList className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Sin eventos de evaluación</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Este ciclo aún no tiene eventos configurados. Agrega eventos para definir los criterios de evaluación del operador.
+              </p>
+              <Button 
+                onClick={() => setShowEventDialog(true)}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                data-testid="button-add-first-event"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Agregar Primer Evento
+              </Button>
+            </CardContent>
+          </Card>
         </div>
+
+        <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+          <DialogContent className="sm:max-w-lg bg-card border-border/60">
+            <DialogHeader>
+              <DialogTitle>Nuevo Evento de Evaluación</DialogTitle>
+              <DialogDescription>
+                Define un evento para evaluar al operador durante este ciclo.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="event-title">Título del Evento *</Label>
+                <Input
+                  id="event-title"
+                  placeholder="Ej: Verificación de Procedimientos de Seguridad"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
+                  data-testid="input-event-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-description">Descripción *</Label>
+                <Textarea
+                  id="event-description"
+                  placeholder="Describe las acciones esperadas del operador..."
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, description: e.target.value }))}
+                  className="min-h-[80px]"
+                  data-testid="input-event-description"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-objective">Objetivo Específico</Label>
+                <Input
+                  id="event-objective"
+                  placeholder="Objetivo particular de este evento"
+                  value={newEvent.specificObjective}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, specificObjective: e.target.value }))}
+                  data-testid="input-event-objective"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="event-topic">Tema de Evaluación</Label>
+                  <Select value={newEvent.evaluationTopic} onValueChange={(value) => setNewEvent(prev => ({ ...prev, evaluationTopic: value }))}>
+                    <SelectTrigger data-testid="select-event-topic">
+                      <SelectValue placeholder="Seleccionar tema" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EVALUATION_TOPICS.map(topic => (
+                        <SelectItem key={topic.value} value={topic.value}>{topic.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-score">Puntos Máximos</Label>
+                  <Input
+                    id="event-score"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={newEvent.maxScore}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, maxScore: e.target.value }))}
+                    data-testid="input-event-score"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEventDialog(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleCreateEvent}
+                disabled={!newEvent.title || !newEvent.description || createEventMutation.isPending}
+                data-testid="button-save-event"
+              >
+                {createEventMutation.isPending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
+                ) : (
+                  "Guardar Evento"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DashboardShell>
     );
   }
@@ -112,7 +282,7 @@ export default function EvaluationForm() {
     const scoreValue = scores[currentEvent.id];
     const feedbackValue = feedback[currentEvent.id] || "";
     
-    let status: string;
+    let status: "pending" | "pass" | "fail" | "skipped";
     let score: number;
 
     if (scoreValue === "pass") {
