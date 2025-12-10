@@ -113,6 +113,20 @@ npx tsx server/seed.ts  # Poblar base de datos con datos de prueba
 - ✅ Evaluaciones y Temas
 - ✅ Simulador de Escenarios
 - ✅ Sistema de Autenticación JWT
+- ✅ Sistema de Plantillas de Evaluación (CENACE, Simulador, Campo)
+
+## Sistema de Plantillas de Evaluación
+Las plantillas permiten crear ciclos de evaluación con configuraciones predeterminadas:
+
+### Plantillas Disponibles
+1. **CENACE Estándar** - Evaluaciones según normativa CENACE
+2. **Evaluación en Simulador** - Práctica en simulador OTS
+3. **Evaluación de Campo** - Evaluaciones operativas en sitio
+
+### API Endpoints de Plantillas
+- `GET /api/evaluation-templates` - Listar todas las plantillas
+- `GET /api/evaluation-templates/company/:id` - Plantillas por empresa
+- `GET /api/evaluation-templates/:id/full` - Plantilla con temas y eventos
 
 ## API Endpoints de Empresas
 - `GET /api/companies` - Listar todas las empresas
