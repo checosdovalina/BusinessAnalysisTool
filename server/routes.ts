@@ -1371,6 +1371,65 @@ export async function registerRoutes(
     }
   });
 
+  // ============= EVALUATION TEMPLATES ROUTES =============
+
+  app.get("/api/evaluation-templates", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const templates = await storage.getAllEvaluationTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch evaluation templates" });
+    }
+  });
+
+  app.get("/api/evaluation-templates/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = req.params.companyId === 'null' ? null : parseInt(req.params.companyId);
+      const templates = await storage.getEvaluationTemplatesByCompany(companyId);
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch evaluation templates" });
+    }
+  });
+
+  app.get("/api/evaluation-templates/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const template = await storage.getEvaluationTemplate(id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch evaluation template" });
+    }
+  });
+
+  app.get("/api/evaluation-templates/:id/full", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await storage.getEvaluationTemplateWithDetails(id);
+      if (!result) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      const topicsWithDetails = await Promise.all(
+        result.topics.map(async (tt) => {
+          const topic = await storage.getEvaluationTopic(tt.topicId);
+          return { ...tt, topic };
+        })
+      );
+      
+      res.json({ 
+        ...result.template, 
+        topics: topicsWithDetails, 
+        events: result.events 
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch evaluation template details" });
+    }
+  });
+
   // ============= TRAINING REQUESTS ROUTES =============
 
   app.get("/api/training-requests/company/:companyId", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {

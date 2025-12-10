@@ -5,6 +5,7 @@ import {
   trainingReports, annualTrainingPrograms,
   companySettings, userPreferences,
   trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
+  evaluationTemplates, templateTopics, templateEvents,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -26,6 +27,9 @@ import {
   type RequestProcedure, type InsertRequestProcedure,
   type RequestTopic, type InsertRequestTopic,
   type RequestRecipient, type InsertRequestRecipient,
+  type EvaluationTemplate, type InsertEvaluationTemplate,
+  type TemplateTopic, type InsertTemplateTopic,
+  type TemplateEvent, type InsertTemplateEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
@@ -175,6 +179,25 @@ export interface IStorage {
   getRequestRecipients(requestId: number): Promise<RequestRecipient[]>;
   createRequestRecipient(recipient: InsertRequestRecipient): Promise<RequestRecipient>;
   deleteRequestRecipient(id: number): Promise<void>;
+  
+  // Evaluation Templates
+  getEvaluationTemplate(id: number): Promise<EvaluationTemplate | undefined>;
+  getAllEvaluationTemplates(): Promise<EvaluationTemplate[]>;
+  getEvaluationTemplatesByCompany(companyId: number | null): Promise<EvaluationTemplate[]>;
+  getEvaluationTemplateWithDetails(id: number): Promise<{ template: EvaluationTemplate; topics: TemplateTopic[]; events: TemplateEvent[] } | undefined>;
+  createEvaluationTemplate(template: InsertEvaluationTemplate): Promise<EvaluationTemplate>;
+  updateEvaluationTemplate(id: number, updates: Partial<InsertEvaluationTemplate>): Promise<EvaluationTemplate | undefined>;
+  deleteEvaluationTemplate(id: number): Promise<void>;
+  
+  // Template Topics
+  getTemplateTopics(templateId: number): Promise<TemplateTopic[]>;
+  createTemplateTopic(topic: InsertTemplateTopic): Promise<TemplateTopic>;
+  deleteTemplateTopics(templateId: number): Promise<void>;
+  
+  // Template Events
+  getTemplateEvents(templateId: number): Promise<TemplateEvent[]>;
+  createTemplateEvent(event: InsertTemplateEvent): Promise<TemplateEvent>;
+  deleteTemplateEvents(templateId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -738,6 +761,92 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRequestRecipient(id: number): Promise<void> {
     await db.delete(requestRecipients).where(eq(requestRecipients.id, id));
+  }
+
+  // Evaluation Templates
+  async getEvaluationTemplate(id: number): Promise<EvaluationTemplate | undefined> {
+    const [template] = await db.select().from(evaluationTemplates).where(eq(evaluationTemplates.id, id));
+    return template || undefined;
+  }
+
+  async getAllEvaluationTemplates(): Promise<EvaluationTemplate[]> {
+    return db.select().from(evaluationTemplates).where(eq(evaluationTemplates.isActive, true)).orderBy(asc(evaluationTemplates.sortOrder));
+  }
+
+  async getEvaluationTemplatesByCompany(companyId: number | null): Promise<EvaluationTemplate[]> {
+    if (companyId === null) {
+      return db.select().from(evaluationTemplates)
+        .where(and(
+          isNull(evaluationTemplates.companyId),
+          eq(evaluationTemplates.isActive, true)
+        ))
+        .orderBy(asc(evaluationTemplates.sortOrder));
+    }
+    return db.select().from(evaluationTemplates)
+      .where(and(
+        or(
+          isNull(evaluationTemplates.companyId),
+          eq(evaluationTemplates.companyId, companyId)
+        ),
+        eq(evaluationTemplates.isActive, true)
+      ))
+      .orderBy(asc(evaluationTemplates.sortOrder));
+  }
+
+  async getEvaluationTemplateWithDetails(id: number): Promise<{ template: EvaluationTemplate; topics: TemplateTopic[]; events: TemplateEvent[] } | undefined> {
+    const template = await this.getEvaluationTemplate(id);
+    if (!template) return undefined;
+    
+    const topics = await this.getTemplateTopics(id);
+    const events = await this.getTemplateEvents(id);
+    
+    return { template, topics, events };
+  }
+
+  async createEvaluationTemplate(template: InsertEvaluationTemplate): Promise<EvaluationTemplate> {
+    const [newTemplate] = await db.insert(evaluationTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateEvaluationTemplate(id: number, updates: Partial<InsertEvaluationTemplate>): Promise<EvaluationTemplate | undefined> {
+    const [template] = await db.update(evaluationTemplates).set(updates).where(eq(evaluationTemplates.id, id)).returning();
+    return template || undefined;
+  }
+
+  async deleteEvaluationTemplate(id: number): Promise<void> {
+    await db.delete(evaluationTemplates).where(eq(evaluationTemplates.id, id));
+  }
+
+  // Template Topics
+  async getTemplateTopics(templateId: number): Promise<TemplateTopic[]> {
+    return db.select().from(templateTopics)
+      .where(eq(templateTopics.templateId, templateId))
+      .orderBy(asc(templateTopics.sortOrder));
+  }
+
+  async createTemplateTopic(topic: InsertTemplateTopic): Promise<TemplateTopic> {
+    const [newTopic] = await db.insert(templateTopics).values(topic).returning();
+    return newTopic;
+  }
+
+  async deleteTemplateTopics(templateId: number): Promise<void> {
+    await db.delete(templateTopics).where(eq(templateTopics.templateId, templateId));
+  }
+
+  // Template Events
+  async getTemplateEvents(templateId: number): Promise<TemplateEvent[]> {
+    return db.select().from(templateEvents)
+      .where(eq(templateEvents.templateId, templateId))
+      .orderBy(asc(templateEvents.sortOrder));
+  }
+
+  async createTemplateEvent(event: InsertTemplateEvent): Promise<TemplateEvent> {
+    const [newEvent] = await db.insert(templateEvents).values(event).returning();
+    return newEvent;
+  }
+
+  async deleteTemplateEvents(templateId: number): Promise<void> {
+    await db.delete(templateEvents).where(eq(templateEvents.templateId, templateId));
   }
 }
 
