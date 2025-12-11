@@ -53,55 +53,55 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 }
 
-/* HIGH-TECH ENERGY THEME */
+/* HIGH-TECH ENERGY THEME - LIGHT */
 :root {
-  /* Dark, Softer "Control Room" Base */
-  --background: 220 18% 14%; /* Softer dark gray with blue tint */
-  --foreground: 210 40% 98%; /* Crisp white text */
+  /* Light, Clean "Control Room" Base */
+  --background: 0 0% 89%; /* Light gray #E4E4E5 */
+  --foreground: 220 20% 20%; /* Dark text */
 
-  --card: 220 16% 18%; /* Slightly lighter than background */
-  --card-foreground: 210 40% 98%;
+  --card: 0 0% 100%; /* White cards */
+  --card-foreground: 220 20% 20%;
 
-  --popover: 220 16% 18%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 20%;
 
   /* Electric Accents */
-  --primary: 190 100% 50%; /* Electric Cyan - The "Energy" Color */
-  --primary-foreground: 225 30% 10%; /* Dark text on cyan */
+  --primary: 190 100% 40%; /* Electric Cyan - The "Energy" Color */
+  --primary-foreground: 0 0% 100%; /* White text on cyan */
 
-  --secondary: 220 14% 24%; /* Dark gray-blue for secondary actions */
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 220 10% 82%; /* Light gray for secondary actions */
+  --secondary-foreground: 220 20% 20%;
 
-  --muted: 220 14% 24%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 220 10% 85%;
+  --muted-foreground: 220 10% 45%;
 
-  --accent: 210 100% 60%; /* Vibrant Blue for interactions */
-  --accent-foreground: 210 40% 98%;
+  --accent: 210 100% 50%; /* Vibrant Blue for interactions */
+  --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 220 14% 26%;
-  --input: 220 14% 24%;
-  --ring: 190 100% 50%; /* Cyan ring focus */
+  --border: 220 10% 80%;
+  --input: 220 10% 85%;
+  --ring: 190 100% 40%; /* Cyan ring focus */
 
-  --radius: 0.25rem; /* Sharper corners for tech feel */
+  --radius: 0.5rem; /* Slightly rounder corners for light theme */
 
-  /* Data Visualization Colors - Neon/Bright */
-  --chart-1: 190 100% 50%; /* Cyan */
-  --chart-2: 210 100% 60%; /* Blue */
-  --chart-3: 150 100% 50%; /* Neon Green */
-  --chart-4: 45 100% 50%;  /* Amber */
-  --chart-5: 320 100% 60%; /* Magenta */
+  /* Data Visualization Colors */
+  --chart-1: 190 100% 40%; /* Cyan */
+  --chart-2: 210 100% 50%; /* Blue */
+  --chart-3: 150 80% 40%; /* Green */
+  --chart-4: 45 100% 45%;  /* Amber */
+  --chart-5: 320 80% 50%; /* Magenta */
 
-  /* Sidebar - Dark & Unified */
-  --sidebar: 220 18% 11%; /* Slightly darker than main bg */
-  --sidebar-foreground: 210 40% 98%;
+  /* Sidebar - Slightly darker than main bg */
+  --sidebar: 220 15% 25%; /* Dark sidebar for contrast */
+  --sidebar-foreground: 0 0% 98%;
   --sidebar-primary: 190 100% 50%;
-  --sidebar-primary-foreground: 225 30% 10%;
-  --sidebar-accent: 220 16% 22%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 220 14% 26%;
+  --sidebar-primary-foreground: 220 20% 15%;
+  --sidebar-accent: 220 15% 32%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 220 15% 30%;
   --sidebar-ring: 190 100% 50%;
   
   --font-sans: 'Inter', sans-serif;
@@ -144,9 +144,6 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-image: 
-      radial-gradient(circle at 50% 0%, hsl(220, 20%, 20%), transparent 70%),
-      linear-gradient(to bottom, transparent, hsl(220, 18%, 14%));
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
