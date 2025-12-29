@@ -1,4 +1,4 @@
-import { DashboardShell } from "@/components/layout/dashboard-shell";
+import DashboardShell from "@/components/layout/dashboard-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { simulatorScenariosAPI, scenarioStepsAPI } from "@/lib/api";
