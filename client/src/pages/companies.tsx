@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Building2, AlertTriangle, Globe, Phone, Mail, MapPin, Users } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Edit, Trash2, Building2, AlertTriangle, Globe, Phone, Mail, MapPin, Users, UserPlus, Eye, EyeOff } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,6 +47,20 @@ const initialFormData: CompanyFormData = {
   active: true,
 };
 
+interface AdminFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+const initialAdminFormData: AdminFormData = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+};
+
 const industryLabels: Record<string, string> = {
   electric_utility: "Empresa Eléctrica",
   transmission: "Transmisión",
@@ -68,9 +82,13 @@ export default function Companies() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<CompanyFormData>(initialFormData);
+  const [adminFormData, setAdminFormData] = useState<AdminFormData>(initialAdminFormData);
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAdminSubmitting, setIsAdminSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
@@ -125,6 +143,61 @@ export default function Companies() {
   const handleOpenDelete = (companyToDelete: Company) => {
     setSelectedCompany(companyToDelete);
     setIsDeleteOpen(true);
+  };
+
+  const handleOpenAddAdmin = (company: Company) => {
+    setSelectedCompany(company);
+    setAdminFormData(initialAdminFormData);
+    setShowPassword(false);
+    setIsAddAdminOpen(true);
+  };
+
+  const handleCreateAdmin = async () => {
+    if (!selectedCompany) return;
+    
+    if (!adminFormData.firstName.trim() || !adminFormData.lastName.trim() || 
+        !adminFormData.email.trim() || !adminFormData.password.trim()) {
+      toast.error("Por favor completa todos los campos");
+      return;
+    }
+
+    if (adminFormData.password.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    setIsAdminSubmitting(true);
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("ots_token") || ""}`,
+        },
+        body: JSON.stringify({
+          firstName: adminFormData.firstName.trim(),
+          lastName: adminFormData.lastName.trim(),
+          email: adminFormData.email.trim().toLowerCase(),
+          password: adminFormData.password,
+          role: "admin",
+          companyId: selectedCompany.id,
+          active: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Error al crear administrador");
+      }
+      
+      toast.success(`Administrador creado para ${selectedCompany.name}`);
+      setIsAddAdminOpen(false);
+      setAdminFormData(initialAdminFormData);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al crear el administrador");
+    } finally {
+      setIsAdminSubmitting(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -648,6 +721,10 @@ export default function Companies() {
                                 <Building2 className="h-4 w-4 mr-2" />
                                 Ver Detalles
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenAddAdmin(company)} data-testid={`menu-add-admin-${company.id}`}>
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Asignar Administrador
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleOpenEdit(company)} data-testid={`menu-edit-${company.id}`}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 Editar
@@ -807,6 +884,87 @@ export default function Companies() {
               <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancelar</Button>
               <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting} data-testid="button-delete-submit">
                 {isSubmitting ? "Eliminando..." : "Eliminar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Admin Dialog */}
+        <Dialog open={isAddAdminOpen} onOpenChange={setIsAddAdminOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Asignar Administrador</DialogTitle>
+              <DialogDescription>
+                Crea un nuevo administrador para {selectedCompany?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Nombre *</label>
+                  <Input
+                    value={adminFormData.firstName}
+                    onChange={(e) => setAdminFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="Juan"
+                    className="mt-1"
+                    data-testid="input-admin-firstname"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Apellido *</label>
+                  <Input
+                    value={adminFormData.lastName}
+                    onChange={(e) => setAdminFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="García"
+                    className="mt-1"
+                    data-testid="input-admin-lastname"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Correo Electrónico *</label>
+                <Input
+                  type="email"
+                  value={adminFormData.email}
+                  onChange={(e) => setAdminFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="admin@empresa.com"
+                  className="mt-1"
+                  data-testid="input-admin-email"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Contraseña *</label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={adminFormData.password}
+                    onChange={(e) => setAdminFormData(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Mínimo 6 caracteres"
+                    className="pr-10"
+                    data-testid="input-admin-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-sm text-blue-400">
+                  Este usuario tendrá rol de <strong>Administrador</strong> y podrá gestionar operadores, ciclos y evaluaciones de {selectedCompany?.name}.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddAdminOpen(false)}>Cancelar</Button>
+              <Button onClick={handleCreateAdmin} disabled={isAdminSubmitting} data-testid="button-create-admin-submit">
+                {isAdminSubmitting ? "Creando..." : "Crear Administrador"}
               </Button>
             </DialogFooter>
           </DialogContent>
