@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle, Clock, FileText, LayoutDashboard, Settings, Users, BarChart3, Building2, MonitorPlay, Target, ClipboardList } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, FileText, LayoutDashboard, Settings, Users, BarChart3, Building2, MonitorPlay, Target, ClipboardList, Wand2 } from "lucide-react";
 
 export type Role = "super_admin" | "admin" | "trainer" | "student";
 
@@ -174,6 +174,7 @@ export const navItems = [
   { label: "Evaluaciones", icon: BookOpen, href: "/evaluations" },
   { label: "Temas de Evaluación", icon: Target, href: "/evaluation-topics" },
   { label: "Simuladores", icon: MonitorPlay, href: "/simulator" },
+  { label: "Diseño de Simulaciones", icon: Wand2, href: "/scenario-designer", roles: ["admin", "super_admin", "trainer"] },
   { label: "Solicitudes OTS", icon: ClipboardList, href: "/training-requests", roles: ["admin", "super_admin", "trainer"] },
   { label: "Operadores", icon: Users, href: "/operators", roles: ["admin", "super_admin"] },
   { label: "Empresas", icon: Building2, href: "/companies", roles: ["super_admin"] },

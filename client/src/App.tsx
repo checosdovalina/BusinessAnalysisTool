@@ -13,6 +13,7 @@ import EvaluationTopics from "@/pages/evaluation-topics";
 import Reports from "@/pages/reports";
 import SimulatorSessions from "@/pages/simulator-sessions";
 import SimulatorRun from "@/pages/simulator-run";
+import ScenarioDesigner from "@/pages/scenario-designer";
 import Operators from "@/pages/operators";
 import Companies from "@/pages/companies";
 import SettingsPage from "@/pages/settings";
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/reports" component={(props) => <ProtectedRoute component={Reports} {...props} />} />
       <Route path="/simulator" component={(props) => <ProtectedRoute component={SimulatorSessions} {...props} />} />
       <Route path="/simulator/run/:id" component={(props) => <ProtectedRoute component={SimulatorRun} {...props} />} />
+      <Route path="/scenario-designer" component={(props) => <ProtectedRoute component={ScenarioDesigner} {...props} />} />
       <Route path="/operators" component={(props) => <ProtectedRoute component={Operators} {...props} />} />
       <Route path="/companies" component={(props) => <ProtectedRoute component={Companies} {...props} />} />
       <Route path="/settings" component={(props) => <ProtectedRoute component={SettingsPage} {...props} />} />
