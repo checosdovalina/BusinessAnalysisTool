@@ -6,6 +6,13 @@ function getAuthToken(): string | null {
   return localStorage.getItem("ots_token");
 }
 
+function clearAuthAndRedirect() {
+  localStorage.removeItem("ots_user");
+  localStorage.removeItem("ots_company");
+  localStorage.removeItem("ots_token");
+  window.location.href = "/auth";
+}
+
 async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const headers: Record<string, string> = {
@@ -24,6 +31,12 @@ async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: response.statusText }));
+    
+    if (response.status === 403 && error.error === "Token inválido o expirado") {
+      clearAuthAndRedirect();
+      throw new Error("Sesión expirada. Por favor inicia sesión nuevamente.");
+    }
+    
     throw new Error(error.error || "Request failed");
   }
 
