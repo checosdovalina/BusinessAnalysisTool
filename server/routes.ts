@@ -1373,18 +1373,29 @@ export async function registerRoutes(
 
   // ============= EVALUATION TEMPLATES ROUTES =============
 
-  app.get("/api/evaluation-templates", async (req, res) => {
+  app.get("/api/evaluation-templates", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const templates = await storage.getAllEvaluationTemplates();
-      res.json(templates);
+      if (req.user?.role === "super_admin") {
+        const templates = await storage.getAllEvaluationTemplates();
+        return res.json(templates);
+      }
+      const globalTemplates = await storage.getEvaluationTemplatesByCompany(null);
+      const companyTemplates = req.user?.companyId 
+        ? await storage.getEvaluationTemplatesByCompany(req.user.companyId)
+        : [];
+      const allTemplates = [...globalTemplates, ...companyTemplates];
+      res.json(allTemplates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch evaluation templates" });
     }
   });
 
-  app.get("/api/evaluation-templates/company/:companyId", async (req, res) => {
+  app.get("/api/evaluation-templates/company/:companyId", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const companyId = req.params.companyId === 'null' ? null : parseInt(req.params.companyId);
+      if (req.user?.role !== "super_admin" && companyId !== null && companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "No tienes acceso a los templates de otra empresa" });
+      }
       const templates = await storage.getEvaluationTemplatesByCompany(companyId);
       res.json(templates);
     } catch (error) {
@@ -1392,12 +1403,15 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evaluation-templates/:id", async (req, res) => {
+  app.get("/api/evaluation-templates/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const template = await storage.getEvaluationTemplate(id);
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
+      }
+      if (template.companyId !== null && req.user?.role !== "super_admin" && template.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "No tienes acceso a este template" });
       }
       res.json(template);
     } catch (error) {
@@ -1405,12 +1419,15 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evaluation-templates/:id/full", async (req, res) => {
+  app.get("/api/evaluation-templates/:id/full", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const result = await storage.getEvaluationTemplateWithDetails(id);
       if (!result) {
         return res.status(404).json({ error: "Template not found" });
+      }
+      if (result.template.companyId !== null && req.user?.role !== "super_admin" && result.template.companyId !== req.user?.companyId) {
+        return res.status(403).json({ error: "No tienes acceso a este template" });
       }
       
       const topicsWithDetails = await Promise.all(
