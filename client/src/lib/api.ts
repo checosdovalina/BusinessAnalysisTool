@@ -193,7 +193,21 @@ export const evaluationTopicsAPI = {
     method: "PATCH",
     body: JSON.stringify(data),
   }),
-  delete: (id: number) => fetch(`${API_BASE}/evaluation-topics/${id}`, { method: "DELETE" }),
+  delete: async (id: number) => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/evaluation-topics/${id}`, { 
+      method: "DELETE",
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || "Error al eliminar el tema");
+    }
+  },
 };
 
 // Evaluation Topic Items API
