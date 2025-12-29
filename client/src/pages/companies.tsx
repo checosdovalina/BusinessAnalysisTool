@@ -175,13 +175,11 @@ export default function Companies() {
           "Authorization": `Bearer ${localStorage.getItem("ots_token") || ""}`,
         },
         body: JSON.stringify({
-          firstName: adminFormData.firstName.trim(),
-          lastName: adminFormData.lastName.trim(),
+          name: `${adminFormData.firstName.trim()} ${adminFormData.lastName.trim()}`,
           email: adminFormData.email.trim().toLowerCase(),
           password: adminFormData.password,
           role: "admin",
           companyId: selectedCompany.id,
-          active: true,
         }),
       });
 
