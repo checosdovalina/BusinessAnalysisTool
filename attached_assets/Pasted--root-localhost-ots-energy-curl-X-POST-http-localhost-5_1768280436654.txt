@@ -1,0 +1,55 @@
+[root@localhost ots-energy]# curl -X POST http://localhost:5001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@otsenergy.com","password":"super123"}'
+{"error":"Login failed"}[root@localhost ots-energy]# cd /var/www/ots-energy && DATABASE_URL=postgresql://otsadmin:OtsEnergy2024@localhost:5432/ots_energy JWT_SECRET=OtsEnergySecretKey2024Prod PORT=5002 node -e "                          cd /var/www/ots-energy && DATABASE_URL=postgresql://otsadmin:OtsEnergy2024@localhost:5432/ots_energy JWT_SECRET=OtsEnergySecretKey2024Prod PORT=5002 node -e "
+import('dotenv/config').then(() => {
+  process.env.DATABASE_URL = 'postgresql://otsadmin:OtsEnergy2024@localhost:5432/ots_energy';
+  process.env.JWT_SECRET = 'OtsEnergySecretKey2024Prod';
+  
+  const bcrypt = require('bcrypt');
+  const { Pool } = require('pg');
+  
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  
+  pool.query('SELECT email, password FROM users WHERE email = \$1', ['admin@otsenergy.com'])
+    .then(async (result) => {
+      const user = result.rows[0];
+      console.log('Usuario encontrado:', user.email);
+      const isValid = await bcrypt.compare('super123', user.password);
+      console.log('Contraseña válida:', isValid);
+      pool.end();
+    });
+});
+"cd /var/www/ots-energy && DATABASE_URL=postgresql://otsadmin:OtsEnergy2024@localhost:5432/ots_energy JWT_SECRET=OtsEnergySecretKey2024Prod PORT=5002 node -e "
+import('dotenv/config').then(() => {
+  process.env.DATABASE_URL = 'postgresql://otsadmin:OtsEnergy2024@localhost:5432/ots_energy';
+  process.env.JWT_SECRET = 'OtsEnergySecretKey2024Prod';
+  
+  const bcrypt = require('bcrypt');
+  const { Pool } = require('pg');
+  
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  
+  pool.query('SELECT email, password FROM users WHERE email = \$1', ['admin@otsenergy.com'])
+    .then(async (result) => {
+      const user = result.rows[0];
+      console.log('Usuario encontrado:', user.email);
+      const isValid = await bcrypt.compare('super123', user.password);
+      console.log('Contraseña válida:', isValid);
+      pool.end();
+    });
+});
+"
+[eval]:20
+cd
+^
+
+ReferenceError: cd is not defined
+    at [eval]:20:1
+    at runScriptInThisContext (node:internal/vm:209:10)
+    at node:internal/process/execution:118:14
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:101:62)
+    at evalScript (node:internal/process/execution:133:3)
+    at node:internal/main/eval_string:51:3
+
