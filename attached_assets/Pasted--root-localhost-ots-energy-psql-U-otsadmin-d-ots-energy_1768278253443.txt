@@ -1,0 +1,407 @@
+[root@localhost ots-energy]# psql -U otsadmin -d ots_energy -f neon_backup.sql
+Password for user otsadmin: 
+SET
+SET
+SET
+psql:neon_backup.sql:13: ERROR:  unrecognized configuration parameter "transaction_timeout"
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+CREATE TYPE
+psql:neon_backup.sql:33: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:45: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:58: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:76: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:90: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:110: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:124: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:138: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:154: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:174: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:188: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:202: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:neon_backup.sql:217: ERROR:  role "neondb_owner" does not exist
+SET
+SET
+CREATE TABLE
+psql:neon_backup.sql:244: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:259: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:290: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:305: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:342: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:357: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:382: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:397: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:431: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:446: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:478: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:493: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:523: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:538: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:563: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:578: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:614: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:629: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:657: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:672: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:699: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:714: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:740: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:755: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:783: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:798: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:826: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:841: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:871: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:886: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:912: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:927: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:951: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:966: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:997: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1012: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:1039: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1054: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:1079: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1094: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:1132: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1147: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:1187: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1202: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:1231: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1246: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+CREATE TABLE
+psql:neon_backup.sql:1271: ERROR:  role "neondb_owner" does not exist
+CREATE SEQUENCE
+psql:neon_backup.sql:1286: ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+COPY 0
+COPY 4
+COPY 0
+COPY 0
+COPY 3
+COPY 3
+COPY 24
+COPY 7
+COPY 9
+COPY 0
+COPY 0
+COPY 0
+COPY 0
+COPY 0
+COPY 0
+COPY 0
+COPY 15
+COPY 0
+COPY 10
+COPY 14
+COPY 0
+COPY 1
+COPY 0
+COPY 7
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      4
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      3
+(1 row)
+
+ setval 
+--------
+      3
+(1 row)
+
+ setval 
+--------
+     24
+(1 row)
+
+ setval 
+--------
+      7
+(1 row)
+
+ setval 
+--------
+      9
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+     15
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+     10
+(1 row)
+
+ setval 
+--------
+     14
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      7
+(1 row)
+
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:neon_backup.sql:2492: ERROR:  role "neon_superuser" does not exist
+psql:neon_backup.sql:2499: ERROR:  role "neon_superuser" does not exist
+[root@localhost ots-energy]# 
