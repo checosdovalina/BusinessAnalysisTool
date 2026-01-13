@@ -64,6 +64,10 @@ export default function EvaluationList() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   
+  // Estados para el selector de tema + item
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  
   const { data: cycles = [], isLoading } = useQuery({
     queryKey: ["cycles", user?.companyId],
     queryFn: () => user?.companyId ? cyclesAPI.getByCompany(user.companyId) : Promise.resolve([]),
@@ -160,6 +164,8 @@ export default function EvaluationList() {
     setFormData(initialFormData);
     setSelectedCycle(null);
     setSelectedTemplateId(null);
+    setSelectedTopicId(null);
+    setSelectedItemId(null);
   };
 
   const handleOpenCreate = () => {
@@ -387,6 +393,66 @@ export default function EvaluationList() {
     return formData.selectedTopicItems.some(s => s.topicItemId === itemId);
   };
 
+  // Obtener items activos filtrados por tema seleccionado
+  const getActiveItemsForSelectedTopic = () => {
+    if (!selectedTopicId) return [];
+    return allTopicItems.filter((item: EvaluationTopicItem) => 
+      item.topicId === selectedTopicId && item.isActive !== false
+    );
+  };
+
+  // Agregar item seleccionado a la lista
+  const addSelectedItem = () => {
+    if (!selectedItemId) return;
+    
+    // Verificar si ya está agregado
+    if (formData.selectedTopicItems.some(s => s.topicItemId === selectedItemId)) {
+      toast.error("Este elemento ya está en la lista");
+      return;
+    }
+    
+    const item = allTopicItems.find((i: EvaluationTopicItem) => i.id === selectedItemId);
+    if (!item) return;
+    
+    const topic = evaluationTopics.find((t: EvaluationTopic) => t.id === selectedTopicId);
+    
+    // Actualizar todo en una sola llamada a setFormData
+    setFormData(prev => {
+      const newEvaluationTopics = topic && !prev.evaluationTopics.includes(topic.code)
+        ? [...prev.evaluationTopics, topic.code]
+        : prev.evaluationTopics;
+      
+      return {
+        ...prev,
+        evaluationTopics: newEvaluationTopics,
+        selectedTopicItems: [...prev.selectedTopicItems, { 
+          topicItemId: selectedItemId, 
+          weight: item.defaultWeight || 1 
+        }]
+      };
+    });
+    
+    // Limpiar selección del item (mantener tema)
+    setSelectedItemId(null);
+    toast.success("Elemento agregado a la lista");
+  };
+
+  // Remover item de la lista
+  const removeSelectedItem = (itemId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedTopicItems: prev.selectedTopicItems.filter(s => s.topicItemId !== itemId)
+    }));
+  };
+
+  // Obtener información del item por ID
+  const getItemInfo = (itemId: number) => {
+    const item = allTopicItems.find((i: EvaluationTopicItem) => i.id === itemId);
+    if (!item) return null;
+    const topic = evaluationTopics.find((t: EvaluationTopic) => t.id === item.topicId);
+    return { item, topic };
+  };
+
   const getUserName = (userId: number | null) => {
     if (!userId) return "-";
     const foundUser = users.find((u: User) => u.id === userId);
@@ -558,133 +624,147 @@ export default function EvaluationList() {
         </div>
         <div className="col-span-2">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium">Temas de Evaluación</label>
+            <label className="text-sm font-medium">Elementos de Evaluación</label>
             <Link href="/evaluation-topics" className="text-xs text-accent hover:underline flex items-center gap-1">
               <ExternalLink className="h-3 w-3" />
               Gestionar temas
             </Link>
           </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {evaluationTopics.map((topic: EvaluationTopic) => (
-              <Badge
-                key={topic.code}
-                variant={formData.evaluationTopics.includes(topic.code) ? "default" : "outline"}
-                className={`cursor-pointer transition-all ${
-                  formData.evaluationTopics.includes(topic.code) 
-                    ? "bg-accent text-accent-foreground" 
-                    : "hover:bg-accent/10"
-                }`}
-                onClick={() => toggleTopic(topic.code)}
-                data-testid={`topic-${topic.code}`}
-              >
-                {topic.name}
-              </Badge>
-            ))}
-          </div>
           
-          {formData.evaluationTopics.length > 0 && (
-            <div className="border border-border rounded-lg p-4 bg-background/50">
-              <p className="text-sm font-medium mb-3">Elementos de Evaluación por Tema (ordenar con flechas)</p>
-              <Accordion type="multiple" className="w-full">
-                {formData.evaluationTopics.map((topicCode, index) => {
-                  const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
-                  const items = getItemsForTopic(topicCode);
-                  if (!topic) return null;
-                  
-                  return (
-                    <AccordionItem key={topicCode} value={topicCode}>
-                      <div className="flex items-center gap-1">
-                        <div className="flex flex-col">
+          {/* Selector de Tema + Item */}
+          <div className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Tema de Evaluación</label>
+                <select
+                  value={selectedTopicId || ""}
+                  onChange={(e) => {
+                    setSelectedTopicId(e.target.value ? parseInt(e.target.value) : null);
+                    setSelectedItemId(null);
+                  }}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm"
+                  data-testid="select-topic-dropdown"
+                >
+                  <option value="">Seleccionar tema...</option>
+                  {evaluationTopics.map((topic: EvaluationTopic) => (
+                    <option key={topic.id} value={topic.id}>{topic.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Elemento</label>
+                <select
+                  value={selectedItemId || ""}
+                  onChange={(e) => setSelectedItemId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm"
+                  disabled={!selectedTopicId}
+                  data-testid="select-item-dropdown"
+                >
+                  <option value="">Seleccionar elemento...</option>
+                  {getActiveItemsForSelectedTopic().map((item: EvaluationTopicItem) => (
+                    <option 
+                      key={item.id} 
+                      value={item.id}
+                      disabled={formData.selectedTopicItems.some(s => s.topicItemId === item.id)}
+                    >
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                type="button"
+                onClick={addSelectedItem}
+                disabled={!selectedItemId}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                data-testid="button-add-item"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Lista de elementos agregados */}
+            {formData.selectedTopicItems.length > 0 ? (
+              <div className="space-y-2 mt-4">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Elementos agregados ({formData.selectedTopicItems.length})
+                </p>
+                <div className="divide-y divide-border rounded-md border border-border bg-card">
+                  {formData.selectedTopicItems.map((selected, index) => {
+                    const info = getItemInfo(selected.topicItemId);
+                    if (!info) return null;
+                    
+                    return (
+                      <div 
+                        key={selected.topicItemId}
+                        className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <span className="text-sm text-muted-foreground w-6 text-center font-medium">
+                          {index + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{info.item.name}</p>
+                          <p className="text-xs text-muted-foreground">{info.topic?.name}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => { e.stopPropagation(); moveTopicUp(index); }}
+                            className="h-7 w-7"
+                            onClick={() => {
+                              if (index > 0) {
+                                setFormData(prev => {
+                                  const items = [...prev.selectedTopicItems];
+                                  [items[index - 1], items[index]] = [items[index], items[index - 1]];
+                                  return { ...prev, selectedTopicItems: items };
+                                });
+                              }
+                            }}
                             disabled={index === 0}
-                            data-testid={`move-up-${topicCode}`}
                           >
-                            <ChevronUp className="h-3 w-3" />
+                            <ChevronUp className="h-4 w-4" />
                           </Button>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => { e.stopPropagation(); moveTopicDown(index); }}
-                            disabled={index === formData.evaluationTopics.length - 1}
-                            data-testid={`move-down-${topicCode}`}
+                            className="h-7 w-7"
+                            onClick={() => {
+                              if (index < formData.selectedTopicItems.length - 1) {
+                                setFormData(prev => {
+                                  const items = [...prev.selectedTopicItems];
+                                  [items[index], items[index + 1]] = [items[index + 1], items[index]];
+                                  return { ...prev, selectedTopicItems: items };
+                                });
+                              }
+                            }}
+                            disabled={index === formData.selectedTopicItems.length - 1}
                           >
-                            <ChevronDown className="h-3 w-3" />
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeSelectedItem(selected.topicItemId)}
+                            data-testid={`remove-item-${selected.topicItemId}`}
+                          >
+                            <X className="h-4 w-4" />
                           </Button>
                         </div>
-                        <span className="text-xs text-muted-foreground w-5 text-center">{index + 1}</span>
-                        <AccordionTrigger className="text-sm hover:no-underline flex-1">
-                          <div className="flex items-center gap-2">
-                            <span>{topic.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {formData.selectedTopicItems.filter(s => 
-                                items.some((item: EvaluationTopicItem) => item.id === s.topicItemId)
-                              ).length} / {items.length}
-                            </Badge>
-                          </div>
-                        </AccordionTrigger>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); removeTopic(topicCode); }}
-                          data-testid={`remove-topic-${topicCode}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
                       </div>
-                      <AccordionContent>
-                        {items.length === 0 ? (
-                          <p className="text-xs text-muted-foreground py-2">
-                            No hay elementos definidos. Añade elementos desde la sección de Gestión de Temas.
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            {items.map((item: EvaluationTopicItem) => (
-                              <div 
-                                key={item.id}
-                                className="flex items-start gap-3 p-2 rounded-md hover:bg-accent/5 transition-colors"
-                              >
-                                <Checkbox
-                                  id={`item-${item.id}`}
-                                  checked={isTopicItemSelected(item.id)}
-                                  onCheckedChange={() => toggleTopicItem(item.id, item.defaultWeight || 1)}
-                                  data-testid={`checkbox-item-${item.id}`}
-                                />
-                                <div className="flex-1">
-                                  <label 
-                                    htmlFor={`item-${item.id}`}
-                                    className="text-sm cursor-pointer"
-                                  >
-                                    {item.name}
-                                  </label>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                      {item.description}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
-              <p className="text-xs text-muted-foreground mt-3">
-                {formData.selectedTopicItems.length} elemento(s) seleccionado(s) en total.
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay elementos agregados. Selecciona un tema y elemento para agregar.
               </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
