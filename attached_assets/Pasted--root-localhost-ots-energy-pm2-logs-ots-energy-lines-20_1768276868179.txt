@@ -1,0 +1,124 @@
+[root@localhost ots-energy]# pm2 logs ots-energy --lines 20
+[TAILING] Tailing last 20 lines for [ots-energy] process (change the value with --lines option)
+/root/.pm2/logs/ots-energy-out.log last 20 lines:
+1|ots-ener | 
+1|ots-ener | > rest-express@1.0.0 dev
+1|ots-ener | > NODE_ENV=development tsx server/index.ts
+1|ots-ener | 
+1|ots-ener | 
+1|ots-ener | > rest-express@1.0.0 dev
+1|ots-ener | > NODE_ENV=development tsx server/index.ts
+1|ots-ener | 
+1|ots-ener | 
+1|ots-ener | > rest-express@1.0.0 dev
+1|ots-ener | > NODE_ENV=development tsx server/index.ts
+1|ots-ener | 
+1|ots-ener | 
+1|ots-ener | > rest-express@1.0.0 dev
+1|ots-ener | > NODE_ENV=development tsx server/index.ts
+1|ots-ener | 
+1|ots-ener | 
+1|ots-ener | > rest-express@1.0.0 dev
+1|ots-ener | > NODE_ENV=development tsx server/index.ts
+1|ots-ener | 
+
+/root/.pm2/logs/ots-energy-error.log last 20 lines:
+1|ots-ener | 
+1|ots-ener | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-ener |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-ener |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-ener |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-ener |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-ener | 
+1|ots-ener | Node.js v20.19.6
+1|ots-ener | /var/www/ots-energy/server/db.ts:9
+1|ots-ener |   throw new Error(
+1|ots-ener |         ^
+1|ots-ener | 
+1|ots-ener | 
+1|ots-ener | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-ener |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-ener |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-ener |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-ener |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-ener | 
+1|ots-ener | Node.js v20.19.6
+
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
+1|ots-energy  | > NODE_ENV=development tsx server/index.ts
+1|ots-energy  | /var/www/ots-energy/server/db.ts:9
+1|ots-energy  |   throw new Error(
+1|ots-energy  |         ^
+1|ots-energy  | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|ots-energy  |     at <anonymous> (/var/www/ots-energy/server/db.ts:9:9)
+1|ots-energy  |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+1|ots-energy  |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+1|ots-energy  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+1|ots-energy  | Node.js v20.19.6
+1|ots-energy  | > rest-express@1.0.0 dev
