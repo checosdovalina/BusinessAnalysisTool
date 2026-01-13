@@ -465,7 +465,7 @@ export default function EvaluationForm() {
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <span className="line-clamp-2 text-xs">{event.title}</span>
-                          {event.evaluationTopic && (
+                          {event.evaluationTopic && event.evaluationTopic.trim() !== '' && (
                             <span className="text-[10px] text-muted-foreground/70">
                               {EVALUATION_TOPICS.find(t => t.value === event.evaluationTopic)?.label || event.evaluationTopic}
                             </span>
@@ -490,7 +490,7 @@ export default function EvaluationForm() {
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     <Badge variant="outline" className="bg-background">Puntos: {currentEvent.maxScore}</Badge>
-                    {currentEvent.evaluationTopic && (
+                    {currentEvent.evaluationTopic && currentEvent.evaluationTopic.trim() !== '' && (
                       <Badge variant="secondary" className="text-xs">
                         {EVALUATION_TOPICS.find(t => t.value === currentEvent.evaluationTopic)?.label || currentEvent.evaluationTopic}
                       </Badge>
