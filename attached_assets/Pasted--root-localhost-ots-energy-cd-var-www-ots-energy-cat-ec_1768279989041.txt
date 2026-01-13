@@ -1,0 +1,47 @@
+[root@localhost ots-energy]# cd /var/www/ots-energy && cat > ecosystem.config.js << 'EOF'
+module.exports = {
+  apps: [{
+    name: 'ots-energy',
+    script: 'npm',
+    args: 'run dev',
+    cwd: '/var/www/ots-energy',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 5001,
+      JWT_SECRET: 'OtsEnergySecretKey2024Prod',
+      DATABASE_URL: 'postgresql://otsadmin:OtsEnergy2024@localhost:5432/ots_energy',
+      PGHOST: 'localhost',
+      PGPORT: 5432,
+      PGUSER: 'otsadmin',
+      PGPASSWORD: 'OtsEnergy2024',
+      PGDATABASE: 'ots_energy'
+    }
+  }]
+};
+EOF
+[root@localhost ots-energy]# pm2 delete ots-energy
+pm2 start ecosystem.config.js
+pm2 save
+[PM2] Applying action deleteProcessId on app [ots-energy](ids: [ 5 ])
+[PM2] [ots-energy](5) ✓
+┌────┬──────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name         │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ joper-app    │ default     │ 1.0.0   │ fork    │ 1053319  │ 7D     │ 49   │ online    │ 0%       │ 147.6mb  │ root     │ disabled │
+└────┴──────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[PM2][ERROR] File ecosystem.config.js malformated
+ReferenceError: module is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/var/www/ots-energy/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///var/www/ots-energy/ecosystem.config.js:1:1
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:437:37)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:389:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1363:24)
+    at Module._compile (node:internal/modules/cjs/loader:1503:5)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[root@localhost ots-energy]# 
