@@ -463,7 +463,14 @@ export default function EvaluationForm() {
                             <div className={cn("h-4 w-4 rounded-full border-2", isCurrent ? "border-accent" : "border-muted-foreground/30")} />
                           )}
                         </div>
-                        <span className="line-clamp-2 text-xs">{event.title}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="line-clamp-2 text-xs">{event.title}</span>
+                          {event.evaluationTopic && (
+                            <span className="text-[10px] text-muted-foreground/70">
+                              {EVALUATION_TOPICS.find(t => t.value === event.evaluationTopic)?.label || event.evaluationTopic}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -481,7 +488,14 @@ export default function EvaluationForm() {
                     <span className="text-xs font-bold text-accent tracking-wider uppercase">Evento {currentEventIndex + 1} de {cycleEvents.length}</span>
                     <h3 className="text-2xl font-bold mt-1 font-heading text-foreground">{currentEvent.title}</h3>
                   </div>
-                  <Badge variant="outline" className="bg-background">Puntos: {currentEvent.maxScore}</Badge>
+                  <div className="flex flex-col gap-1 items-end">
+                    <Badge variant="outline" className="bg-background">Puntos: {currentEvent.maxScore}</Badge>
+                    {currentEvent.evaluationTopic && (
+                      <Badge variant="secondary" className="text-xs">
+                        {EVALUATION_TOPICS.find(t => t.value === currentEvent.evaluationTopic)?.label || currentEvent.evaluationTopic}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <p className="text-muted-foreground mt-2">{currentEvent.description}</p>
               </div>
