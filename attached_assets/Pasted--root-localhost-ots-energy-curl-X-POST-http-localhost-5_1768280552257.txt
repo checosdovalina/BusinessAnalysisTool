@@ -1,0 +1,30 @@
+[root@localhost ots-energy]# curl -X POST http://localhost:5001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@otsenergy.com","password":"super123"}' 2>&1
+
+pm2 logs ots-energy --lines 10 --nostream
+{"error":"Login failed"}[TAILING] Tailing last 10 lines for [ots-energy] process (change the value with --lines option)
+/root/.pm2/logs/ots-energy-error.log last 10 lines:
+6|ots-ener | }
+6|ots-ener | 
+6|ots-ener | Node.js v20.19.6
+6|ots-ener | ⚠️ SEGURIDAD: JWT_SECRET no configurado. Usando clave temporal - NO usar en producción!
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | The request id "/proc/self/environ" is outside of Vite serving allow list.
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+/root/.pm2/logs/ots-energy-out.log last 10 lines:
+6|ots-ener | 
+6|ots-ener | 4:53:49 AM [express] serving on port 5001
+6|ots-ener | 4:54:15 AM [express] POST /api/auth/login 400 in 46ms :: {"error":"Login failed"}
+6|ots-ener | 
+6|ots-ener | > rest-express@1.0.0 dev
+6|ots-ener | > NODE_ENV=development tsx server/index.ts
+6|ots-ener | 
+6|ots-ener | 4:58:29 AM [express] serving on port 5001
+6|ots-ener | 4:58:35 AM [express] POST /api/auth/login 400 in 45ms :: {"error":"Login failed"}
+6|ots-ener | 5:02:09 AM [express] POST /api/auth/login 400 in 23ms :: {"error":"Login failed"}
+
