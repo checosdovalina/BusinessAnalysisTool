@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2, ExternalLink, Shield, Monitor, Wrench, FileQuestion } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2, ExternalLink, Shield, Monitor, Wrench, FileQuestion, ChevronUp, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -331,6 +331,41 @@ export default function EvaluationList() {
     });
   };
 
+  const moveTopicUp = (index: number) => {
+    if (index <= 0) return;
+    setFormData(prev => {
+      const newTopics = [...prev.evaluationTopics];
+      [newTopics[index - 1], newTopics[index]] = [newTopics[index], newTopics[index - 1]];
+      return { ...prev, evaluationTopics: newTopics };
+    });
+  };
+
+  const moveTopicDown = (index: number) => {
+    setFormData(prev => {
+      if (index >= prev.evaluationTopics.length - 1) return prev;
+      const newTopics = [...prev.evaluationTopics];
+      [newTopics[index], newTopics[index + 1]] = [newTopics[index + 1], newTopics[index]];
+      return { ...prev, evaluationTopics: newTopics };
+    });
+  };
+
+  const removeTopic = (topicCode: string) => {
+    setFormData(prev => {
+      const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
+      if (topic) {
+        const itemsToRemove = allTopicItems
+          .filter((item: EvaluationTopicItem) => item.topicId === topic.id)
+          .map((item: EvaluationTopicItem) => item.id);
+        return {
+          ...prev,
+          evaluationTopics: prev.evaluationTopics.filter(t => t !== topicCode),
+          selectedTopicItems: prev.selectedTopicItems.filter(s => !itemsToRemove.includes(s.topicItemId))
+        };
+      }
+      return { ...prev, evaluationTopics: prev.evaluationTopics.filter(t => t !== topicCode) };
+    });
+  };
+
   const toggleTopicItem = (itemId: number, defaultWeight: number) => {
     setFormData(prev => {
       const isSelected = prev.selectedTopicItems.some(s => s.topicItemId === itemId);
@@ -549,25 +584,62 @@ export default function EvaluationList() {
           
           {formData.evaluationTopics.length > 0 && (
             <div className="border border-border rounded-lg p-4 bg-background/50">
-              <p className="text-sm font-medium mb-3">Elementos de Evaluación por Tema</p>
+              <p className="text-sm font-medium mb-3">Elementos de Evaluación por Tema (ordenar con flechas)</p>
               <Accordion type="multiple" className="w-full">
-                {formData.evaluationTopics.map(topicCode => {
+                {formData.evaluationTopics.map((topicCode, index) => {
                   const topic = evaluationTopics.find((t: EvaluationTopic) => t.code === topicCode);
                   const items = getItemsForTopic(topicCode);
                   if (!topic) return null;
                   
                   return (
                     <AccordionItem key={topicCode} value={topicCode}>
-                      <AccordionTrigger className="text-sm hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <span>{topic.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {formData.selectedTopicItems.filter(s => 
-                              items.some((item: EvaluationTopicItem) => item.id === s.topicItemId)
-                            ).length} / {items.length}
-                          </Badge>
+                      <div className="flex items-center gap-1">
+                        <div className="flex flex-col">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); moveTopicUp(index); }}
+                            disabled={index === 0}
+                            data-testid={`move-up-${topicCode}`}
+                          >
+                            <ChevronUp className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); moveTopicDown(index); }}
+                            disabled={index === formData.evaluationTopics.length - 1}
+                            data-testid={`move-down-${topicCode}`}
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
                         </div>
-                      </AccordionTrigger>
+                        <span className="text-xs text-muted-foreground w-5 text-center">{index + 1}</span>
+                        <AccordionTrigger className="text-sm hover:no-underline flex-1">
+                          <div className="flex items-center gap-2">
+                            <span>{topic.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {formData.selectedTopicItems.filter(s => 
+                                items.some((item: EvaluationTopicItem) => item.id === s.topicItemId)
+                              ).length} / {items.length}
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); removeTopic(topicCode); }}
+                          data-testid={`remove-topic-${topicCode}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                       <AccordionContent>
                         {items.length === 0 ? (
                           <p className="text-xs text-muted-foreground py-2">
@@ -794,7 +866,7 @@ export default function EvaluationList() {
               <span className="ml-3 text-muted-foreground">Cargando datos...</span>
             </div>
           ) : (
-            {formContent}
+            formContent
           )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
