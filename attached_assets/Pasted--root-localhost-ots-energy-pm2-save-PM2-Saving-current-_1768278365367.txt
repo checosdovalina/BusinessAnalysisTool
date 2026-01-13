@@ -1,0 +1,89 @@
+[root@localhost ots-energy]# pm2 save
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[root@localhost ots-energy]# pm2 logs ots-energy --lines 10
+[TAILING] Tailing last 10 lines for [ots-energy] process (change the value with --lines option)
+/root/.pm2/logs/ots-energy-out.log last 10 lines:
+3|ots-ener | > NODE_ENV=development tsx server/index.ts
+3|ots-ener | 
+3|ots-ener | 
+3|ots-ener | > rest-express@1.0.0 dev
+3|ots-ener | > NODE_ENV=development tsx server/index.ts
+3|ots-ener | 
+3|ots-ener | 
+3|ots-ener | > rest-express@1.0.0 dev
+3|ots-ener | > NODE_ENV=development tsx server/index.ts
+3|ots-ener | 
+
+/root/.pm2/logs/ots-energy-error.log last 10 lines:
+3|ots-ener |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+3|ots-ener |   code: 'EADDRINUSE',
+3|ots-ener |   errno: -98,
+3|ots-ener |   syscall: 'listen',
+3|ots-ener |   address: '0.0.0.0',
+3|ots-ener |   port: 5000
+3|ots-ener | }
+3|ots-ener | 
+3|ots-ener | Node.js v20.19.6
+3|ots-ener | ⚠️ SEGURIDAD: JWT_SECRET no configurado. Usando clave temporal - NO usar en producción!
+
+3|ots-energy  | node:events:502
+3|ots-energy  |       throw er; // Unhandled 'error' event
+3|ots-energy  |       ^
+3|ots-energy  | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|ots-energy  |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|ots-energy  |     at listenInCluster (node:net:1965:12)
+3|ots-energy  |     at doListen (node:net:2139:7)
+3|ots-energy  |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+3|ots-energy  | Emitted 'error' event on Server instance at:
+3|ots-energy  |     at emitErrorNT (node:net:1944:8)
+3|ots-energy  |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+3|ots-energy  |   code: 'EADDRINUSE',
+3|ots-energy  |   errno: -98,
+3|ots-energy  |   syscall: 'listen',
+3|ots-energy  |   address: '0.0.0.0',
+3|ots-energy  |   port: 5000
+3|ots-energy  | }
+3|ots-energy  | Node.js v20.19.6
+3|ots-energy  | > rest-express@1.0.0 dev
+3|ots-energy  | > NODE_ENV=development tsx server/index.ts
+3|ots-energy  | ⚠️ SEGURIDAD: JWT_SECRET no configurado. Usando clave temporal - NO usar en producción!
+3|ots-energy  | node:events:502
+3|ots-energy  |       throw er; // Unhandled 'error' event
+3|ots-energy  |       ^
+3|ots-energy  | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|ots-energy  |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|ots-energy  |     at listenInCluster (node:net:1965:12)
+3|ots-energy  |     at doListen (node:net:2139:7)
+3|ots-energy  |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+3|ots-energy  | Emitted 'error' event on Server instance at:
+3|ots-energy  |     at emitErrorNT (node:net:1944:8)
+3|ots-energy  |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+3|ots-energy  |   code: 'EADDRINUSE',
+3|ots-energy  |   errno: -98,
+3|ots-energy  |   syscall: 'listen',
+3|ots-energy  |   address: '0.0.0.0',
+3|ots-energy  |   port: 5000
+3|ots-energy  | }
+3|ots-energy  | Node.js v20.19.6
+3|ots-energy  | > rest-express@1.0.0 dev
+3|ots-energy  | > NODE_ENV=development tsx server/index.ts
+3|ots-energy  | ⚠️ SEGURIDAD: JWT_SECRET no configurado. Usando clave temporal - NO usar en producción!
+3|ots-energy  | node:events:502
+3|ots-energy  |       throw er; // Unhandled 'error' event
+3|ots-energy  |       ^
+3|ots-energy  | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|ots-energy  |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|ots-energy  |     at listenInCluster (node:net:1965:12)
+3|ots-energy  |     at doListen (node:net:2139:7)
+3|ots-energy  |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+3|ots-energy  | Emitted 'error' event on Server instance at:
+3|ots-energy  |     at emitErrorNT (node:net:1944:8)
+3|ots-energy  |     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+3|ots-energy  |   code: 'EADDRINUSE',
+3|ots-energy  |   errno: -98,
+3|ots-energy  |   syscall: 'listen',
+3|ots-energy  |   address: '0.0.0.0',
+3|ots-energy  |   port: 5000
+3|ots-energy  | }
+3|ots-energy  | Node.js v20.19.6
