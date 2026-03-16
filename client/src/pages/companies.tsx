@@ -519,12 +519,12 @@ export default function Companies() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestión de Empresas</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-2xl font-bold tracking-tight">Gestión de Empresas</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Total: <span className="font-semibold text-foreground">{companies.length}</span> empresas registradas
             </p>
           </div>
-          <Button onClick={handleOpenCreate} className="gap-2" data-testid="button-create-company">
+          <Button onClick={handleOpenCreate} className="gap-2 shadow-sm" data-testid="button-create-company">
             <Plus className="h-4 w-4" />
             Nueva Empresa
           </Button>
@@ -532,11 +532,11 @@ export default function Companies() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Building2 className="h-5 w-5 text-green-400" />
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{companies.filter((c: Company) => c.active).length}</p>
@@ -545,11 +545,11 @@ export default function Companies() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border-yellow-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-500/20 rounded-lg">
-                  <Building2 className="h-5 w-5 text-yellow-400" />
+                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-amber-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{companies.filter((c: Company) => !c.active).length}</p>
@@ -558,11 +558,11 @@ export default function Companies() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Globe className="h-5 w-5 text-blue-400" />
+                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <Globe className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{companies.filter((c: Company) => c.industry === "electric_utility").length}</p>
@@ -571,11 +571,11 @@ export default function Companies() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Users className="h-5 w-5 text-purple-400" />
+                <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-violet-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{companies.length}</p>

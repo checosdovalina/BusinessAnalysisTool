@@ -176,11 +176,11 @@ export default function SettingsPage() {
     <DashboardShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Settings2 className="h-8 w-8 text-accent" />
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+            <Settings2 className="h-6 w-6 text-primary" />
             Configuración
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Gestiona tu perfil, preferencias y configuración del sistema
           </p>
         </div>

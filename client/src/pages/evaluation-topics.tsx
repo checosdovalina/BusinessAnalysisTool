@@ -471,11 +471,11 @@ export default function EvaluationTopics() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight font-heading">Temas de Evaluación</h2>
-            <p className="text-muted-foreground">Gestiona los temas y elementos específicos para evaluar operadores.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Temas de Evaluación</h1>
+            <p className="text-sm text-muted-foreground mt-1">Gestiona los temas y elementos específicos para evaluar operadores.</p>
           </div>
           {canManage && (
-            <Button onClick={handleOpenCreateTopic} className="gap-2" data-testid="button-create-topic">
+            <Button onClick={handleOpenCreateTopic} className="gap-2 shadow-sm" data-testid="button-create-topic">
               <Plus className="h-4 w-4" />
               Nuevo Tema
             </Button>
@@ -484,11 +484,11 @@ export default function EvaluationTopics() {
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Buscar temas..."
-              className="pl-9 bg-card"
+              className="pl-9 h-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               data-testid="input-search-topics"

@@ -53,89 +53,83 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 }
 
-/* HIGH-TECH ENERGY THEME - LIGHT */
 :root {
-  /* Light, Clean "Control Room" Base */
-  --background: 0 0% 89%; /* Light gray #E4E4E5 */
-  --foreground: 220 20% 20%; /* Dark text */
+  --background: 220 16% 96%;
+  --foreground: 224 24% 16%;
 
-  --card: 0 0% 100%; /* White cards */
-  --card-foreground: 220 20% 20%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 24% 16%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 220 20% 20%;
+  --popover-foreground: 224 24% 16%;
 
-  /* Electric Accents */
-  --primary: 190 100% 40%; /* Electric Cyan - The "Energy" Color */
-  --primary-foreground: 0 0% 100%; /* White text on cyan */
+  --primary: 199 89% 48%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 10% 82%; /* Light gray for secondary actions */
-  --secondary-foreground: 220 20% 20%;
+  --secondary: 220 14% 92%;
+  --secondary-foreground: 224 24% 16%;
 
-  --muted: 220 10% 85%;
-  --muted-foreground: 220 10% 45%;
+  --muted: 220 14% 92%;
+  --muted-foreground: 220 10% 46%;
 
-  --accent: 210 100% 50%; /* Vibrant Blue for interactions */
+  --accent: 217 91% 60%;
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 10% 80%;
-  --input: 220 10% 85%;
-  --ring: 190 100% 40%; /* Cyan ring focus */
+  --border: 220 13% 90%;
+  --input: 220 13% 90%;
+  --ring: 199 89% 48%;
 
-  --radius: 0.5rem; /* Slightly rounder corners for light theme */
+  --radius: 0.625rem;
 
-  /* Data Visualization Colors */
-  --chart-1: 190 100% 40%; /* Cyan */
-  --chart-2: 210 100% 50%; /* Blue */
-  --chart-3: 150 80% 40%; /* Green */
-  --chart-4: 45 100% 45%;  /* Amber */
-  --chart-5: 320 80% 50%; /* Magenta */
+  --chart-1: 199 89% 48%;
+  --chart-2: 217 91% 60%;
+  --chart-3: 142 71% 45%;
+  --chart-4: 38 92% 50%;
+  --chart-5: 326 80% 50%;
 
-  /* Sidebar - Slightly darker than main bg */
-  --sidebar: 220 15% 25%; /* Dark sidebar for contrast */
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-primary: 190 100% 50%;
-  --sidebar-primary-foreground: 220 20% 15%;
-  --sidebar-accent: 220 15% 32%;
-  --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-border: 220 15% 30%;
-  --sidebar-ring: 190 100% 50%;
+  --sidebar: 222 47% 11%;
+  --sidebar-foreground: 213 31% 91%;
+  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 33% 17%;
+  --sidebar-accent-foreground: 213 31% 91%;
+  --sidebar-border: 217 33% 17%;
+  --sidebar-ring: 199 89% 48%;
   
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Ensure dark mode variables match (since we are enforcing a dark theme effectively) */
 .dark {
-  --background: 220 18% 14%;
-  --foreground: 210 40% 98%;
+  --background: 222 47% 11%;
+  --foreground: 213 31% 91%;
 
-  --card: 220 16% 18%;
-  --card-foreground: 210 40% 98%;
+  --card: 222 47% 14%;
+  --card-foreground: 213 31% 91%;
 
-  --popover: 220 16% 18%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 222 47% 14%;
+  --popover-foreground: 213 31% 91%;
 
-  --primary: 190 100% 50%;
-  --primary-foreground: 225 30% 10%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 222 47% 11%;
 
-  --secondary: 220 14% 24%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 213 31% 91%;
 
-  --muted: 220 14% 24%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 55%;
 
-  --accent: 210 100% 60%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 213 31% 91%;
 
   --destructive: 0 62% 30%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 213 31% 91%;
 
-  --border: 220 14% 26%;
-  --input: 220 14% 24%;
-  --ring: 190 100% 50%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 199 89% 48%;
 }
 
 @layer base {
@@ -146,33 +140,34 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Outfit', 'Inter', sans-serif;
     @apply tracking-tight;
   }
   
-  /* Custom Scrollbar for Tech feel */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-background;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted rounded-full hover:bg-muted-foreground/50 transition-colors;
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
   }
 }
 
-/* Glassmorphism Utilities */
 @utility glass {
-  @apply bg-background/60 backdrop-blur-md border border-white/5;
+  @apply bg-white/80 backdrop-blur-xl border border-border/50;
 }
 
 @utility glass-card {
-  @apply bg-card/50 backdrop-blur-sm border border-white/5 shadow-xl;
+  @apply bg-card backdrop-blur-sm border border-border shadow-sm;
 }
 
 @utility neon-border {
-  box-shadow: 0 0 10px -5px hsl(var(--primary));
-  @apply border-primary/50;
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2);
+  @apply border-primary/30;
 }

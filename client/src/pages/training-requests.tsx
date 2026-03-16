@@ -205,7 +205,7 @@ export default function TrainingRequestsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold font-heading bg-gradient-to-r from-white to-accent bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold tracking-tight">
               Solicitudes de Entrenamiento
             </h1>
             <p className="text-muted-foreground mt-1">

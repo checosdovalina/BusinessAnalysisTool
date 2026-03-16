@@ -324,8 +324,8 @@ export default function Reports() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reportes y Analítica Operativa</h1>
-            <p className="text-muted-foreground">Generación de informes de desempeño y registros de calidad</p>
+            <h1 className="text-2xl font-bold tracking-tight">Reportes y Analítica Operativa</h1>
+            <p className="text-sm text-muted-foreground mt-1">Generación de informes de desempeño y registros de calidad</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" data-testid="button-export-pdf">
@@ -336,11 +336,11 @@ export default function Reports() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <FileText className="h-5 w-5 text-blue-400" />
+                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <FileText className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.totalCycles}</p>
@@ -349,11 +349,11 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-400" />
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.completedCycles}</p>
@@ -362,11 +362,11 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/20 rounded-lg">
-                  <Target className="h-5 w-5 text-accent" />
+                <div className="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center">
+                  <Target className="h-4 w-4 text-cyan-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.avgScore}%</p>
@@ -375,11 +375,11 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Clock className="h-5 w-5 text-purple-400" />
+                <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-violet-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.totalHours}h</p>
@@ -388,11 +388,11 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/20 rounded-lg">
-                  <Send className="h-5 w-5 text-orange-400" />
+                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <Send className="h-4 w-4 text-amber-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.generatedReports}</p>

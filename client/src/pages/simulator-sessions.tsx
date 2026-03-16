@@ -220,7 +220,7 @@ export default function SimulatorSessions() {
       <div className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight font-heading text-foreground">Simuladores de Red</h2>
+            <h1 className="text-2xl font-bold tracking-tight">Simuladores de Red</h1>
             <p className="text-muted-foreground mt-1">Entrenamiento en escenarios virtuales de operación y fallas.</p>
           </div>
           <Button 

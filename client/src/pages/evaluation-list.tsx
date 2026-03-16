@@ -775,7 +775,7 @@ export default function EvaluationList() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight font-heading">Evaluaciones</h2>
+            <h1 className="text-2xl font-bold tracking-tight">Evaluaciones</h1>
             <p className="text-muted-foreground">Gestiona los ciclos de entrenamiento y certificaciones.</p>
           </div>
           <Button 

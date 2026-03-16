@@ -324,11 +324,11 @@ export default function Operators() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight font-heading">Operadores</h2>
-            <p className="text-muted-foreground">Gestiona los usuarios y sus roles en el sistema.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Operadores</h1>
+            <p className="text-sm text-muted-foreground mt-1">Gestiona los usuarios y sus roles en el sistema.</p>
           </div>
           <Button 
-            className="bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all"
+            className="shadow-sm"
             onClick={handleOpenCreate}
             data-testid="button-new-user"
           >
@@ -337,11 +337,11 @@ export default function Operators() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-card/50 border-border/50">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-accent/10">
-                  <GraduationCap className="h-5 w-5 text-accent" />
+                <div className="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center">
+                  <GraduationCap className="h-4 w-4 text-cyan-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{userCounts.students}</p>
@@ -350,11 +350,11 @@ export default function Operators() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card/50 border-border/50">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <UserCog className="h-5 w-5 text-blue-400" />
+                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <UserCog className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{userCounts.trainers}</p>
@@ -363,11 +363,11 @@ export default function Operators() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card/50 border-border/50">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <Shield className="h-5 w-5 text-purple-400" />
+                <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
+                  <Shield className="h-4 w-4 text-violet-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{userCounts.admins}</p>
@@ -376,11 +376,11 @@ export default function Operators() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card/50 border-border/50">
+          <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <Plus className="h-5 w-5 text-green-400" />
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{userCounts.total}</p>
