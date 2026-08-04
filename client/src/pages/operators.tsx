@@ -493,10 +493,22 @@ export default function Operators() {
               ))}
               {filteredUsers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    {searchTerm || roleFilter !== "all" 
-                      ? "No se encontraron usuarios con ese criterio" 
-                      : "No hay usuarios registrados"}
+                  <TableCell colSpan={5} className="py-14">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                        <Users className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {(searchTerm || roleFilter !== "all") ? "Sin resultados" : "Sin usuarios registrados"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(searchTerm || roleFilter !== "all")
+                            ? "Ajusta el filtro o el término de búsqueda"
+                            : "Agrega el primer usuario al sistema"}
+                        </p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

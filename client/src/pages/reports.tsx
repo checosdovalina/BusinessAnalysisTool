@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import DashboardShell from "@/components/layout/dashboard-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,75 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Printer, Send, FileText, Filter, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Clock, Users, GraduationCap, TrendingUp, Calendar, Search, MoreHorizontal, Eye, Trash2, ChevronRight, Target } from "lucide-react";
+import { Download, Send, FileText, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Clock, TrendingUp, Search, MoreHorizontal, Eye, Trash2, Target } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { cyclesAPI, usersAPI, eventsAPI } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { cyclesAPI, usersAPI, reportsAPI } from "@/lib/api";
+import type { VerifyResult } from "@/lib/api";
 import { toast } from "sonner";
-import type { Cycle, User, Event, TrainingReport } from "@shared/schema";
-
-const API_BASE = "/api";
-
-function getAuthToken(): string | null {
-  return localStorage.getItem("ots_token");
-}
-
-async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options?.headers as Record<string, string>),
-  };
-  
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(error.error || "Request failed");
-  }
-
-  return response.json();
-}
-
-interface VerifyResult {
-  canGenerate: boolean;
-  issues: string[];
-  blockingIssues: string[];
-  warnings: string[];
-  eventsCount: number;
-  cycle: Cycle;
-}
-
-const reportsAPI = {
-  getByCompany: (companyId: number) => fetcher<TrainingReport[]>(`/reports/company/${companyId}`),
-  getByStudent: (studentId: number) => fetcher<TrainingReport[]>(`/reports/student/${studentId}`),
-  getByCycle: (cycleId: number) => fetcher<TrainingReport | null>(`/reports/cycle/${cycleId}`),
-  verify: (cycleId: number) => fetcher<VerifyResult>(`/reports/verify/${cycleId}`),
-  generate: (cycleId: number) => fetcher<TrainingReport>(`/reports/generate/${cycleId}`, { method: "POST" }),
-  send: (id: number, data: { sendToSupervisor?: boolean; sendToStudent?: boolean; supervisorEmail?: string }) =>
-    fetcher<{ success: boolean; report: TrainingReport }>(`/reports/${id}/send`, { method: "POST", body: JSON.stringify(data) }),
-  delete: async (id: number) => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE}/reports/${id}`, { 
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || "Error al eliminar reporte");
-    }
-    return response;
-  },
-};
+import type { Cycle, User, TrainingReport } from "@shared/schema";
 
 const statusLabels: Record<string, string> = {
   pending: "Pendiente",
@@ -85,9 +26,9 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  in_progress: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  completed: "bg-green-500/20 text-green-400 border-green-500/30",
+  pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
 const reportStatusLabels: Record<string, string> = {
@@ -112,6 +53,8 @@ export default function Reports() {
   const [sendOptions, setSendOptions] = useState({ supervisor: false, student: false, supervisorEmail: "" });
   const [viewReportId, setViewReportId] = useState<number | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isDeleteReportOpen, setIsDeleteReportOpen] = useState(false);
+  const [reportToDeleteId, setReportToDeleteId] = useState<number | null>(null);
 
   const { data: cycles = [], isLoading: cyclesLoading } = useQuery({
     queryKey: ["cycles", user?.companyId],
@@ -246,15 +189,26 @@ export default function Reports() {
     setIsSendOpen(true);
   };
 
-  const handleDeleteReport = async (id: number) => {
-    if (!confirm("¿Estás seguro de eliminar este reporte?")) return;
+  const openDeleteReportDialog = (id: number) => {
+    setReportToDeleteId(id);
+    setIsDeleteReportOpen(true);
+  };
+
+  const handleDeleteReport = async () => {
+    if (!reportToDeleteId) return;
     try {
-      await reportsAPI.delete(id);
+      await reportsAPI.delete(reportToDeleteId);
       await queryClient.invalidateQueries({ queryKey: ["reports"] });
       toast.success("Reporte eliminado");
+      setIsDeleteReportOpen(false);
+      setReportToDeleteId(null);
     } catch (error) {
       toast.error("Error al eliminar reporte");
     }
+  };
+
+  const handleExportPdf = () => {
+    window.print();
   };
 
   const formatDate = (date: string | Date | null) => {
@@ -309,11 +263,19 @@ export default function Reports() {
   if (cyclesLoading) {
     return (
       <DashboardShell>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-4">
-            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-muted-foreground">Cargando reportes...</p>
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <Skeleton className="h-7 w-72" />
+              <Skeleton className="h-4 w-96 mt-2" />
+            </div>
+            <Skeleton className="h-9 w-36" />
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-10 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </DashboardShell>
     );
@@ -328,7 +290,7 @@ export default function Reports() {
             <p className="text-sm text-muted-foreground mt-1">Generación de informes de desempeño y registros de calidad</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" data-testid="button-export-pdf">
+            <Button variant="outline" onClick={handleExportPdf} data-testid="button-export-pdf">
               <Download className="mr-2 h-4 w-4" /> Exportar PDF
             </Button>
           </div>
@@ -507,7 +469,7 @@ export default function Reports() {
                               </TableCell>
                               <TableCell>
                                 {cycle.score !== null && cycle.score !== undefined ? (
-                                  <span className={`font-bold ${cycle.score >= 70 ? "text-green-400" : "text-red-400"}`}>
+                                  <span className={`font-bold ${cycle.score >= 70 ? "text-emerald-600" : "text-red-600"}`}>
                                     {Math.round(cycle.score)}%
                                   </span>
                                 ) : (
@@ -516,7 +478,7 @@ export default function Reports() {
                               </TableCell>
                               <TableCell>
                                 {report ? (
-                                  <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                                     {reportStatusLabels[report.status]}
                                   </Badge>
                                 ) : (
@@ -605,18 +567,18 @@ export default function Reports() {
                             <TableCell className="font-mono text-sm">{report.reportCode}</TableCell>
                             <TableCell>{getStudentName(report.studentId)}</TableCell>
                             <TableCell>
-                              <span className={`font-bold ${(report.totalScore || 0) >= (report.passingScore || 70) ? "text-green-400" : "text-red-400"}`}>
+                              <span className={`font-bold ${(report.totalScore || 0) >= (report.passingScore || 70) ? "text-emerald-600" : "text-red-600"}`}>
                                 {report.totalScore?.toFixed(1)}%
                               </span>
                             </TableCell>
                             <TableCell>
                               {report.isPassed ? (
-                                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                                   <CheckCircle2 className="h-3 w-3 mr-1" />
                                   Aprobado
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
                                   <XCircle className="h-3 w-3 mr-1" />
                                   Reprobado
                                 </Badge>
@@ -643,7 +605,7 @@ export default function Reports() {
                                     Enviar
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleDeleteReport(report.id)} className="text-destructive">
+                                  <DropdownMenuItem onClick={() => openDeleteReportDialog(report.id)} className="text-destructive focus:text-destructive">
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Eliminar
                                   </DropdownMenuItem>
@@ -873,7 +835,7 @@ export default function Reports() {
                     <p className="text-sm text-muted-foreground">Generado: {formatDate(selectedReport.generatedAt)}</p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-3xl font-bold ${selectedReport.isPassed ? "text-green-400" : "text-red-400"}`}>
+                    <p className={`text-3xl font-bold ${selectedReport.isPassed ? "text-emerald-600" : "text-red-600"}`}>
                       {selectedReport.totalScore?.toFixed(1)}%
                     </p>
                     <Badge variant="outline" className={selectedReport.isPassed ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}>
@@ -1059,6 +1021,25 @@ export default function Reports() {
                     Generar Reporte
                   </>
                 )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Delete Report Confirmation Dialog */}
+        <Dialog open={isDeleteReportOpen} onOpenChange={(open) => { setIsDeleteReportOpen(open); if (!open) setReportToDeleteId(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>¿Eliminar reporte?</DialogTitle>
+              <DialogDescription>
+                Esta acción eliminará permanentemente el reporte y no se puede deshacer.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsDeleteReportOpen(false)}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteReport} data-testid="button-confirm-delete-report">
+                Eliminar
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -16,7 +16,8 @@ import { Slider } from "@/components/ui/slider";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cyclesAPI, eventsAPI } from "@/lib/api";
+import { cyclesAPI, eventsAPI, usersAPI } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 const EVALUATION_TOPICS = [
@@ -34,7 +35,8 @@ export default function EvaluationForm() {
   const [location, setLocation] = useLocation();
   const [match, params] = useRoute("/evaluations/:id");
   const cycleId = params?.id ? parseInt(params.id) : null;
-  
+  const { user } = useAuth();
+
   const { data: cycle, isLoading: cycleLoading } = useQuery({
     queryKey: ["cycle", cycleId],
     queryFn: () => cycleId ? cyclesAPI.getById(cycleId) : Promise.reject("No cycle ID"),
@@ -46,6 +48,24 @@ export default function EvaluationForm() {
     queryFn: () => cycleId ? eventsAPI.getByCycle(cycleId) : Promise.resolve([]),
     enabled: !!cycleId,
   });
+
+  const { data: companyUsers = [] } = useQuery({
+    queryKey: ["users", user?.companyId],
+    queryFn: () => user?.companyId ? usersAPI.getByCompany(user.companyId) : Promise.resolve([]),
+    enabled: !!user?.companyId,
+  });
+
+  const getStudentName = (studentId: number | null) => {
+    if (!studentId) return "Alumno";
+    const u = companyUsers.find((u: any) => u.id === studentId);
+    return u?.name ?? `Alumno #${studentId}`;
+  };
+
+  const getTrainerName = (trainerId: number | null) => {
+    if (!trainerId) return "Entrenador";
+    const u = companyUsers.find((u: any) => u.id === trainerId);
+    return u?.name ?? `Entrenador #${trainerId}`;
+  };
   
   const [currentEventIndex, setCurrentEventIndex] = useState(0);
   const [scores, setScores] = useState<Record<number, string>>({});
@@ -418,9 +438,13 @@ export default function EvaluationForm() {
           <div>
             <h2 className="text-xl font-bold font-heading">{cycle.title}</h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Alumno: Juan Operador</span>
+              <span>{getStudentName(cycle.studentId)}</span>
               <span>•</span>
-              <Badge variant="outline" className="text-xs font-normal">En Progreso</Badge>
+              <span>Entrenador: {getTrainerName(cycle.trainerId)}</span>
+              <span>•</span>
+              <Badge variant="outline" className={`text-xs font-normal ${cycle.status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : cycle.status === "in_progress" ? "bg-blue-50 text-blue-700 border-blue-200" : ""}`}>
+                {cycle.status === "completed" ? "Completado" : cycle.status === "in_progress" ? "En Progreso" : "Pendiente"}
+              </Badge>
             </div>
           </div>
         </div>

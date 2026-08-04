@@ -3,8 +3,12 @@ import DashboardShell from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 import { Plus, Search, Filter, MoreHorizontal, FileText, PlayCircle, Edit, Trash2, X, CheckCircle2, ExternalLink, Shield, Monitor, Wrench, FileQuestion, ChevronUp, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -61,6 +65,9 @@ export default function EvaluationList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [trainerFilter, setTrainerFilter] = useState<string>("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   
@@ -146,10 +153,22 @@ export default function EvaluationList() {
   const students = users.filter((u: User) => u.role === "student");
   const trainers = users.filter((u: User) => u.role === "trainer" || u.role === "admin");
 
-  const filteredCycles = cycles.filter(cycle => 
-    cycle.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (cycle.qualityCode && cycle.qualityCode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredCycles = cycles.filter((cycle: Cycle) => {
+    const matchesSearch = cycle.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cycle.qualityCode && cycle.qualityCode.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === "all" || cycle.status === statusFilter;
+    const matchesType = typeFilter === "all" || cycle.type === typeFilter;
+    const matchesTrainer = trainerFilter === "all" || cycle.trainerId?.toString() === trainerFilter;
+    return matchesSearch && matchesStatus && matchesType && matchesTrainer;
+  });
+
+  const hasActiveFilters = statusFilter !== "all" || typeFilter !== "all" || trainerFilter !== "all";
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setTrainerFilter("all");
+  };
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
@@ -462,11 +481,19 @@ export default function EvaluationList() {
   if (isLoading) {
     return (
       <DashboardShell>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-4">
-            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-muted-foreground">Cargando evaluaciones...</p>
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <Skeleton className="h-7 w-40" />
+              <Skeleton className="h-4 w-80 mt-2" />
+            </div>
+            <Skeleton className="h-9 w-40" />
           </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 flex-1 max-w-sm" />
+            <Skeleton className="h-9 w-9" />
+          </div>
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </DashboardShell>
     );
@@ -799,9 +826,72 @@ export default function EvaluationList() {
               data-testid="input-search-evaluations"
             />
           </div>
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className={hasActiveFilters ? "bg-primary/10 text-primary border-primary/40 relative" : ""}
+                data-testid="button-filter-panel"
+              >
+                <Filter className="h-4 w-4" />
+                {hasActiveFilters && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-4" align="end">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-sm">Filtros</h4>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Estado</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="filter-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="pending">Pendiente</SelectItem>
+                      <SelectItem value="in_progress">En Progreso</SelectItem>
+                      <SelectItem value="completed">Completado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="filter-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="field">Campo</SelectItem>
+                      <SelectItem value="simulator">Simulador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Entrenador</Label>
+                  <Select value={trainerFilter} onValueChange={setTrainerFilter}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="filter-trainer">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {trainers.map((t: User) => (
+                        <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="w-full text-xs h-7" onClick={clearFilters}>
+                    <X className="h-3 w-3 mr-1" /> Limpiar filtros
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <Card className="border-border/60 shadow-sm">
@@ -888,8 +978,30 @@ export default function EvaluationList() {
               ))}
               {filteredCycles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {searchTerm ? "No se encontraron evaluaciones con ese criterio" : "No hay evaluaciones registradas"}
+                  <TableCell colSpan={7} className="py-14">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {(searchTerm || hasActiveFilters) ? "Sin resultados" : "Sin evaluaciones"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(searchTerm || hasActiveFilters)
+                            ? "Intenta ajustar los filtros o el término de búsqueda"
+                            : "Crea una nueva evaluación para comenzar"}
+                        </p>
+                      </div>
+                      {!searchTerm && !hasActiveFilters && (
+                        <button
+                          className="text-xs text-primary hover:underline mt-1"
+                          onClick={handleOpenCreate}
+                        >
+                          + Nueva Evaluación
+                        </button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

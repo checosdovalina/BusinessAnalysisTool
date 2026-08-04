@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -343,6 +343,41 @@ export const trainingRequestsAPI = {
     method: "DELETE",
     headers: { "Authorization": `Bearer ${getAuthToken()}` },
   }),
+};
+
+// Reports API
+export interface VerifyResult {
+  canGenerate: boolean;
+  issues: string[];
+  blockingIssues: string[];
+  warnings: string[];
+  eventsCount: number;
+  cycle: Cycle;
+}
+
+export const reportsAPI = {
+  getByCompany: (companyId: number) => fetcher<TrainingReport[]>(`/reports/company/${companyId}`),
+  getByStudent: (studentId: number) => fetcher<TrainingReport[]>(`/reports/student/${studentId}`),
+  getByCycle: (cycleId: number) => fetcher<TrainingReport | null>(`/reports/cycle/${cycleId}`),
+  verify: (cycleId: number) => fetcher<VerifyResult>(`/reports/verify/${cycleId}`),
+  generate: (cycleId: number) => fetcher<TrainingReport>(`/reports/generate/${cycleId}`, { method: "POST" }),
+  send: (id: number, data: { sendToSupervisor?: boolean; sendToStudent?: boolean; supervisorEmail?: string }) =>
+    fetcher<{ success: boolean; report: TrainingReport }>(`/reports/${id}/send`, { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<TrainingReport>) => fetcher<TrainingReport>(`/reports/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }),
+  delete: async (id: number) => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/reports/${id}`, {
+      method: "DELETE",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || "Error al eliminar reporte");
+    }
+  },
 };
 
 // Evaluation Templates API

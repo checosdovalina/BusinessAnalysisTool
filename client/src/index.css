@@ -171,3 +171,40 @@
   box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2);
   @apply border-primary/30;
 }
+
+@media print {
+  /* Hide nav, sidebar, header and action buttons when printing */
+  aside, nav, header,
+  [data-testid="button-export-pdf"],
+  [data-testid="button-new-evaluation"],
+  .no-print {
+    display: none !important;
+  }
+  /* Full width content area */
+  main, .print-content {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12px !important;
+  }
+  /* Remove shadows on cards */
+  .shadow-sm, .shadow-md, .shadow-lg {
+    box-shadow: none !important;
+  }
+  /* Reset backgrounds */
+  .bg-card, .bg-muted\/50, .bg-muted\/30 {
+    background: white !important;
+  }
+  /* Ensure borders are visible */
+  table, th, td {
+    border-color: #ccc !important;
+  }
+  /* Page break handling */
+  tr {
+    page-break-inside: avoid;
+  }
+}
