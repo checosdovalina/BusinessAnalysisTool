@@ -1,0 +1,115 @@
+Funcionalidad 3. Gestionar evaluaciones de entrenamiento en simulador OTS, cómo mínimo debe incluir:
+1.	Gestión de criterios de evaluación operativa
+El aplicativo debe permitir la parametrización e integración de requerimientos, normativas, Documentación operativos, criterios técnicos y estándares vigentes que serán utilizados durante las sesiones de entrenamiento en simulador.
+Los criterios de evaluación deben poder asociarse a conductas observables y medibles de los operadores durante la ejecución de ejercicios y escenarios de simulación.
+2.	Gestión de ejercicios y secuencias de entrenamiento
+El aplicativo debe permitir la creación y administración de secuencias de entrenamiento, incluyendo la definición de pasos, eventos, condiciones iniciales y acciones programadas por el instructor dentro del simulador OTS.
+La herramienta debe facilitar la estandarización de escenarios y ejercicios, permitiendo su reutilización y comparación entre diferentes sesiones de entrenamiento.
+3.	Gestión de objetivos de entrenamiento
+El aplicativo debe permitir definir y administrar objetivos generales, objetivos específicos y competencias asociadas a cada sesión de simulación o ejercicio de entrenamiento.
+La estructura del aplicativo debe facilitar la alineación entre objetivos, actividades, criterios de evaluación y evidencias recopiladas durante la sesión.
+4.	Registro de observaciones y bitácora de instructores
+El aplicativo debe incorporar un módulo de registro de observaciones que permita documentar anotaciones realizadas por los instructores durante la ejecución de la sesión. Cada registro deberá almacenar como mínimo:
+•	Fecha y hora de la anotación.
+•	Nombre del instructor.
+•	Escenario asociado.
+•	Participante evaluado.
+•	Comentario u observación registrada.
+Toda anotación debe mantenerse asociada a la sesión correspondiente para efectos de trazabilidad y análisis posterior.
+5.	Evaluación colaborativa
+El aplicativo debe permitir que múltiples instructores u observadores registren simultáneamente evaluaciones sobre una misma sesión de entrenamiento.
+La solución debe consolidar los aportes de todos los evaluadores autorizados y preservar la autoría de cada observación registrada.
+6.	Gestión de evidencias
+El aplicativo debe permitir adjuntar y administrar evidencias asociadas a las evaluaciones realizadas. Como mínimo deberá admitir:
+•	Archivos de video.
+•	Archivos de audio.
+•	Imágenes.
+•	Documentos electrónicos.
+Las evidencias deben poder vincularse a competencias, eventos específicos, criterios de evaluación o comentarios de los instructores. Asimismo, el sistema debe permitir la consulta posterior de dichas evidencias para procesos de revisión, auditoría y recalificación cuando corresponda.
+7.	Evaluación basada en desempeño y retroalimentación
+El aplicativo debe soportar metodologías de evaluación basadas en desempeño, permitiendo la medición objetiva de competencias mediante criterios observables y verificables. Asimismo, deberá permitir registrar:
+•	Retroalimentaciones individuales.
+•	Acciones correctivas.
+•	Oportunidades de mejora.
+•	Recomendaciones de entrenamiento adicional.
+Toda la información debe quedar asociada al historial de desempeño de cada participante.
+8.	Evaluación de factores humanos
+El aplicativo debe permitir incorporar criterios relacionados con factores humanos y desempeño conductual. La herramienta debe permitir registrar observaciones efectuadas por especialistas en factores humanos o comportamiento organizacional sobre aspectos tales como:
+•	Liderazgo.
+•	Comunicación.
+•	Conciencia situacional.
+•	Gestión del estrés.
+•	Trabajo en equipo.
+•	Toma de decisiones.
+•	Gestión del error.
+
+A.	Requisito de reportes e indicadores
+El aplicativo debe generar reportes automáticos de las sesiones de entrenamiento y evaluación. Como, por ejemplo:
+•	Generación de reportes individuales.
+•	Generación de reportes grupales.
+•	Reportes por competencias.
+•	Reportes por escenario.
+•	Reportes históricos.
+Adicionalmente, debe contar con tableros gráficos de control (dashboards) que permitan visualizar indicadores clave de desempeño, cumplimiento de competencias y evolución del aprendizaje.
+B.	Requisito de escalabilidad y configurabilidad para crecimiento futuro. 
+El aplicativo debe contar con una arquitectura flexible que permita incorporar en el futuro nuevos criterios de evaluación, competencias, indicadores, metodologías y rubros de medición sin necesidad de rediseñar la solución. La herramienta debe permitir la configuración dinámica de campos, formularios, competencias, escalas de evaluación y reportes para atender nuevas necesidades identificadas durante la vida útil de la plataforma.
+
+C.	Requisitos tecnológicos 
+
+1.	Arquitectura web responsiva.
+2.	El aplicativo debe desarrollarse en lenguaje C# sobre plataforma .NET. Alternativamente, podrán presentarse soluciones desarrolladas en Visual Studio .NET cuando se garantice la compatibilidad con las tecnologías del ICE.
+3.	Base de datos relacional compatible con la arquitectura tecnológica del ICE. (SQL Server).
+4.	Integración con Microsoft 365.
+5.	Reportes e informes con opción de selección de formato (considerar utilizar el Power BI).
+6.	API para intercambio de información.
+7.	Servidor en la que se hospedará el aplicativo: Servidor Microsoft IIS 
+Se requiere entrega del código fuente.
+
+D.	Requisitos de seguridad
+
+1.	Gestión de usuarios
+i.	Registro y autenticación de usuarios.
+ii.	Administración de perfiles y roles (Administrador, Instructor, estudiante, auditor-jefatura)
+iii.	Asignación de permisos según el rol.
+
+2.	Control de acceso
+i.	Autenticación mediante usuario y contraseña.
+ii.	Integración con Active Directory del ICE 
+iii.	Autenticación multifactor (MFA) para administradores.
+
+3.	Protección de información
+i.	Cifrado de datos en tránsito 
+ii.	Cifrado de información almacenada.
+iii.	Restricción de descarga de contenidos sensibles. (evaluaciones, errores operativos)
+
+4.	Bitácora
+i.	Registro de: 
+•	Inicios de sesión.
+•	Descarga de archivos.
+•	Modificaciones de contenido.
+•	Evaluaciones realizadas.
+
+5.	Respaldo y recuperación
+i.	Copias de seguridad automáticas.
+ii.	Recuperación ante fallas.
+iii.	Política de retención de información.
+
+6.	 Requisitos de disponibilidad
+i.	Disponibilidad mínima definida (99,5%).
+ii.	Acceso desde internet o red institucional del ICE.
+iii.	Compatibilidad con computadoras, tabletas y teléfonos móviles.
+iv.	Acceso concurrente para múltiples usuarios.
+
+E.	Requisito de lineamientos de marca ICE (colores, logos, otros)
+
+F.	Requisito de Integración futura de analítica avanzada e inteligencia artificial
+La arquitectura del aplicativo debe contemplar mecanismos de integración futura con herramientas de analítica avanzada e inteligencia artificial. La solución debe permitir incorporar métricas derivadas de sistemas de videoanálisis, reconocimiento de patrones conductuales u otras tecnologías que aporten información relevante para la evaluación del desempeño durante las sesiones de simulación.
+G.	Requisito de trazabilidad
+El aplicativo deberá permitir visualizar la trazabilidad entre:
+
+v.	Competencia
+vi.	Entrenamiento recibido
+vii.	Evaluaciones realizadas
+viii.	Resultados obtenidos
+ix.	 Certificaciones alcanzadas
+
