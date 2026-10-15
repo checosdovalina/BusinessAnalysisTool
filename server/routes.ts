@@ -74,6 +74,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  const hasCompanyAccess = (req: AuthenticatedRequest, companyId: number) =>
+    req.user?.role === "super_admin" || req.user?.companyId === companyId;
   
   // ============= AUTH ROUTES =============
   
@@ -1449,6 +1451,198 @@ export async function registerRoutes(
 
   // ============= TRAINING REQUESTS ROUTES =============
 
+  // ============= COMPETENCY PROFILES AND DNC =============
+  const competencyManagers = ["admin", "trainer", "super_admin"];
+
+  app.get("/api/competency-dnc/company/:companyId", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = Number(req.params.companyId);
+      if (!Number.isInteger(companyId) || companyId <= 0) return res.status(400).json({ error: "Empresa inválida" });
+      if (!hasCompanyAccess(req, companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+
+      const [profiles, competencyList, profileCompetencies, assessments, employeeList, requests] = await Promise.all([
+        storage.getJobProfilesByCompany(companyId),
+        storage.getCompetenciesByCompany(companyId),
+        storage.getJobProfileCompetenciesByCompany(companyId),
+        storage.getCompetencyAssessmentsByCompany(companyId),
+        storage.getUsersByCompany(companyId),
+        storage.getTrainingRequestsByCompany(companyId),
+      ]);
+      res.json({
+        profiles,
+        competencies: competencyList,
+        profileCompetencies,
+        assessments,
+        requests: requests.filter((request) => request.dncAssessmentId !== null),
+        employees: employeeList.map(({ id, name, email, role }) => ({ id, name, email, role })),
+      });
+    } catch (error) {
+      res.status(500).json({ error: "No se pudo cargar el análisis de competencias" });
+    }
+  });
+
+  app.post("/api/job-profiles", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        companyId: z.number().int().positive(),
+        title: z.string().trim().min(2).max(120),
+        department: z.string().trim().max(120).nullable().optional(),
+        description: z.string().trim().max(1000).nullable().optional(),
+      }).parse(req.body);
+      if (!hasCompanyAccess(req, body.companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      const profile = await storage.createJobProfile({ ...body, active: true });
+      res.status(201).json(profile);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo crear el perfil" });
+    }
+  });
+
+  app.patch("/api/job-profiles/:id", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const existing = await storage.getJobProfile(id);
+      if (!existing) return res.status(404).json({ error: "Perfil no encontrado" });
+      if (!hasCompanyAccess(req, existing.companyId)) return res.status(403).json({ error: "No tienes acceso a este perfil" });
+      const updates = z.object({
+        title: z.string().trim().min(2).max(120).optional(),
+        department: z.string().trim().max(120).nullable().optional(),
+        description: z.string().trim().max(1000).nullable().optional(),
+        active: z.boolean().optional(),
+      }).strict().parse(req.body);
+      const profile = await storage.updateJobProfile(id, updates);
+      res.json(profile);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo actualizar el perfil" });
+    }
+  });
+
+  app.post("/api/competencies", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        companyId: z.number().int().positive(),
+        name: z.string().trim().min(2).max(160),
+        category: z.string().trim().max(100).nullable().optional(),
+        description: z.string().trim().max(1000).nullable().optional(),
+      }).parse(req.body);
+      if (!hasCompanyAccess(req, body.companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      const competency = await storage.createCompetency({ ...body, active: true });
+      res.status(201).json(competency);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo crear la competencia" });
+    }
+  });
+
+  app.patch("/api/competencies/:id", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const existing = await storage.getCompetency(id);
+      if (!existing) return res.status(404).json({ error: "Competencia no encontrada" });
+      if (!hasCompanyAccess(req, existing.companyId)) return res.status(403).json({ error: "No tienes acceso a esta competencia" });
+      const updates = z.object({
+        name: z.string().trim().min(2).max(160).optional(),
+        category: z.string().trim().max(100).nullable().optional(),
+        description: z.string().trim().max(1000).nullable().optional(),
+        active: z.boolean().optional(),
+      }).strict().parse(req.body);
+      const competency = await storage.updateCompetency(id, updates);
+      res.json(competency);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo actualizar la competencia" });
+    }
+  });
+
+  app.post("/api/job-profile-competencies", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        profileId: z.number().int().positive(),
+        competencyId: z.number().int().positive(),
+        requiredLevel: z.number().int().min(1).max(5),
+        isCritical: z.boolean().optional(),
+      }).parse(req.body);
+      const [profile, competency] = await Promise.all([
+        storage.getJobProfile(body.profileId),
+        storage.getCompetency(body.competencyId),
+      ]);
+      if (!profile || !competency) return res.status(404).json({ error: "Perfil o competencia no encontrado" });
+      if (profile.companyId !== competency.companyId || !hasCompanyAccess(req, profile.companyId)) {
+        return res.status(403).json({ error: "Perfil y competencia deben pertenecer a la empresa autorizada" });
+      }
+      const currentLinks = await storage.getJobProfileCompetenciesByCompany(profile.companyId);
+      const existing = currentLinks.find((link) => link.profileId === profile.id && link.competencyId === competency.id);
+      const item = existing
+        ? await storage.updateJobProfileCompetency(existing.id, { requiredLevel: body.requiredLevel, isCritical: body.isCritical ?? false })
+        : await storage.createJobProfileCompetency({ ...body, isCritical: body.isCritical ?? false });
+      res.status(existing ? 200 : 201).json(item);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo asignar la competencia al perfil" });
+    }
+  });
+
+  app.patch("/api/job-profile-competencies/:id", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const existing = await storage.getJobProfileCompetency(id);
+      if (!existing) return res.status(404).json({ error: "Competencia del perfil no encontrada" });
+      const profile = await storage.getJobProfile(existing.profileId);
+      if (!profile || !hasCompanyAccess(req, profile.companyId)) return res.status(403).json({ error: "No tienes acceso a este perfil" });
+      const updates = z.object({
+        requiredLevel: z.number().int().min(1).max(5).optional(),
+        isCritical: z.boolean().optional(),
+      }).strict().parse(req.body);
+      res.json(await storage.updateJobProfileCompetency(id, updates));
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo actualizar el requisito" });
+    }
+  });
+
+  app.delete("/api/job-profile-competencies/:id", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const item = await storage.getJobProfileCompetency(id);
+      if (!item) return res.status(404).json({ error: "Competencia del perfil no encontrada" });
+      const profile = await storage.getJobProfile(item.profileId);
+      if (!profile || !hasCompanyAccess(req, profile.companyId)) return res.status(403).json({ error: "No tienes acceso a este perfil" });
+      await storage.deleteJobProfileCompetency(id);
+      res.status(204).send();
+    } catch {
+      res.status(500).json({ error: "No se pudo eliminar el requisito" });
+    }
+  });
+
+  app.post("/api/competency-assessments", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        companyId: z.number().int().positive(),
+        profileId: z.number().int().positive(),
+        competencyId: z.number().int().positive(),
+        employeeId: z.number().int().positive(),
+        currentLevel: z.number().int().min(0).max(5),
+        evidence: z.string().trim().max(1500).nullable().optional(),
+        observations: z.string().trim().max(1500).nullable().optional(),
+      }).parse(req.body);
+      if (!hasCompanyAccess(req, body.companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      const [profile, competency, employee, links] = await Promise.all([
+        storage.getJobProfile(body.profileId),
+        storage.getCompetency(body.competencyId),
+        storage.getUser(body.employeeId),
+        storage.getJobProfileCompetenciesByCompany(body.companyId),
+      ]);
+      const link = links.find((item) => item.profileId === body.profileId && item.competencyId === body.competencyId);
+      if (!profile || !competency || !employee || !link) return res.status(400).json({ error: "El operador, perfil y competencia deben existir y estar relacionados" });
+      if (profile.companyId !== body.companyId || competency.companyId !== body.companyId || employee.companyId !== body.companyId) {
+        return res.status(403).json({ error: "Los registros deben pertenecer a la empresa autorizada" });
+      }
+      const assessment = await storage.createCompetencyAssessment({
+        ...body,
+        requiredLevel: link.requiredLevel,
+        assessedById: req.user!.id,
+      });
+      res.status(201).json(assessment);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar la evaluación DNC" });
+    }
+  });
+
   app.get("/api/training-requests/company/:companyId", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
     try {
       const companyId = parseInt(req.params.companyId);
@@ -1496,8 +1690,15 @@ export async function registerRoutes(
 
   app.post("/api/training-requests", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
     try {
+      const requestedCompanyId = Number(req.body.companyId);
+      if (!Number.isInteger(requestedCompanyId) || requestedCompanyId <= 0) {
+        return res.status(400).json({ error: "Empresa inválida" });
+      }
+      if (!hasCompanyAccess(req, requestedCompanyId)) {
+        return res.status(403).json({ error: "No puedes crear solicitudes en otra empresa" });
+      }
       const year = new Date().getFullYear();
-      const existingRequests = await storage.getTrainingRequestsByCompany(req.body.companyId);
+      const existingRequests = await storage.getTrainingRequestsByCompany(requestedCompanyId);
       const requestNumber = existingRequests.length + 1;
       const requestCode = `SOL-${year}-${String(requestNumber).padStart(3, '0')}`;
       
@@ -1506,6 +1707,16 @@ export async function registerRoutes(
         requestCode,
         requestedById: req.user?.id,
       });
+      if (!hasCompanyAccess(req, requestData.companyId)) {
+        return res.status(403).json({ error: "No puedes crear solicitudes en otra empresa" });
+      }
+      if (requestData.dncAssessmentId) {
+        const assessments = await storage.getCompetencyAssessmentsByCompany(requestData.companyId);
+        const source = assessments.find((assessment) => assessment.id === requestData.dncAssessmentId);
+        if (!source) {
+          return res.status(400).json({ error: "La evaluación DNC asociada no existe en esta empresa" });
+        }
+      }
       const newRequest = await storage.createTrainingRequest(requestData);
       res.status(201).json(newRequest);
     } catch (error) {

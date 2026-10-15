@@ -6,6 +6,7 @@ import {
   companySettings, userPreferences,
   trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
   evaluationTemplates, templateTopics, templateEvents,
+  jobProfiles, competencies, jobProfileCompetencies, competencyAssessments,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -30,6 +31,10 @@ import {
   type EvaluationTemplate, type InsertEvaluationTemplate,
   type TemplateTopic, type InsertTemplateTopic,
   type TemplateEvent, type InsertTemplateEvent,
+  type JobProfile, type InsertJobProfile,
+  type Competency, type InsertCompetency,
+  type JobProfileCompetency, type InsertJobProfileCompetency,
+  type CompetencyAssessment, type InsertCompetencyAssessment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
@@ -198,6 +203,25 @@ export interface IStorage {
   getTemplateEvents(templateId: number): Promise<TemplateEvent[]>;
   createTemplateEvent(event: InsertTemplateEvent): Promise<TemplateEvent>;
   deleteTemplateEvents(templateId: number): Promise<void>;
+
+  // Competency profiles and DNC
+  getJobProfilesByCompany(companyId: number): Promise<JobProfile[]>;
+  getJobProfile(id: number): Promise<JobProfile | undefined>;
+  createJobProfile(profile: InsertJobProfile): Promise<JobProfile>;
+  updateJobProfile(id: number, updates: Partial<InsertJobProfile>): Promise<JobProfile | undefined>;
+  deleteJobProfile(id: number): Promise<void>;
+  getCompetenciesByCompany(companyId: number): Promise<Competency[]>;
+  getCompetency(id: number): Promise<Competency | undefined>;
+  createCompetency(competency: InsertCompetency): Promise<Competency>;
+  updateCompetency(id: number, updates: Partial<InsertCompetency>): Promise<Competency | undefined>;
+  deleteCompetency(id: number): Promise<void>;
+  getJobProfileCompetenciesByCompany(companyId: number): Promise<JobProfileCompetency[]>;
+  getJobProfileCompetency(id: number): Promise<JobProfileCompetency | undefined>;
+  createJobProfileCompetency(item: InsertJobProfileCompetency): Promise<JobProfileCompetency>;
+  updateJobProfileCompetency(id: number, updates: Partial<InsertJobProfileCompetency>): Promise<JobProfileCompetency | undefined>;
+  deleteJobProfileCompetency(id: number): Promise<void>;
+  getCompetencyAssessmentsByCompany(companyId: number): Promise<CompetencyAssessment[]>;
+  createCompetencyAssessment(assessment: InsertCompetencyAssessment & { assessedById: number }): Promise<CompetencyAssessment>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -847,6 +871,90 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTemplateEvents(templateId: number): Promise<void> {
     await db.delete(templateEvents).where(eq(templateEvents.templateId, templateId));
+  }
+
+  // Competency profiles and DNC
+  async getJobProfilesByCompany(companyId: number): Promise<JobProfile[]> {
+    return db.select().from(jobProfiles).where(eq(jobProfiles.companyId, companyId)).orderBy(asc(jobProfiles.title));
+  }
+
+  async getJobProfile(id: number): Promise<JobProfile | undefined> {
+    const [profile] = await db.select().from(jobProfiles).where(eq(jobProfiles.id, id));
+    return profile || undefined;
+  }
+
+  async createJobProfile(profile: InsertJobProfile): Promise<JobProfile> {
+    const [created] = await db.insert(jobProfiles).values(profile).returning();
+    return created;
+  }
+
+  async updateJobProfile(id: number, updates: Partial<InsertJobProfile>): Promise<JobProfile | undefined> {
+    const [updated] = await db.update(jobProfiles).set({ ...updates, updatedAt: new Date() }).where(eq(jobProfiles.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteJobProfile(id: number): Promise<void> {
+    await db.delete(jobProfiles).where(eq(jobProfiles.id, id));
+  }
+
+  async getCompetenciesByCompany(companyId: number): Promise<Competency[]> {
+    return db.select().from(competencies).where(eq(competencies.companyId, companyId)).orderBy(asc(competencies.name));
+  }
+
+  async getCompetency(id: number): Promise<Competency | undefined> {
+    const [competency] = await db.select().from(competencies).where(eq(competencies.id, id));
+    return competency || undefined;
+  }
+
+  async createCompetency(competency: InsertCompetency): Promise<Competency> {
+    const [created] = await db.insert(competencies).values(competency).returning();
+    return created;
+  }
+
+  async updateCompetency(id: number, updates: Partial<InsertCompetency>): Promise<Competency | undefined> {
+    const [updated] = await db.update(competencies).set(updates).where(eq(competencies.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCompetency(id: number): Promise<void> {
+    await db.delete(competencies).where(eq(competencies.id, id));
+  }
+
+  async getJobProfileCompetenciesByCompany(companyId: number): Promise<JobProfileCompetency[]> {
+    const profiles = await this.getJobProfilesByCompany(companyId);
+    if (profiles.length === 0) return [];
+    const profileIds = profiles.map((profile) => profile.id);
+    return db.select().from(jobProfileCompetencies).where(or(...profileIds.map((id) => eq(jobProfileCompetencies.profileId, id))));
+  }
+
+  async getJobProfileCompetency(id: number): Promise<JobProfileCompetency | undefined> {
+    const [item] = await db.select().from(jobProfileCompetencies).where(eq(jobProfileCompetencies.id, id));
+    return item || undefined;
+  }
+
+  async createJobProfileCompetency(item: InsertJobProfileCompetency): Promise<JobProfileCompetency> {
+    const [created] = await db.insert(jobProfileCompetencies).values(item).returning();
+    return created;
+  }
+
+  async updateJobProfileCompetency(id: number, updates: Partial<InsertJobProfileCompetency>): Promise<JobProfileCompetency | undefined> {
+    const [updated] = await db.update(jobProfileCompetencies).set(updates).where(eq(jobProfileCompetencies.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteJobProfileCompetency(id: number): Promise<void> {
+    await db.delete(jobProfileCompetencies).where(eq(jobProfileCompetencies.id, id));
+  }
+
+  async getCompetencyAssessmentsByCompany(companyId: number): Promise<CompetencyAssessment[]> {
+    return db.select().from(competencyAssessments)
+      .where(eq(competencyAssessments.companyId, companyId))
+      .orderBy(desc(competencyAssessments.assessedAt));
+  }
+
+  async createCompetencyAssessment(assessment: InsertCompetencyAssessment & { assessedById: number }): Promise<CompetencyAssessment> {
+    const [created] = await db.insert(competencyAssessments).values(assessment).returning();
+    return created;
   }
 }
 

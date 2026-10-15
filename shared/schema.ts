@@ -740,6 +740,7 @@ export const trainingRequests = pgTable("training_requests", {
   
   // Notas adicionales
   notes: text("notes"),
+  dncAssessmentId: integer("dnc_assessment_id"), // Link to competency_assessments, validated in the API
   
   // Fechas de auditoría
   submittedAt: timestamp("submitted_at"),
@@ -859,6 +860,67 @@ export const requestRecipients = pgTable("request_recipients", {
 export const insertRequestRecipientSchema = createInsertSchema(requestRecipients).omit({ id: true, createdAt: true });
 export type InsertRequestRecipient = z.infer<typeof insertRequestRecipientSchema>;
 export type RequestRecipient = typeof requestRecipients.$inferSelect;
+
+// Competency profiles and DNC (training needs analysis)
+export const jobProfiles = pgTable("job_profiles", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  department: text("department"),
+  description: text("description"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertJobProfileSchema = createInsertSchema(jobProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertJobProfile = z.infer<typeof insertJobProfileSchema>;
+export type JobProfile = typeof jobProfiles.$inferSelect;
+
+export const competencies = pgTable("competencies", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  category: text("category"),
+  description: text("description"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCompetencySchema = createInsertSchema(competencies).omit({ id: true, createdAt: true });
+export type InsertCompetency = z.infer<typeof insertCompetencySchema>;
+export type Competency = typeof competencies.$inferSelect;
+
+export const jobProfileCompetencies = pgTable("job_profile_competencies", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull().references(() => jobProfiles.id, { onDelete: "cascade" }),
+  competencyId: integer("competency_id").notNull().references(() => competencies.id, { onDelete: "cascade" }),
+  requiredLevel: integer("required_level").notNull().default(3),
+  isCritical: boolean("is_critical").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertJobProfileCompetencySchema = createInsertSchema(jobProfileCompetencies).omit({ id: true, createdAt: true });
+export type InsertJobProfileCompetency = z.infer<typeof insertJobProfileCompetencySchema>;
+export type JobProfileCompetency = typeof jobProfileCompetencies.$inferSelect;
+
+export const competencyAssessments = pgTable("competency_assessments", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  profileId: integer("profile_id").notNull().references(() => jobProfiles.id, { onDelete: "cascade" }),
+  competencyId: integer("competency_id").notNull().references(() => competencies.id, { onDelete: "cascade" }),
+  employeeId: integer("employee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  assessedById: integer("assessed_by_id").notNull().references(() => users.id),
+  requiredLevel: integer("required_level").notNull(),
+  currentLevel: integer("current_level").notNull(),
+  assessedAt: timestamp("assessed_at").notNull().defaultNow(),
+  evidence: text("evidence"),
+  observations: text("observations"),
+});
+
+export const insertCompetencyAssessmentSchema = createInsertSchema(competencyAssessments).omit({ id: true, assessedById: true, assessedAt: true });
+export type InsertCompetencyAssessment = z.infer<typeof insertCompetencyAssessmentSchema>;
+export type CompetencyAssessment = typeof competencyAssessments.$inferSelect;
 
 // Relations for Training Requests Module
 export const trainingRequestsRelations = relations(trainingRequests, ({ one, many }) => ({

@@ -18,6 +18,7 @@ import Operators from "@/pages/operators";
 import Companies from "@/pages/companies";
 import SettingsPage from "@/pages/settings";
 import TrainingRequests from "@/pages/training-requests";
+import CompetencyDnc from "@/pages/competency-dnc";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -60,6 +61,7 @@ function Router() {
       <Route path="/companies" component={(props) => <ProtectedRoute component={Companies} {...props} />} />
       <Route path="/settings" component={(props) => <ProtectedRoute component={SettingsPage} {...props} />} />
       <Route path="/training-requests" component={(props) => <ProtectedRoute component={TrainingRequests} {...props} />} />
+      <Route path="/competency-dnc" component={(props) => <ProtectedRoute component={CompetencyDnc} {...props} />} />
       <Route component={NotFound} />
     </Switch>
   );

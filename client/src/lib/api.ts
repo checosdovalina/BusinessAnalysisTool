@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -378,6 +378,47 @@ export const reportsAPI = {
       throw new Error(error.error || "Error al eliminar reporte");
     }
   },
+};
+
+export interface CompetencyDncData {
+  profiles: JobProfile[];
+  competencies: Competency[];
+  profileCompetencies: JobProfileCompetency[];
+  assessments: CompetencyAssessment[];
+  requests: TrainingRequest[];
+  employees: Pick<User, "id" | "name" | "email" | "role">[];
+}
+
+export const competencyDncAPI = {
+  getByCompany: (companyId: number) => fetcher<CompetencyDncData>(`/competency-dnc/company/${companyId}`),
+  createProfile: (data: { companyId: number; title: string; department?: string | null; description?: string | null }) =>
+    fetcher<JobProfile>("/job-profiles", { method: "POST", body: JSON.stringify(data) }),
+  updateProfile: (id: number, data: Partial<Pick<JobProfile, "title" | "department" | "description" | "active">>) =>
+    fetcher<JobProfile>(`/job-profiles/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  createCompetency: (data: { companyId: number; name: string; category?: string | null; description?: string | null }) =>
+    fetcher<Competency>("/competencies", { method: "POST", body: JSON.stringify(data) }),
+  updateCompetency: (id: number, data: Partial<Pick<Competency, "name" | "category" | "description" | "active">>) =>
+    fetcher<Competency>(`/competencies/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  setProfileCompetency: (data: { profileId: number; competencyId: number; requiredLevel: number; isCritical?: boolean }) =>
+    fetcher<JobProfileCompetency>("/job-profile-competencies", { method: "POST", body: JSON.stringify(data) }),
+  updateProfileCompetency: (id: number, data: Partial<Pick<JobProfileCompetency, "requiredLevel" | "isCritical">>) =>
+    fetcher<JobProfileCompetency>(`/job-profile-competencies/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteProfileCompetency: async (id: number) => {
+    const response = await fetch(`${API_BASE}/job-profile-competencies/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error("No se pudo quitar la competencia del perfil");
+  },
+  createAssessment: (data: {
+    companyId: number;
+    profileId: number;
+    competencyId: number;
+    employeeId: number;
+    currentLevel: number;
+    evidence?: string | null;
+    observations?: string | null;
+  }) => fetcher<CompetencyAssessment>("/competency-assessments", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // Evaluation Templates API
