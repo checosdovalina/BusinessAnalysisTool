@@ -1,0 +1,103 @@
+[root@localhost ots-energy]# pm2 describe ots-energy
+pm2 logs ots-energy --err --lines 40
+ Describing process with id 6 - name ots-energy 
+┌───────────────────┬──────────────────────────────────────┐
+│ status            │ online                               │
+│ name              │ ots-energy                           │
+│ namespace         │ default                              │
+│ version           │ N/A                                  │
+│ restarts          │ 94                                   │
+│ uptime            │ 16h                                  │
+│ script path       │ /usr/bin/npm                         │
+│ script args       │ run dev                              │
+│ error log path    │ /root/.pm2/logs/ots-energy-error.log │
+│ out log path      │ /root/.pm2/logs/ots-energy-out.log   │
+│ pid path          │ /root/.pm2/pids/ots-energy-6.pid     │
+│ interpreter       │ /usr/bin/node                        │
+│ interpreter args  │ N/A                                  │
+│ script id         │ 6                                    │
+│ exec cwd          │ /var/www/ots-energy                  │
+│ exec mode         │ fork_mode                            │
+│ node.js version   │ 20.19.6                              │
+│ node env          │ production                           │
+│ watch & reload    │ ✘                                    │
+│ unstable restarts │ 0                                    │
+│ created at        │ 2026-09-03T22:21:10.806Z             │
+└───────────────────┴──────────────────────────────────────┘
+ Actions available 
+┌────────────────────────┐
+│ km:heapdump            │
+│ km:cpu:profiling:start │
+│ km:cpu:profiling:stop  │
+│ km:heap:sampling:start │
+│ km:heap:sampling:stop  │
+└────────────────────────┘
+ Trigger via: pm2 trigger ots-energy <action_name>
+
+ Code metrics value 
+┌────────────────────────┬───────────┐
+│ Used Heap Size         │ 14.45 MiB │
+│ Heap Usage             │ 91.86 %   │
+│ Heap Size              │ 15.73 MiB │
+│ Event Loop Latency p95 │ 1.35 ms   │
+│ Event Loop Latency     │ 0.53 ms   │
+│ Active handles         │ 5         │
+│ Active requests        │ 0         │
+└────────────────────────┴───────────┘
+ Divergent env variables from local env 
+┌────────────────┬──────────────────────┐
+│ SSH_CONNECTION │ 177.241.173.96 3949  │
+│ XDG_SESSION_ID │ 28                   │
+│ SSH_CLIENT     │ 177.241.173.96 3949  │
+│ SSH_TTY        │ /dev/pts/2           │
+│ OLDPWD         │ /var/www/ots-energy  │
+└────────────────┴──────────────────────┘
+
+ Add your own code metrics: http://bit.ly/code-metrics
+ Use `pm2 logs ots-energy [--lines 1000]` to display logs
+ Use `pm2 env 6` to display environment variables
+ Use `pm2 monit` to monitor CPU and Memory usage ots-energy
+[TAILING] Tailing last 40 lines for [ots-energy] process (change the value with --lines option)
+/root/.pm2/logs/ots-energy-error.log last 40 lines:
+6|ots-ener |     at decodeURIComponent (<anonymous>)
+6|ots-ener |     at decode_param (/var/www/ots-energy/node_modules/express/lib/router/layer.js:172:12)
+6|ots-ener |     at Layer.match (/var/www/ots-energy/node_modules/express/lib/router/layer.js:123:27)
+6|ots-ener |     at matchLayer (/var/www/ots-energy/node_modules/express/lib/router/index.js:585:18)
+6|ots-ener |     at Immediate.next [as _onImmediate] (/var/www/ots-energy/node_modules/express/lib/router/index.js:226:15)
+6|ots-ener |     at process.processImmediate (node:internal/timers:485:21)
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/system, use /system.
+6|ots-ener | Malformed URI sequence in request URL: /%c0/
+6|ots-ener | URIError: Failed to decode param '/%c0/'
+6|ots-ener |     at decodeURIComponent (<anonymous>)
+6|ots-ener |     at decode_param (/var/www/ots-energy/node_modules/express/lib/router/layer.js:172:12)
+6|ots-ener |     at Layer.match (/var/www/ots-energy/node_modules/express/lib/router/layer.js:123:27)
+6|ots-ener |     at matchLayer (/var/www/ots-energy/node_modules/express/lib/router/index.js:585:18)
+6|ots-ener |     at Immediate.next [as _onImmediate] (/var/www/ots-energy/node_modules/express/lib/router/index.js:226:15)
+6|ots-ener |     at process.processImmediate (node:internal/timers:485:21)
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/stripe.js, use /stripe.js.
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/phpinfo.php, use /phpinfo.php.
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/makeasmtp.php, use /makeasmtp.php.
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/vendor/laravel-filemanager/js/script.js, use /vendor/laravel-filemanager/js/script.js.
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/makeasmtp.php, use /makeasmtp.php.
+6|ots-ener | The request id "/etc/passwd" is outside of Vite serving allow list.
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | The request id "/etc/passwd" is outside of Vite serving allow list.
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/stripe.js, use /stripe.js.
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/css.php, use /css.php.
+6|ots-ener | The request id "/proc/1/environ" is outside of Vite serving allow list.
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | The request id "/root/.bash_history" is outside of Vite serving allow list.
+6|ots-ener | [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+6|ots-ener | Files in the public directory are served at the root path.
+6|ots-ener | Instead of /public/stripe.js, use /stripe.js.
+
+
