@@ -1,5 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent } from "@shared/schema";
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, EmployeeJobProfile, AnnualTrainingProgram } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, EmployeeJobProfile, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -98,6 +97,14 @@ export const cyclesAPI = {
   getByTrainer: (trainerId: number) => fetcher<Cycle[]>(`/cycles/trainer/${trainerId}`),
   getById: (id: number) => fetcher<Cycle>(`/cycles/${id}`),
   create: (data: Partial<Cycle>) => fetcher<Cycle>("/cycles", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  assign: (data: {
+    cycle: Partial<Omit<Cycle, "studentId">>;
+    studentIds: number[];
+    topicItems: Array<{ topicItemId: number; weight: number; customFocus?: string | null }>;
+  }) => fetcher<Cycle[]>("/cycles/assign", {
     method: "POST",
     body: JSON.stringify(data),
   }),

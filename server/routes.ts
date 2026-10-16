@@ -358,6 +358,58 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/cycles/assign", authenticateToken, authorizeRoles("admin", "trainer", "super_admin"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const assignmentSchema = z.object({
+        cycle: insertCycleSchema.omit({ studentId: true }),
+        studentIds: z.array(z.number().int().positive())
+          .min(1, "Selecciona al menos un operador")
+          .max(100, "Puedes asignar una evaluación a un máximo de 100 operadores")
+          .refine((ids) => new Set(ids).size === ids.length, "No repitas operadores"),
+        topicItems: z.array(z.object({
+          topicItemId: z.number().int().positive(),
+          weight: z.number().positive(),
+          customFocus: z.string().max(1000).nullable().optional(),
+        })).max(500).default([])
+          .refine((items) => new Set(items.map((item) => item.topicItemId)).size === items.length, "No repitas elementos de evaluación"),
+      });
+      const { cycle, studentIds, topicItems } = assignmentSchema.parse(req.body);
+
+      if (!hasCompanyAccess(req, cycle.companyId)) {
+        return res.status(403).json({ error: "No tienes permisos para asignar evaluaciones a otra empresa" });
+      }
+
+      const companyUsers = await storage.getUsersByCompany(cycle.companyId);
+      const selectedStudents = new Map(companyUsers.map((companyUser) => [companyUser.id, companyUser]));
+      if (studentIds.some((studentId) => selectedStudents.get(studentId)?.role !== "student")) {
+        return res.status(400).json({ error: "Todos los operadores deben pertenecer a la empresa seleccionada" });
+      }
+
+      const trainer = selectedStudents.get(cycle.trainerId);
+      if (!trainer || !["admin", "trainer"].includes(trainer.role)) {
+        return res.status(400).json({ error: "El entrenador debe pertenecer a la empresa seleccionada" });
+      }
+
+      const savedTopicItems = await Promise.all(
+        topicItems.map((item) => storage.getEvaluationTopicItem(item.topicItemId))
+      );
+      if (savedTopicItems.some((item) =>
+        !item || !item.isActive || (item.companyId !== null && item.companyId !== cycle.companyId)
+      )) {
+        return res.status(400).json({ error: "Los elementos de evaluación deben estar activos y pertenecer a la empresa" });
+      }
+
+      const createdCycles = await storage.createCyclesForStudents(cycle, studentIds, topicItems);
+      res.status(201).json(createdCycles);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.issues[0]?.message || "Datos de asignación inválidos" });
+      }
+      console.error("Error creating assigned evaluation cycles:", error);
+      res.status(500).json({ error: "No se pudieron asignar las evaluaciones" });
+    }
+  });
+
   app.post("/api/cycles", async (req, res) => {
     try {
       const cycleData = insertCycleSchema.parse(req.body);

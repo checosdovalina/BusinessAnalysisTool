@@ -1,0 +1,1 @@
+- [VPS database and post-merge setup](vps-post-merge.md) — The app’s Neon database is shared with the VPS; keep schema changes explicit and lockfile URLs public.

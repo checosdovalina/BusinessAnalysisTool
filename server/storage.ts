@@ -82,6 +82,12 @@ export interface IStorage {
 
   createCycle(cycle: InsertCycle): Promise<Cycle>;
 
+  createCyclesForStudents(
+    cycle: Omit<InsertCycle, "studentId">,
+    studentIds: number[],
+    topicItems: Array<Pick<InsertCycleTopicItem, "topicItemId" | "weight" | "customFocus">>
+  ): Promise<Cycle[]>;
+
   updateCycle(id: number, updates: Partial<InsertCycle>): Promise<Cycle | undefined>;
 
   deleteCycle(id: number): Promise<void>;
@@ -475,12 +481,54 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCycle(insertCycle: InsertCycle): Promise<Cycle> {
-    const [cycle] = await db.insert(cycles).values(insertCycle).returning();
+    const [cycle] = await db.insert(cycles).values({
+      ...insertCycle,
+      endDate: insertCycle.endDate == null
+        ? insertCycle.endDate
+        : typeof insertCycle.endDate === "string" ? new Date(insertCycle.endDate) : insertCycle.endDate,
+    }).returning();
     return cycle;
   }
 
+  async createCyclesForStudents(
+    cycleData: Omit<InsertCycle, "studentId">,
+    studentIds: number[],
+    topicItems: Array<Pick<InsertCycleTopicItem, "topicItemId" | "weight" | "customFocus">>
+  ): Promise<Cycle[]> {
+    return db.transaction(async (tx) => {
+      const createdCycles: Cycle[] = [];
+
+      for (const studentId of studentIds) {
+        const [cycle] = await tx.insert(cycles)
+          .values({
+            ...cycleData,
+            endDate: cycleData.endDate == null
+              ? cycleData.endDate
+              : typeof cycleData.endDate === "string" ? new Date(cycleData.endDate) : cycleData.endDate,
+            studentId,
+          })
+          .returning();
+
+        if (topicItems.length > 0) {
+          await tx.insert(cycleTopicItems).values(
+            topicItems.map((item) => ({ ...item, cycleId: cycle.id }))
+          );
+        }
+
+        createdCycles.push(cycle);
+      }
+
+      return createdCycles;
+    });
+  }
+
   async updateCycle(id: number, updates: Partial<InsertCycle>): Promise<Cycle | undefined> {
-    const [cycle] = await db.update(cycles).set(updates).where(eq(cycles.id, id)).returning();
+    const [cycle] = await db.update(cycles).set({
+      ...updates,
+      endDate: updates.endDate == null
+        ? updates.endDate
+        : typeof updates.endDate === "string" ? new Date(updates.endDate) : updates.endDate,
+    }).where(eq(cycles.id, id)).returning();
     return cycle || undefined;
   }
 

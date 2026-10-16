@@ -62,6 +62,7 @@ export default function EvaluationList() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
   const [formData, setFormData] = useState<CycleFormData>(initialFormData);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -181,6 +182,7 @@ export default function EvaluationList() {
 
   const resetForm = () => {
     setFormData(initialFormData);
+    setSelectedStudentIds([]);
     setSelectedCycle(null);
     setSelectedTemplateId(null);
     setSelectedTopicId(null);
@@ -194,6 +196,7 @@ export default function EvaluationList() {
 
   const handleOpenEdit = async (cycle: Cycle) => {
     setSelectedCycle(cycle);
+    setSelectedStudentIds([]);
     setIsLoadingEdit(true);
     setIsEditOpen(true);
     
@@ -262,26 +265,30 @@ export default function EvaluationList() {
   };
 
   const handleCreate = async () => {
-    if (!formData.title.trim() || !formData.studentId || !formData.trainerId) {
+    if (!formData.title.trim() || selectedStudentIds.length === 0 || !formData.trainerId) {
       toast.error("Por favor completa los campos obligatorios");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const { selectedTopicItems, ...cycleData } = formData;
-      const newCycle = await cyclesAPI.create({
-        ...cycleData,
-        companyId: user?.companyId,
-        progress: 0,
-        startDate: new Date(),
+      const { selectedTopicItems, studentId: _studentId, ...cycleData } = formData;
+      const createdCycles = await cyclesAPI.assign({
+        cycle: {
+          ...cycleData,
+          companyId: user?.companyId,
+          progress: 0,
+          startDate: new Date(),
+        },
+        studentIds: selectedStudentIds,
+        topicItems: selectedTopicItems,
       });
-      
-      if (selectedTopicItems.length > 0) {
-        await cycleTopicItemsAPI.sync(newCycle.id, selectedTopicItems);
-      }
-      
-      toast.success("Evaluación creada exitosamente");
+
+      toast.success(
+        createdCycles.length === 1
+          ? "Evaluación asignada al operador"
+          : `Evaluación asignada a ${createdCycles.length} operadores`
+      );
       queryClient.invalidateQueries({ queryKey: ["cycles"] });
       setIsCreateOpen(false);
       resetForm();
@@ -586,20 +593,68 @@ export default function EvaluationList() {
             <option value="simulator">Simulador</option>
           </select>
         </div>
-        <div>
-          <label className="text-sm font-medium">Estudiante *</label>
-          <select
-            value={formData.studentId || ""}
-            onChange={(e) => setFormData(prev => ({ ...prev, studentId: e.target.value ? parseInt(e.target.value) : undefined }))}
-            className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
-            data-testid="select-cycle-student"
-          >
-            <option value="">Seleccionar estudiante...</option>
-            {students.map((student: User) => (
-              <option key={student.id} value={student.id}>{student.name}</option>
-            ))}
-          </select>
-        </div>
+        {selectedCycle ? (
+          <div>
+            <label className="text-sm font-medium">Operador evaluado *</label>
+            <select
+              value={formData.studentId || ""}
+              onChange={(e) => setFormData(prev => ({ ...prev, studentId: e.target.value ? parseInt(e.target.value) : undefined }))}
+              className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-md"
+              data-testid="select-cycle-student"
+            >
+              <option value="">Seleccionar operador...</option>
+              {students.map((student: User) => (
+                <option key={student.id} value={student.id}>{student.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="col-span-2 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">Operador(es) a evaluar *</label>
+              {students.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setSelectedStudentIds(
+                    selectedStudentIds.length === students.length ? [] : students.map((student: User) => student.id)
+                  )}
+                  data-testid="button-toggle-all-students"
+                >
+                  {selectedStudentIds.length === students.length ? "Quitar selección" : "Seleccionar todos"}
+                </Button>
+              )}
+            </div>
+            <div className="max-h-44 overflow-y-auto rounded-md border border-border bg-background p-2">
+              {students.length > 0 ? students.map((student: User) => (
+                <label
+                  key={student.id}
+                  className="flex cursor-pointer items-center gap-3 rounded px-2 py-2 text-sm hover:bg-muted/60"
+                >
+                  <Checkbox
+                    checked={selectedStudentIds.includes(student.id)}
+                    onCheckedChange={(checked) => setSelectedStudentIds((current) =>
+                      checked
+                        ? current.includes(student.id) ? current : [...current, student.id]
+                        : current.filter((id) => id !== student.id)
+                    )}
+                    data-testid={`checkbox-assigned-student-${student.id}`}
+                  />
+                  <span>{student.name}</span>
+                </label>
+              )) : (
+                <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                  No hay operadores registrados para esta empresa.
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se creará un ciclo independiente por operador, reutilizando la misma configuración y elementos.
+            </p>
+          </div>
+        )}
         <div>
           <label className="text-sm font-medium">Entrenador *</label>
           <select
@@ -899,7 +954,7 @@ export default function EvaluationList() {
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="w-[300px]">Título del Ciclo</TableHead>
-                <TableHead>Alumno</TableHead>
+                <TableHead>Operador</TableHead>
                 <TableHead>Entrenador</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Progreso</TableHead>
@@ -1018,7 +1073,9 @@ export default function EvaluationList() {
               <Plus className="h-5 w-5 text-accent" />
               Nueva Evaluación
             </DialogTitle>
-            <DialogDescription>Crea un nuevo ciclo de entrenamiento para un operador.</DialogDescription>
+            <DialogDescription>
+              Usa una plantilla y asígnala a uno o varios operadores; cada uno tendrá su propio ciclo y resultado.
+            </DialogDescription>
           </DialogHeader>
           {formContent}
           <DialogFooter className="gap-2 sm:gap-0">
