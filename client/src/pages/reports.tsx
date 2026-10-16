@@ -26,9 +26,9 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-slate-100 text-slate-700 border-slate-200",
+  in_progress: "bg-amber-50 text-amber-800 border-amber-200",
+  completed: "bg-teal-50 text-teal-800 border-teal-200",
 };
 
 const reportStatusLabels: Record<string, string> = {
@@ -311,7 +311,7 @@ export default function Reports() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Reportes y Analítica Operativa</h1>
@@ -326,7 +326,7 @@ export default function Reports() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="border-border shadow-sm">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -339,7 +339,7 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border shadow-sm">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -352,7 +352,7 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border shadow-sm">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center">
@@ -365,7 +365,7 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border shadow-sm">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
@@ -378,7 +378,7 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border shadow-sm">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
@@ -454,10 +454,10 @@ export default function Reports() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border border-border/50 overflow-hidden">
+            <div className="overflow-x-auto rounded-lg border border-border/70">
                   <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent border-b border-border/50">
+              <TableHeader className="bg-muted/60">
+                <TableRow className="hover:bg-transparent border-b border-border/70">
                         <TableHead className="font-semibold">Ciclo</TableHead>
                         <TableHead className="font-semibold">Operador</TableHead>
                         <TableHead className="font-semibold">Entrenador</TableHead>
@@ -479,7 +479,7 @@ export default function Reports() {
                         filteredCycles.map((cycle: Cycle) => {
                           const report = getCycleReport(cycle.id);
                           return (
-                            <TableRow key={cycle.id} className="hover:bg-muted/50 border-b border-border/30" data-testid={`row-cycle-${cycle.id}`}>
+                            <TableRow key={cycle.id} className="border-b border-border/70 transition-colors hover:bg-primary/[0.025]" data-testid={`row-cycle-${cycle.id}`}>
                               <TableCell>
                                 <div>
                                   <p className="font-medium">{cycle.title}</p>

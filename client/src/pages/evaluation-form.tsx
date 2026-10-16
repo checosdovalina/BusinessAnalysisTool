@@ -208,7 +208,7 @@ export default function EvaluationForm() {
             </div>
           </div>
 
-          <Card className="border-border/60 shadow-md">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-6">
                 <ClipboardList className="h-8 w-8 text-muted-foreground" />
@@ -429,7 +429,7 @@ export default function EvaluationForm() {
 
   return (
     <DashboardShell>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="mx-auto max-w-5xl space-y-7">
         {/* Header Navigation */}
         <div className="flex items-center gap-4 mb-6">
           <Button variant="ghost" size="icon" onClick={() => setLocation("/evaluations")}>
@@ -442,7 +442,7 @@ export default function EvaluationForm() {
               <span>•</span>
               <span>Entrenador: {getTrainerName(cycle.trainerId)}</span>
               <span>•</span>
-              <Badge variant="outline" className={`text-xs font-normal ${cycle.status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : cycle.status === "in_progress" ? "bg-blue-50 text-blue-700 border-blue-200" : ""}`}>
+            <Badge variant="outline" className={`text-xs font-normal ${cycle.status === "completed" ? "border-teal-200 bg-teal-50 text-teal-800" : cycle.status === "in_progress" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-border bg-muted/60 text-muted-foreground"}`}>
                 {cycle.status === "completed" ? "Completado" : cycle.status === "in_progress" ? "En Progreso" : "Pendiente"}
               </Badge>
             </div>
@@ -452,7 +452,7 @@ export default function EvaluationForm() {
         <div className="grid gap-6 md:grid-cols-[300px_1fr]">
           {/* Sidebar Progress */}
           <div className="hidden md:block space-y-4">
-            <Card className="border-border/60 shadow-sm">
+            <Card className="border-border/80 bg-card shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium uppercase text-muted-foreground">Progreso del Ciclo</CardTitle>
               </CardHeader>
@@ -505,8 +505,8 @@ export default function EvaluationForm() {
 
           {/* Main Form Area */}
           <div className="space-y-6">
-            <Card className="border-border/60 shadow-md overflow-hidden">
-              <div className="bg-muted/30 border-b border-border/50 p-6">
+              <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
+              <div className="border-b border-border/70 bg-muted/45 p-6">
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="text-xs font-bold text-accent tracking-wider uppercase">Evento {currentEventIndex + 1} de {cycleEvents.length}</span>

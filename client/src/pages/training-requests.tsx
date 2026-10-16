@@ -24,18 +24,18 @@ import {
 } from "lucide-react";
 
 const STATUS_CONFIG = {
-  draft: { label: "Borrador", color: "bg-gray-500/20 text-gray-400 border-gray-500/30", icon: FileText },
-  submitted: { label: "Enviada", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: Send },
-  approved: { label: "Aprobada", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
-  rejected: { label: "Rechazada", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: XCircle },
-  completed: { label: "Completada", color: "bg-purple-500/20 text-purple-400 border-purple-500/30", icon: CheckCircle2 },
+  draft: { label: "Borrador", color: "border-slate-200 bg-slate-100 text-slate-700", icon: FileText },
+  submitted: { label: "Enviada", color: "border-amber-200 bg-amber-50 text-amber-800", icon: Send },
+  approved: { label: "Aprobada", color: "border-teal-200 bg-teal-50 text-teal-800", icon: CheckCircle2 },
+  rejected: { label: "Rechazada", color: "border-rose-200 bg-rose-50 text-rose-800", icon: XCircle },
+  completed: { label: "Completada", color: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: CheckCircle2 },
 };
 
 const PRIORITY_CONFIG = {
-  low: { label: "Baja", color: "bg-slate-500/20 text-slate-400" },
-  medium: { label: "Media", color: "bg-yellow-500/20 text-yellow-400" },
-  high: { label: "Alta", color: "bg-orange-500/20 text-orange-400" },
-  critical: { label: "Crítica", color: "bg-red-500/20 text-red-400" },
+  low: { label: "Baja", color: "border-slate-200 bg-slate-100 text-slate-700" },
+  medium: { label: "Media", color: "border-amber-200 bg-amber-50 text-amber-800" },
+  high: { label: "Alta", color: "border-orange-200 bg-orange-50 text-orange-800" },
+  critical: { label: "Crítica", color: "border-rose-200 bg-rose-50 text-rose-800" },
 };
 
 const ROLE_TYPES = [
@@ -202,7 +202,7 @@ export default function TrainingRequestsPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
@@ -215,7 +215,7 @@ export default function TrainingRequestsPage() {
           {canEdit && (
             <Button 
               onClick={() => setShowCreateDialog(true)}
-              className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/20"
+              className="bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
               data-testid="button-new-request"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -235,7 +235,7 @@ export default function TrainingRequestsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="relative overflow-hidden"
               >
-                <Card className="border-white/10 bg-gradient-to-br from-card to-card/50 backdrop-blur">
+                <Card className="border-border/80 bg-card shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -256,7 +256,7 @@ export default function TrainingRequestsPage() {
         <div className="grid gap-4">
           <AnimatePresence mode="popLayout">
             {requests.length === 0 ? (
-              <Card className="border-white/10 border-dashed">
+              <Card className="border-border/80 border-dashed bg-card">
                 <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="h-20 w-20 rounded-full bg-accent/10 flex items-center justify-center mb-6">
                     <FileText className="h-10 w-10 text-accent" />
@@ -283,7 +283,7 @@ export default function TrainingRequestsPage() {
                   transition={{ delay: index * 0.05 }}
                 >
                   <Card 
-                    className="border-white/10 hover:border-accent/50 transition-all cursor-pointer group overflow-hidden"
+                    className="group cursor-pointer overflow-hidden border-border/80 bg-card shadow-sm transition-colors hover:border-primary/35 hover:shadow-md"
                     onClick={() => loadRequestDetails(request.id)}
                     data-testid={`card-request-${request.id}`}
                   >
@@ -680,7 +680,7 @@ function RequestDetailView({
         </div>
       </div>
 
-      <Card className="border-white/10 bg-gradient-to-br from-card to-card/50">
+      <Card className="border-border/80 bg-card shadow-sm">
         <CardContent className="p-6">
           <div className="grid md:grid-cols-3 gap-6">
             <div>

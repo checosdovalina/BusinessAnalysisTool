@@ -217,7 +217,7 @@ export default function SimulatorSessions() {
 
   return (
     <DashboardShell>
-      <div className="space-y-8">
+      <div className="space-y-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Simuladores de Red</h1>
@@ -229,20 +229,20 @@ export default function SimulatorSessions() {
                 setLocation(`/simulator/run/${scenarios[0].id}`);
               }
             }}
-            className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/20"
+            className="bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
           >
             <Play className="mr-2 h-4 w-4" /> Nueva Sesión de Simulador
           </Button>
         </div>
 
         {/* Hero Banner for Simulator */}
-        <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-border/50 shadow-2xl group cursor-pointer">
+         <div className="group relative overflow-hidden rounded-xl border border-primary/20 bg-[#15383b] shadow-lg shadow-primary/10">
            <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent z-10" />
            <img src={simImg} alt="Simulator" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 group-hover:scale-105 transition-all duration-700" />
            
            <div className="relative z-20 p-8 md:p-12 max-w-2xl">
-             <Badge variant="outline" className="mb-4 text-cyan-400 border-cyan-400/30 bg-cyan-400/10">Módulo Avanzado</Badge>
+              <Badge variant="outline" className="mb-4 border-teal-200/30 bg-teal-200/10 text-teal-100">Módulo Avanzado</Badge>
              <h3 className="text-3xl font-bold text-white mb-4 font-heading">Entrenamiento de Alta Fidelidad</h3>
              <p className="text-slate-300 text-lg mb-6">
                Replica condiciones críticas de operación, fallas en tiempo real y reconfiguraciones topológicas sin riesgo para la infraestructura real.
@@ -336,7 +336,7 @@ export default function SimulatorSessions() {
                     <Button variant="outline" onClick={resetForm} className="flex-1">
                       Cancelar
                     </Button>
-                    <Button 
+                    <Button
                       onClick={() => {
                         if (!formData.title.trim()) {
                           toast.error("Ingresa un nombre para el escenario");
@@ -502,7 +502,7 @@ export default function SimulatorSessions() {
                     <Button variant="outline" onClick={() => setCreateStep(1)} className="flex-1">
                       <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
                     </Button>
-                    <Button 
+                  <Button
                       onClick={handleCreateScenario}
                       disabled={isCreating}
                       className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
@@ -524,9 +524,9 @@ export default function SimulatorSessions() {
 
         <div className="space-y-6">
           <h3 className="text-xl font-bold font-heading">Escenarios Disponibles</h3>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {scenarios.map((scenario) => (
-              <Card key={scenario.id} className="group border-border/60 bg-card hover:border-accent/50 transition-all hover:shadow-lg hover:shadow-accent/5">
+              <Card key={scenario.id} className="group border-border/80 bg-card shadow-sm transition-colors hover:border-primary/35 hover:shadow-md">
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">
                     <Badge variant="secondary" className={
@@ -564,9 +564,9 @@ export default function SimulatorSessions() {
                   <CardDescription>{scenario.description}</CardDescription>
                 </CardHeader>
                 <CardFooter className="pt-0">
-                  <Button 
+                  <Button
                     onClick={() => setLocation(`/simulator/run/${scenario.id}`)}
-                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                     data-testid={`start-scenario-${scenario.id}`}
                   >
                     Iniciar Simulación <Play className="ml-2 h-4 w-4" />

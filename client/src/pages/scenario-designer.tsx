@@ -26,22 +26,22 @@ import {
 } from "@/components/ui/select";
 
 const CATEGORIES = [
-  { value: "Fault", label: "Falla", icon: AlertTriangle, color: "text-red-400" },
-  { value: "Maintenance", label: "Mantenimiento", icon: Wrench, color: "text-amber-400" },
-  { value: "Overload", label: "Sobrecarga", icon: Activity, color: "text-orange-400" },
-  { value: "Topology", label: "Topología", icon: Network, color: "text-blue-400" },
-  { value: "Emergency", label: "Emergencia", icon: Zap, color: "text-red-500" },
-  { value: "Stability", label: "Estabilidad", icon: Monitor, color: "text-purple-400" },
-  { value: "Verification", label: "Verificación", icon: CheckCircle2, color: "text-green-400" },
-  { value: "Protection", label: "Protección", icon: Shield, color: "text-cyan-400" },
-  { value: "Frequency", label: "Frecuencia", icon: Radio, color: "text-indigo-400" },
-  { value: "Training", label: "Entrenamiento", icon: Play, color: "text-emerald-400" },
+  { value: "Fault", label: "Falla", icon: AlertTriangle, color: "text-rose-700" },
+  { value: "Maintenance", label: "Mantenimiento", icon: Wrench, color: "text-amber-700" },
+  { value: "Overload", label: "Sobrecarga", icon: Activity, color: "text-orange-700" },
+  { value: "Topology", label: "Topología", icon: Network, color: "text-teal-800" },
+  { value: "Emergency", label: "Emergencia", icon: Zap, color: "text-rose-700" },
+  { value: "Stability", label: "Estabilidad", icon: Monitor, color: "text-slate-700" },
+  { value: "Verification", label: "Verificación", icon: CheckCircle2, color: "text-emerald-700" },
+  { value: "Protection", label: "Protección", icon: Shield, color: "text-teal-700" },
+  { value: "Frequency", label: "Frecuencia", icon: Radio, color: "text-cyan-800" },
+  { value: "Training", label: "Entrenamiento", icon: Play, color: "text-emerald-700" },
 ];
 
 const DIFFICULTIES = [
-  { value: "Easy", label: "Fácil", color: "bg-green-500/20 text-green-400" },
-  { value: "Medium", label: "Medio", color: "bg-amber-500/20 text-amber-400" },
-  { value: "Hard", label: "Difícil", color: "bg-red-500/20 text-red-400" },
+  { value: "Easy", label: "Fácil", color: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+  { value: "Medium", label: "Medio", color: "border-amber-200 bg-amber-50 text-amber-800" },
+  { value: "Hard", label: "Difícil", color: "border-rose-200 bg-rose-50 text-rose-800" },
 ];
 
 const ACTION_TYPES = [
@@ -271,7 +271,7 @@ export default function ScenarioDesigner() {
 
     return (
       <DashboardShell>
-        <div className="space-y-6">
+    <div className="space-y-7">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => { setViewMode("list"); setSelectedScenario(null); }}>
               <ArrowLeft className="h-5 w-5" />
@@ -303,8 +303,8 @@ export default function ScenarioDesigner() {
             )}
           </div>
 
-          <Card className="border-border/50">
-            <CardHeader>
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardHeader className="border-b border-border/60 bg-muted/30">
               <CardTitle className="text-lg">Descripción del Escenario</CardTitle>
             </CardHeader>
             <CardContent>
@@ -312,8 +312,8 @@ export default function ScenarioDesigner() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between">
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 bg-muted/30">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Play className="h-5 w-5 text-accent" />
                 Pasos de la Simulación
@@ -343,8 +343,8 @@ export default function ScenarioDesigner() {
                         exit={{ opacity: 0, y: -20 }}
                         className="group"
                       >
-                        <div className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
-                          step.isCritical ? "border-red-500/50 bg-red-500/5" : "border-border/50 bg-card/50"
+                        <div className={`flex items-start gap-4 rounded-xl border p-4 transition-colors ${
+                          step.isCritical ? "border-rose-300 bg-rose-50/70" : "border-border/70 bg-background"
                         } hover:border-accent/50`}>
                           <div className="flex items-center gap-2">
                             <GripVertical className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
@@ -590,7 +590,7 @@ export default function ScenarioDesigner() {
                   exit={{ opacity: 0, scale: 0.95 }}
                 >
                   <Card 
-                    className="cursor-pointer hover:border-accent/50 transition-all group overflow-hidden"
+                    className="group cursor-pointer overflow-hidden border-border/80 bg-card shadow-sm transition-colors hover:border-primary/35 hover:shadow-md"
                     onClick={() => { setSelectedScenario(scenario); setViewMode("edit"); }}
                     data-testid={`card-scenario-${scenario.id}`}
                   >

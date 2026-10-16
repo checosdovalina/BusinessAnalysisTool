@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 // Mock Topology Component
 const GridTopology = ({ status }: { status: string }) => (
-  <div className="relative w-full h-full bg-[#0b0f19] overflow-hidden border border-white/10 rounded-lg p-8">
+  <div className="relative h-full min-h-[340px] w-full overflow-hidden rounded-lg border border-white/10 bg-[#123237] p-4 sm:p-8">
     <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:20px_20px]" />
     
     {/* Substation A */}
@@ -55,7 +55,7 @@ const GridTopology = ({ status }: { status: string }) => (
     </svg>
     
     {/* Status Overlay */}
-    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded text-right font-mono text-xs space-y-1">
+    <div className="absolute right-3 top-3 rounded-lg border border-white/15 bg-[#10292b]/95 p-3 text-right font-mono text-xs shadow-lg backdrop-blur-md sm:right-4 sm:top-4 sm:p-4">
       <div className="flex justify-between w-48">
         <span className="text-muted-foreground">FREQ:</span>
         <span className={cn(status === "fault" ? "text-red-400" : "text-green-400")}>
@@ -513,29 +513,29 @@ export default function SimulatorRun() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Header */}
-      <header className="h-16 border-b border-white/10 bg-card px-6 flex items-center justify-between">
+      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-border bg-card/95 px-3 backdrop-blur sm:px-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => setLocation("/simulator")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-lg font-bold font-heading tracking-wide flex items-center gap-2">
-              <Activity className="h-4 w-4 text-cyan-400" />
-              SIMULACIÓN EN CURSO: <span className="text-cyan-400">{scenario.title.toUpperCase()}</span>
+            <h1 className="flex items-center gap-2 font-heading text-sm font-semibold tracking-wide sm:text-lg">
+              <Activity className="h-4 w-4 text-primary" />
+              <span className="hidden sm:inline">SIMULACIÓN EN CURSO:</span> <span className="text-primary">{scenario.title.toUpperCase()}</span>
             </h1>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-black/30 px-4 py-2 rounded border border-white/10 font-mono text-xl text-cyan-400">
+          <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-2 font-mono text-lg tabular-nums text-primary sm:px-4 sm:text-xl">
              <Timer className="h-5 w-5" />
              {formatTime(elapsedTime)}
           </div>
           {!isRunning ? (
-             <Button onClick={handleStart} className="bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <Button onClick={handleStart} className="border border-emerald-700/20 bg-emerald-700 text-white shadow-sm hover:bg-emerald-800">
                <Play className="mr-2 h-4 w-4" /> INICIAR
              </Button>
           ) : (
-             <Button onClick={handleStop} variant="destructive" className="border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+              <Button onClick={handleStop} variant="destructive" className="border border-destructive/20 shadow-sm">
                <Pause className="mr-2 h-4 w-4" /> PAUSAR
              </Button>
           )}
@@ -543,31 +543,31 @@ export default function SimulatorRun() {
       </header>
 
       {/* Main Control Interface */}
-      <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6 overflow-hidden">
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-3 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_350px]">
         
         {/* Left Panel: Visualization & Controls */}
         <div className="flex flex-col gap-6">
            {/* Topology Map */}
-           <Card className="flex-1 border-white/10 bg-card/50 backdrop-blur-sm">
-             <CardHeader className="pb-2 border-b border-white/5 flex flex-row justify-between items-center">
+            <Card className="flex-1 border-border/80 bg-card shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/70 pb-2">
                <CardTitle className="text-sm font-mono uppercase text-muted-foreground">Topología de Red en Tiempo Real</CardTitle>
                <Badge variant={simStatus === "normal" ? "outline" : simStatus === "fault" ? "destructive" : "default"} className="animate-pulse">
                   ESTADO: {simStatus === "normal" ? "NOMINAL" : simStatus === "fault" ? "CRÍTICO" : "ESTABILIZADO"}
                </Badge>
              </CardHeader>
-             <CardContent className="p-0 h-[500px]">
+              <CardContent className="h-[360px] p-0 sm:h-[500px]">
                 <GridTopology status={simStatus} />
              </CardContent>
            </Card>
 
            {/* Current Step Objective - Only show if configured steps exist */}
            {hasConfiguredSteps && currentStep && !isCompleted && (
-             <Card className="border-accent/50 bg-accent/5">
+              <Card className="border-primary/20 bg-primary/[0.045]">
                <CardContent className="p-4">
                  <div className="flex items-center justify-between">
                    <div className="flex items-center gap-3">
-                     <div className="h-10 w-10 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center">
-                       <Target className="h-5 w-5 text-accent" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
+                        <Target className="h-5 w-5 text-primary" />
                      </div>
                      <div>
                        <div className="text-xs text-muted-foreground mb-1">Paso {currentStepIndex + 1} de {scenarioSteps.length}</div>
@@ -579,7 +579,7 @@ export default function SimulatorRun() {
                      </div>
                    </div>
                    <div className="text-right">
-                     <div className="text-2xl font-bold text-accent">{currentStep.points} pts</div>
+                      <div className="text-2xl font-bold text-primary">{currentStep.points} pts</div>
                      {currentStep.timeLimit && (
                        <div className={cn(
                          "flex items-center gap-1 text-xs",
@@ -641,14 +641,14 @@ export default function SimulatorRun() {
            )}
 
            {/* Control Panel */}
-           <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
              <Button 
                variant="outline" 
                className={cn(
-                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-24 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "breaker_open" 
                    ? "border-accent/50 bg-accent/10 text-accent"
-                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+                    : "hover:border-primary/30 hover:bg-primary/[0.045] hover:text-primary"
                )}
                onClick={() => handleAction("breaker_open", "Abrir Interruptor 52-1")}
                disabled={!isRunning || isCompleted}
@@ -660,10 +660,10 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-24 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "breaker_close" 
                    ? "border-accent/50 bg-accent/10 text-accent"
-                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+                    : "hover:border-primary/30 hover:bg-primary/[0.045] hover:text-primary"
                )}
                onClick={() => handleAction("breaker_close", "Cerrar Interruptor 52-1")}
                disabled={!isRunning || isCompleted}
@@ -675,10 +675,10 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-24 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "load_transfer" 
                    ? "border-accent/50 bg-accent/10 text-accent"
-                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+                    : "hover:border-primary/30 hover:bg-primary/[0.045] hover:text-primary"
                )}
                onClick={() => handleAction("load_transfer", "Transferir Carga B")}
                disabled={!isRunning || isCompleted}
@@ -690,10 +690,10 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-24 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-24 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "protection_check" 
                    ? "border-accent/50 bg-accent/10 text-accent"
-                   : "hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400"
+                    : "hover:border-primary/30 hover:bg-primary/[0.045] hover:text-primary"
                )}
                onClick={() => handleAction("protection_check", "Verificar Protección")}
                disabled={!isRunning || isCompleted}
@@ -705,11 +705,11 @@ export default function SimulatorRun() {
            </div>
 
            {/* Additional Action Buttons - Row 1 */}
-           <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
              <Button 
                variant="outline" 
                className={cn(
-                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-20 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "alarm_acknowledge" 
                    ? "border-accent/50 bg-accent/10 text-accent"
                    : "hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400"
@@ -724,7 +724,7 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-20 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "isolation" 
                    ? "border-accent/50 bg-accent/10 text-accent"
                    : "hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400"
@@ -739,7 +739,7 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-20 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "grounding" 
                    ? "border-accent/50 bg-accent/10 text-accent"
                    : "hover:border-yellow-500/50 hover:bg-yellow-500/10 hover:text-yellow-400"
@@ -754,7 +754,7 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-20 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "communication" 
                    ? "border-accent/50 bg-accent/10 text-accent"
                    : "hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-400"
@@ -769,11 +769,11 @@ export default function SimulatorRun() {
            </div>
 
            {/* Additional Action Buttons - Row 2 */}
-           <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
              <Button 
                variant="outline" 
                className={cn(
-                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-20 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "voltage_adjust" 
                    ? "border-accent/50 bg-accent/10 text-accent"
                    : "hover:border-purple-500/50 hover:bg-purple-500/10 hover:text-purple-400"
@@ -788,7 +788,7 @@ export default function SimulatorRun() {
              <Button 
                variant="outline" 
                className={cn(
-                 "h-20 flex flex-col gap-2 border-white/10 transition-all",
+                  "h-20 flex flex-col gap-2 border-border/80 bg-card transition-colors",
                  hasConfiguredSteps && currentStep?.actionType === "custom" 
                    ? "border-accent/50 bg-accent/10 text-accent"
                    : "hover:border-slate-500/50 hover:bg-slate-500/10 hover:text-slate-400"

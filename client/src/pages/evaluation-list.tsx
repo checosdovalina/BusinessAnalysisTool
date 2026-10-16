@@ -488,7 +488,7 @@ export default function EvaluationList() {
   if (isLoading) {
     return (
       <DashboardShell>
-        <div className="space-y-6">
+        <div className="space-y-7">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <Skeleton className="h-7 w-40" />
@@ -854,14 +854,14 @@ export default function EvaluationList() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Evaluaciones</h1>
             <p className="text-muted-foreground">Gestiona los ciclos de entrenamiento y certificaciones.</p>
           </div>
           <Button 
-            className="bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all"
+            className="bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
             onClick={handleOpenCreate}
             data-testid="button-new-evaluation"
           >
@@ -875,7 +875,7 @@ export default function EvaluationList() {
             <Input
               type="text"
               placeholder="Buscar por nombre o código..."
-              className="pl-9 bg-card"
+              className="pl-9 h-10 bg-card border-border/80 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               data-testid="input-search-evaluations"
@@ -949,10 +949,10 @@ export default function EvaluationList() {
           </Popover>
         </div>
 
-        <Card className="border-border/60 shadow-sm">
+        <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableRow className="bg-muted/60 hover:bg-muted/60">
                 <TableHead className="w-[300px]">Título del Ciclo</TableHead>
                 <TableHead>Operador</TableHead>
                 <TableHead>Entrenador</TableHead>
@@ -964,7 +964,7 @@ export default function EvaluationList() {
             </TableHeader>
             <TableBody>
               {filteredCycles.map((cycle) => (
-                <TableRow key={cycle.id} className="group" data-testid={`row-cycle-${cycle.id}`}>
+                <TableRow key={cycle.id} className="group border-border/70 transition-colors hover:bg-primary/[0.025]" data-testid={`row-cycle-${cycle.id}`}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <span className="bg-primary/10 p-1.5 rounded text-primary group-hover:text-accent transition-colors">
@@ -982,9 +982,9 @@ export default function EvaluationList() {
                   <TableCell>{getUserName(cycle.trainerId)}</TableCell>
                   <TableCell>
                     {cycle.status === "completed" ? (
-                       <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 shadow-none">Completado</Badge>
+                       <Badge className="border-teal-200 bg-teal-50 text-teal-800 shadow-none">Completado</Badge>
                     ) : cycle.status === "in_progress" ? (
-                       <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 shadow-none">En Progreso</Badge>
+                       <Badge className="border-amber-200 bg-amber-50 text-amber-800 shadow-none">En Progreso</Badge>
                     ) : (
                        <Badge variant="outline" className="text-muted-foreground">Pendiente</Badge>
                     )}

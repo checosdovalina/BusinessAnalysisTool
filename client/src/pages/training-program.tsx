@@ -111,7 +111,7 @@ function Metric({ label, value, detail, icon: Icon, tone = "teal" }: {
     red: "border-rose-200 bg-rose-50 text-rose-950",
     blue: "border-sky-200 bg-sky-50 text-sky-950",
   };
-  return <Card className="border-slate-200/90 shadow-sm transition-transform duration-200 hover:-translate-y-0.5">
+  return <Card className="border-border/80 bg-card shadow-sm transition-transform duration-200 hover:-translate-y-0.5">
     <CardContent className="flex items-start justify-between gap-3 p-4 md:p-5">
       <div className="min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-[0.11em] text-slate-500">{label}</p>
@@ -397,7 +397,7 @@ export default function TrainingProgramPage() {
 
   return <DashboardShell>
     <div className="space-y-7">
-      <header className="relative overflow-hidden rounded-2xl border border-teal-950/10 bg-[#e9f1ee] px-5 py-6 md:px-8 md:py-7">
+      <header className="relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/[0.055] px-5 py-6 md:px-8 md:py-7">
         <div className="absolute -right-10 -top-24 h-64 w-64 rounded-full border-[30px] border-teal-950/[0.045]" aria-hidden="true" />
         <div className="absolute right-28 -bottom-24 h-56 w-56 rounded-full border border-teal-950/10" aria-hidden="true" />
         <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-end">
@@ -438,11 +438,11 @@ export default function TrainingProgramPage() {
         <Metric icon={ShieldAlert} label="Brechas DNC abiertas" value={metric?.openDncGaps ?? 0} detail="Última evaluación del periodo" tone={metric?.openDncGaps ? "amber" : "teal"} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+       <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm md:p-5">
         <SectionTitle number="01" title="Metas por operador" detail="Define el compromiso anual de horas y sesiones; el avance se actualiza con los cierres." />
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-left">
-            <thead><tr className="border-y border-slate-100 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+           <table className="w-full min-w-[760px] border-collapse text-left">
+             <thead><tr className="border-y border-border/70 bg-muted/45 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               <th className="py-3 pr-4">Operador</th><th className="px-3 py-3">Avance horas</th><th className="px-3 py-3">Meta anual</th><th className="px-3 py-3">Sesiones</th><th className="px-3 py-3 text-right">Acción</th>
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -465,7 +465,7 @@ export default function TrainingProgramPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+       <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm md:p-5">
         <SectionTitle number="02" title="Plan y ejecución" detail="Programa actividades, actualiza su estado y registra asistencia, resultado y retroalimentación." />
         <div className="mt-5 space-y-3">
           {activities.length ? activities.slice().sort((a, b) => new Date(a.plannedStart ?? a.createdAt).getTime() - new Date(b.plannedStart ?? b.createdAt).getTime()).map((activity) => {
@@ -518,7 +518,7 @@ export default function TrainingProgramPage() {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+       <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm md:p-5">
           <SectionTitle number="03" title="Reevaluaciones pendientes" detail="Registra el nivel observado en las actividades marcadas para reevaluación." />
           <div className="mt-4 space-y-2">
             {reassessmentActivities.length ? reassessmentActivities.slice(0, 8).map((activity) => {

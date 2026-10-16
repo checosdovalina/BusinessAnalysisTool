@@ -46,10 +46,10 @@ const roleIcons: Record<string, React.ReactNode> = {
 };
 
 const roleBadgeColors: Record<string, string> = {
-  super_admin: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  admin: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  trainer: "bg-accent/20 text-accent border-accent/30",
-  student: "bg-green-500/20 text-green-400 border-green-500/30",
+  super_admin: "bg-slate-100 text-slate-700 border-slate-200",
+  admin: "bg-amber-50 text-amber-800 border-amber-200",
+  trainer: "bg-teal-50 text-teal-800 border-teal-200",
+  student: "bg-emerald-50 text-emerald-800 border-emerald-200",
 };
 
 export default function Operators() {
@@ -321,7 +321,7 @@ export default function Operators() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Operadores</h1>
@@ -417,10 +417,11 @@ export default function Operators() {
           </select>
         </div>
 
-        <Card className="border-border/50 bg-card/30 backdrop-blur">
+          <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent border-border/50">
+                <TableRow className="bg-muted/60 hover:bg-muted/60 border-border/70">
                 <TableHead>Usuario</TableHead>
                 <TableHead>Correo</TableHead>
                 <TableHead>Rol</TableHead>
@@ -430,7 +431,7 @@ export default function Operators() {
             </TableHeader>
             <TableBody>
               {filteredUsers.map((u: User) => (
-                <TableRow key={u.id} className="border-border/30 hover:bg-accent/5" data-testid={`row-user-${u.id}`}>
+                <TableRow key={u.id} className="border-border/70 transition-colors hover:bg-primary/[0.025]" data-testid={`row-user-${u.id}`}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-medium text-sm">
@@ -514,11 +515,12 @@ export default function Operators() {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-border/80 bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-accent" />
@@ -544,7 +546,7 @@ export default function Operators() {
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-border/80 bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5 text-accent" />

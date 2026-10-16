@@ -516,7 +516,7 @@ export default function Companies() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Gestión de Empresas</h1>
@@ -586,8 +586,8 @@ export default function Companies() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
+          <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
+          <CardHeader className="border-b border-border/70 bg-muted/30 pb-4">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="flex-1 relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -622,11 +622,11 @@ export default function Companies() {
               </select>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border border-border/50 overflow-hidden">
+          <CardContent className="pt-4">
+            <div className="overflow-x-auto rounded-lg border border-border/70">
               <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow className="hover:bg-transparent border-b border-border/50">
+              <TableHeader className="bg-muted/60">
+                <TableRow className="hover:bg-transparent border-b border-border/70">
                     <TableHead className="font-semibold">Empresa</TableHead>
                     <TableHead className="font-semibold">Industria</TableHead>
                     <TableHead className="font-semibold">Ubicación</TableHead>
@@ -644,7 +644,7 @@ export default function Companies() {
                     </TableRow>
                   ) : (
                     filteredCompanies.map((company: Company) => (
-                      <TableRow key={company.id} className="hover:bg-muted/50 border-b border-border/30" data-testid={`row-company-${company.id}`}>
+                      <TableRow key={company.id} className="border-b border-border/70 transition-colors hover:bg-primary/[0.025]" data-testid={`row-company-${company.id}`}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             {company.logo ? (

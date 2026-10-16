@@ -468,10 +468,10 @@ export default function EvaluationTopics() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Temas de Evaluación</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Temas de Evaluación</h1>
             <p className="text-sm text-muted-foreground mt-1">Gestiona los temas y elementos específicos para evaluar operadores.</p>
           </div>
           {canManage && (
@@ -506,11 +506,11 @@ export default function EvaluationTopics() {
                 <AccordionItem 
                   key={topic.id} 
                   value={`topic-${topic.id}`}
-                  className="border border-border/60 rounded-lg bg-card shadow-sm overflow-hidden"
+                   className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
                 >
                   <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/30 transition-colors">
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="p-2 rounded-lg bg-accent/10 text-accent">
+                  <div className="rounded-lg border border-primary/10 bg-primary/[0.07] p-2 text-primary">
                         {icon}
                       </div>
                       <div className="text-left flex-1">
@@ -566,7 +566,7 @@ export default function EvaluationTopics() {
                       ) : (
                         <div className="space-y-2">
                           {items.map((item) => (
-                            <Card key={item.id} className="border-border/40" data-testid={`card-item-${item.id}`}>
+                            <Card key={item.id} className="border-border/70 bg-background/70 shadow-none transition-colors hover:bg-primary/[0.025]" data-testid={`card-item-${item.id}`}>
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between gap-4">
                                   <div className="flex-1 min-w-0">
@@ -637,7 +637,7 @@ export default function EvaluationTopics() {
           </Accordion>
 
           {filteredTopics.length === 0 && (
-            <Card className="border-dashed">
+            <Card className="border-dashed border-border/80 bg-card">
               <CardContent className="py-8 text-center text-muted-foreground">
                 {searchTerm ? "No se encontraron temas con ese criterio" : "No hay temas de evaluación disponibles"}
               </CardContent>

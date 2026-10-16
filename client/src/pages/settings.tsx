@@ -174,7 +174,7 @@ export default function SettingsPage() {
   
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="space-y-7">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
             <Settings2 className="h-6 w-6 text-primary" />
@@ -210,7 +210,7 @@ export default function SettingsPage() {
           </TabsList>
           
           <TabsContent value="profile" className="space-y-6">
-            <Card className="bg-card/50 border-border/50">
+            <Card className="border-border/80 bg-card shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5 text-accent" />
@@ -257,7 +257,7 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
             
-            <Card className="bg-card/50 border-border/50">
+            <Card className="border-border/80 bg-card shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Lock className="h-5 w-5 text-accent" />
@@ -345,7 +345,7 @@ export default function SettingsPage() {
           
           {canEditCompanySettings && (
             <TabsContent value="company" className="space-y-6">
-              <Card className="bg-card/50 border-border/50">
+              <Card className="border-border/80 bg-card shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-accent" />
@@ -413,7 +413,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
               
-              <Card className="bg-card/50 border-border/50">
+              <Card className="border-border/80 bg-card shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="h-5 w-5 text-accent" />
@@ -483,7 +483,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
               
-              <Card className="bg-card/50 border-border/50">
+              <Card className="border-border/80 bg-card shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-accent" />
@@ -537,7 +537,7 @@ export default function SettingsPage() {
           
           {canEditCompanySettings && (
             <TabsContent value="system" className="space-y-6">
-              <Card className="bg-card/50 border-border/50">
+              <Card className="border-border/80 bg-card shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-5 w-5 text-accent" />
@@ -617,7 +617,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
               
-              <Card className="bg-card/50 border-border/50">
+              <Card className="border-border/80 bg-card shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Percent className="h-5 w-5 text-accent" />

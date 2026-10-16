@@ -325,7 +325,7 @@ export default function CompetencyDncPage() {
   return (
     <DashboardShell>
       <div className="space-y-7">
-        <header className="relative overflow-hidden rounded-2xl border border-slate-200 bg-[#eef3f1] px-6 py-7 md:px-8">
+        <header className="relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/[0.055] px-6 py-7 md:px-8">
           <div className="absolute -right-6 -top-14 h-56 w-56 rounded-full border-[30px] border-teal-900/[0.04]" aria-hidden="true" />
           <div className="absolute right-16 -bottom-20 h-52 w-52 rounded-full border-[1px] border-teal-900/10" aria-hidden="true" />
           <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
@@ -334,7 +334,7 @@ export default function CompetencyDncPage() {
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-teal-900 text-teal-50"><Zap className="h-3.5 w-3.5" /></span>
                 Aseguramiento operativo / personal
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-[2.15rem]">Competencias y necesidades de capacitación</h1>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-[2.15rem]">Competencias y necesidades de capacitación</h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
                 Define estándares por puesto, documenta el desempeño observado y detecta brechas de competencia para orientar la capacitación.
               </p>
@@ -352,8 +352,8 @@ export default function CompetencyDncPage() {
           <SummaryTile icon={UsersRound} label="Registros de evaluación" value={data?.assessments.length ?? 0} detail="Historial acumulativo de registros" />
         </div>
 
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100 bg-[#fbfcfb]">
+        <Card className="border-border/80 bg-card shadow-sm">
+          <CardHeader className="border-b border-border/70 bg-muted/30">
             <SectionHeading step="00" icon={UsersRound} title="Perfil vigente por operador" description="Asigna o cambia el perfil de puesto que se usará como estándar en las siguientes evaluaciones." />
           </CardHeader>
           <CardContent className="grid gap-3 p-5 md:grid-cols-2">
@@ -382,8 +382,8 @@ export default function CompetencyDncPage() {
         </Card>
 
         <div className="grid items-start gap-5 xl:grid-cols-[0.92fr_1.08fr]">
-          <Card className="overflow-hidden border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-[#fbfcfb] pb-5">
+          <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
+            <CardHeader className="border-b border-border/70 bg-muted/30 pb-5">
               <SectionHeading step="01" icon={BookOpenCheck} title="Estándares por puesto" description="Crea el perfil y define los niveles de competencia requeridos." />
             </CardHeader>
             <CardContent className="space-y-6 p-5 md:p-6">
@@ -403,7 +403,7 @@ export default function CompetencyDncPage() {
               </div>
 
               {profile ? (
-                <div className="rounded-xl border border-slate-200 bg-white">
+                 <div className="rounded-xl border border-border/80 bg-background">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 p-4">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -490,7 +490,7 @@ export default function CompetencyDncPage() {
                 <EmptyPanel icon={BookOpenCheck} title="Selecciona un perfil de puesto" description="Aquí se administran los requisitos del perfil. Crea un perfil para establecer los estándares del puesto." />
               )}
 
-              <form onSubmit={handleRequirementSubmit} className="space-y-4 rounded-xl border border-teal-900/15 bg-[#f5f8f6] p-4">
+                <form onSubmit={handleRequirementSubmit} className="space-y-4 rounded-xl border border-primary/15 bg-primary/[0.035] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div><h3 className="text-sm font-semibold text-slate-900">{selectedLink ? "Actualizar requisito" : "Asignar competencia"}</h3>
                     <p className="mt-1 text-xs text-slate-500">Define el nivel mínimo de dominio y si es crítico para el puesto seleccionado.</p>
