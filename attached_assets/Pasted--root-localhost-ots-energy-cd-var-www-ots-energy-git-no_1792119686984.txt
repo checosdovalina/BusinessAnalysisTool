@@ -1,0 +1,310 @@
+[root@localhost ots-energy]# cd /var/www/ots-energy
+git --no-pager diff --name-only HEAD..FETCH_HEAD \
+  | grep -E '^(package.json|package-lock.json|server/db.ts|server/index.ts)$' \
+  || echo "Ninguno de esos cuatro archivos cambia en el remoto"
+package-lock.json
+package.json
+[root@localhost ots-energy]# cd /var/www/ots-energy
+git fetch origin main
+
+git --no-pager diff --name-only HEAD..FETCH_HEAD \
+  | grep -E '^(package.json|package-lock.json|server/db.ts|server/index.ts)$' \
+  || echo "No hay cambios remotos en esos archivos"
+From https://github.com/checosdovalina/BusinessAnalysisTool
+ * branch            main       -> FETCH_HEAD
+package-lock.json
+package.json
+[root@localhost ots-energy]# git stash push -m "vps-package-files-before-main-update" -- package.json package-lock.json
+git pull --ff-only origin main
+git status --short
+git stash list
+Saved working directory and index state On main: vps-package-files-before-main-update
+From https://github.com/checosdovalina/BusinessAnalysisTool
+ * branch            main       -> FETCH_HEAD
+Updating e6a60cb..c46e172
+Fast-forward
+ .agents/memory/MEMORY.md                           |    4 +
+ .agents/memory/auth-fast-refresh.md                |   10 +
+ .agents/memory/dnc-execution-aggregation.md        |   10 +
+ .agents/memory/ots-energy-design-direction.md      |   10 +
+ .agents/memory/vps-post-merge.md                   |   16 +
+ .replit                                            |   10 +-
+ .../SpatialArchitectCallingCard-4a0jJ0/App.tsx     |  399 ++
+ .../.replit-artifact/artifact.toml                 |   19 +
+ .../ots-energy-design-sandbox/components.json      |   21 +
+ artifacts/ots-energy-design-sandbox/index.html     |   31 +
+ .../mockupPreviewPlugin.ts                         |  198 +
+ .../ots-energy-design-sandbox/package-lock.json    | 5180 ++++++++++++++++++++
+ artifacts/ots-energy-design-sandbox/package.json   |   75 +
+ .../ots-energy-design-sandbox/public/favicon.svg   |    3 +
+ .../src/.generated/mockup-components.ts            |    6 +
+ artifacts/ots-energy-design-sandbox/src/App.tsx    |  146 +
+ .../src/components/mockups/ots-energy/Current.tsx  |  481 ++
+ .../src/components/mockups/ots-energy/Modern.tsx   |  173 +
+ .../src/components/mockups/ots-energy/_group.css   |   80 +
+ .../src/components/ui/accordion.tsx                |   54 +
+ .../src/components/ui/alert-dialog.tsx             |  138 +
+ .../src/components/ui/alert.tsx                    |   58 +
+ .../src/components/ui/aspect-ratio.tsx             |    5 +
+ .../src/components/ui/avatar.tsx                   |   49 +
+ .../src/components/ui/badge.tsx                    |   42 +
+ .../src/components/ui/breadcrumb.tsx               |  114 +
+ .../src/components/ui/button-group.tsx             |   82 +
+ .../src/components/ui/button.tsx                   |   64 +
+ .../src/components/ui/calendar.tsx                 |  212 +
+ .../src/components/ui/card.tsx                     |   82 +
+ .../src/components/ui/carousel.tsx                 |  259 +
+ .../src/components/ui/chart.tsx                    |  366 ++
+ .../src/components/ui/checkbox.tsx                 |   27 +
+ .../src/components/ui/collapsible.tsx              |   11 +
+ .../src/components/ui/command.tsx                  |  152 +
+ .../src/components/ui/context-menu.tsx             |  197 +
+ .../src/components/ui/dialog.tsx                   |  119 +
+ .../src/components/ui/drawer.tsx                   |  115 +
+ .../src/components/ui/dropdown-menu.tsx            |  200 +
+ .../src/components/ui/empty.tsx                    |  103 +
+ .../src/components/ui/field.tsx                    |  243 +
+ .../src/components/ui/form.tsx                     |  178 +
+ .../src/components/ui/hover-card.tsx               |   26 +
+ .../src/components/ui/input-group.tsx              |  167 +
+ .../src/components/ui/input-otp.tsx                |   68 +
+ .../src/components/ui/input.tsx                    |   21 +
+ .../src/components/ui/item.tsx                     |  192 +
+ .../src/components/ui/kbd.tsx                      |   28 +
+ .../src/components/ui/label.tsx                    |   25 +
+ .../src/components/ui/menubar.tsx                  |  253 +
+ .../src/components/ui/navigation-menu.tsx          |  127 +
+ .../src/components/ui/pagination.tsx               |  116 +
+ .../src/components/ui/popover.tsx                  |   30 +
+ .../src/components/ui/progress.tsx                 |   27 +
+ .../src/components/ui/radio-group.tsx              |   41 +
+ .../src/components/ui/resizable.tsx                |   44 +
+ .../src/components/ui/scroll-area.tsx              |   45 +
+ .../src/components/ui/select.tsx                   |  158 +
+ .../src/components/ui/separator.tsx                |   28 +
+ .../src/components/ui/sheet.tsx                    |  139 +
+ .../src/components/ui/sidebar.tsx                  |  726 +++
+ .../src/components/ui/skeleton.tsx                 |   15 +
+ .../src/components/ui/slider.tsx                   |   25 +
+ .../src/components/ui/sonner.tsx                   |   31 +
+ .../src/components/ui/spinner.tsx                  |   15 +
+ .../src/components/ui/switch.tsx                   |   26 +
+ .../src/components/ui/table.tsx                    |  119 +
+ .../src/components/ui/tabs.tsx                     |   52 +
+ .../src/components/ui/textarea.tsx                 |   21 +
+ .../src/components/ui/toast.tsx                    |  126 +
+ .../src/components/ui/toaster.tsx                  |   33 +
+ .../src/components/ui/toggle-group.tsx             |   60 +
+ .../src/components/ui/toggle.tsx                   |   42 +
+ .../src/components/ui/tooltip.tsx                  |   31 +
+ .../src/hooks/use-mobile.tsx                       |   21 +
+ .../src/hooks/use-toast.ts                         |  185 +
+ artifacts/ots-energy-design-sandbox/src/index.css  |  158 +
+ .../ots-energy-design-sandbox/src/lib/utils.ts     |    7 +
+ artifacts/ots-energy-design-sandbox/src/main.tsx   |    7 +
+ artifacts/ots-energy-design-sandbox/tsconfig.json  |   20 +
+ artifacts/ots-energy-design-sandbox/vite.config.ts |   73 +
+ ...26-03-16_a_la(s)_4.21.38_p.m._1773699728656.png |  Bin 0 -> 553730 bytes
+ ...26-03-16_a_la(s)_4.21.48_p.m._1773699728657.png |  Bin 0 -> 764439 bytes
+ ...26-03-16_a_la(s)_4.21.56_p.m._1773699728657.png |  Bin 0 -> 831063 bytes
+ ...6-10-15_a_la(s)_10.47.34_a.m._1792082878125.png |  Bin 0 -> 181725 bytes
+ ...6-10-15_a_la(s)_11.10.41_a.m._1792084313851.png |  Bin 0 -> 274396 bytes
+ ...6-10-15_a_la(s)_11.11.06_a.m._1792084313857.png |  Bin 0 -> 227028 bytes
+ ...-pm2-describe-ots-energy-pm2-_1792083422117.txt |  103 +
+ ...-sudo-certbot-certificates-su_1792083303747.txt |  209 +
+ ...evaluaciones-de-entrenamiento_1787185176083.txt |  115 +
+ client/index.html                                  |    1 +
+ client/public/opengraph.jpg                        |  Bin 129738 -> 130698 bytes
+ client/public/ots-energy-mark.svg                  |    5 +
+ client/src/App.tsx                                 |    7 +-
+ client/src/components/brand/ots-energy-logo.tsx    |   95 +
+ client/src/components/layout/dashboard-shell.tsx   |  176 +-
+ client/src/contexts/auth-context.ts                |   12 +
+ client/src/contexts/auth-provider.tsx              |   64 +
+ client/src/hooks/use-auth.tsx                      |   75 +-
+ client/src/index.css                               |  184 +-
+ client/src/lib/api.ts                              |  230 +-
+ client/src/lib/mock-data.ts                        |    4 +-
+ client/src/pages/auth-page.tsx                     |  144 +-
+ client/src/pages/companies.tsx                     |   46 +-
+ client/src/pages/competency-dnc.tsx                |  919 ++++
+ client/src/pages/dashboard.css                     |  752 +++
+ client/src/pages/dashboard.tsx                     |  550 ++-
+ client/src/pages/evaluation-form.tsx               |   42 +-
+ client/src/pages/evaluation-list.tsx               |  271 +-
+ client/src/pages/evaluation-topics.tsx             |   20 +-
+ client/src/pages/not-found.tsx                     |   56 +-
+ client/src/pages/operators.tsx                     |   74 +-
+ client/src/pages/reports.tsx                       |  311 +-
+ client/src/pages/scenario-designer.tsx             |   52 +-
+ client/src/pages/settings.tsx                      |   22 +-
+ client/src/pages/simulator-run.tsx                 |  103 +-
+ client/src/pages/simulator-sessions.tsx            |   22 +-
+ client/src/pages/training-program.tsx              |  837 ++++
+ client/src/pages/training-requests.tsx             |  197 +-
+ migrations/20261015_training_cycle.sql             |   80 +
+ migrations/20261016_competency_session_schema.sql  |   22 +
+ migrations/20261016_iso_continuous_improvement.sql |   55 +
+ ...261016_training_request_annual_program_link.sql |    5 +
+ .../20261016_training_request_executions.sql       |   17 +
+ package-lock.json                                  |  401 +-
+ package.json                                       |    6 +-
+ scripts/post-merge.sh                              |   12 +
+ server/routes.dnc.test.ts                          |  354 ++
+ server/routes.ts                                   | 1234 ++++-
+ server/storage.ts                                  |  681 ++-
+ shared/schema.ts                                   |  245 +-
+ 131 files changed, 20917 insertions(+), 963 deletions(-)
+ create mode 100644 .agents/memory/MEMORY.md
+ create mode 100644 .agents/memory/auth-fast-refresh.md
+ create mode 100644 .agents/memory/dnc-execution-aggregation.md
+ create mode 100644 .agents/memory/ots-energy-design-direction.md
+ create mode 100644 .agents/memory/vps-post-merge.md
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/templates/SpatialArchitectCallingCard-4a0jJ0/App.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/.replit-artifact/artifact.toml
+ create mode 100644 artifacts/ots-energy-design-sandbox/components.json
+ create mode 100644 artifacts/ots-energy-design-sandbox/index.html
+ create mode 100644 artifacts/ots-energy-design-sandbox/mockupPreviewPlugin.ts
+ create mode 100644 artifacts/ots-energy-design-sandbox/package-lock.json
+ create mode 100644 artifacts/ots-energy-design-sandbox/package.json
+ create mode 100644 artifacts/ots-energy-design-sandbox/public/favicon.svg
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/.generated/mockup-components.ts
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/App.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/mockups/ots-energy/Current.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/mockups/ots-energy/Modern.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/mockups/ots-energy/_group.css
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/accordion.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/alert-dialog.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/alert.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/aspect-ratio.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/avatar.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/badge.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/breadcrumb.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/button-group.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/button.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/calendar.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/card.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/carousel.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/chart.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/checkbox.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/collapsible.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/command.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/context-menu.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/dialog.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/drawer.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/dropdown-menu.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/empty.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/field.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/form.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/hover-card.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/input-group.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/input-otp.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/input.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/item.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/kbd.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/label.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/menubar.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/navigation-menu.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/pagination.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/popover.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/progress.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/radio-group.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/resizable.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/scroll-area.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/select.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/separator.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/sheet.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/sidebar.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/skeleton.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/slider.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/sonner.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/spinner.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/switch.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/table.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/tabs.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/textarea.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/toast.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/toaster.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/toggle-group.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/toggle.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/components/ui/tooltip.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/hooks/use-mobile.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/hooks/use-toast.ts
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/index.css
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/lib/utils.ts
+ create mode 100644 artifacts/ots-energy-design-sandbox/src/main.tsx
+ create mode 100644 artifacts/ots-energy-design-sandbox/tsconfig.json
+ create mode 100644 artifacts/ots-energy-design-sandbox/vite.config.ts
+ create mode 100644 attached_assets/Captura_de_pantalla_2026-03-16_a_la(s)_4.21.38_p.m._1773699728656.png
+ create mode 100644 attached_assets/Captura_de_pantalla_2026-03-16_a_la(s)_4.21.48_p.m._1773699728657.png
+ create mode 100644 attached_assets/Captura_de_pantalla_2026-03-16_a_la(s)_4.21.56_p.m._1773699728657.png
+ create mode 100644 attached_assets/Captura_de_pantalla_2026-10-15_a_la(s)_10.47.34_a.m._1792082878125.png
+ create mode 100644 attached_assets/Captura_de_pantalla_2026-10-15_a_la(s)_11.10.41_a.m._1792084313851.png
+ create mode 100644 attached_assets/Captura_de_pantalla_2026-10-15_a_la(s)_11.11.06_a.m._1792084313857.png
+ create mode 100644 attached_assets/Pasted--root-localhost-ots-energy-pm2-describe-ots-energy-pm2-_1792083422117.txt
+ create mode 100644 attached_assets/Pasted--root-localhost-ots-energy-sudo-certbot-certificates-su_1792083303747.txt
+ create mode 100644 attached_assets/Pasted-Funcionalidad-3-Gestionar-evaluaciones-de-entrenamiento_1787185176083.txt
+ create mode 100644 client/public/ots-energy-mark.svg
+ create mode 100644 client/src/components/brand/ots-energy-logo.tsx
+ create mode 100644 client/src/contexts/auth-context.ts
+ create mode 100644 client/src/contexts/auth-provider.tsx
+ create mode 100644 client/src/pages/competency-dnc.tsx
+ create mode 100644 client/src/pages/dashboard.css
+ create mode 100644 client/src/pages/training-program.tsx
+ create mode 100644 migrations/20261015_training_cycle.sql
+ create mode 100644 migrations/20261016_competency_session_schema.sql
+ create mode 100644 migrations/20261016_iso_continuous_improvement.sql
+ create mode 100644 migrations/20261016_training_request_annual_program_link.sql
+ create mode 100644 migrations/20261016_training_request_executions.sql
+ create mode 100644 scripts/post-merge.sh
+ create mode 100644 server/routes.dnc.test.ts
+ M server/db.ts
+ M server/index.ts
+?? .env
+?? ecosystem.config.cjs
+?? neon_backup.sql
+stash@{0}: On main: vps-package-files-before-main-update
+[root@localhost ots-energy]# npm run check
+npm test
+npm run build
+
+> rest-express@1.0.0 check
+> tsc
+
+
+> rest-express@1.0.0 test
+> tsx --test server/*.test.ts
+
+✔ DNC closes only at the current standard, reopens after a drop, and updates annual totals (501.524312ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 919.312908
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+building client...
+vite v7.1.12 building for production...
+✓ 2925 modules transformed.
+rendering chunks (1)...[meta-images] no Replit deployment domain found, skipping meta tag updates
+../dist/public/index.html                                                   1.58 kB │ gzip:   0.63 kB
+../dist/public/assets/electrical_grid_simulator_interface-Cs0zCTgk.png  1,397.17 kB
+../dist/public/assets/index-C-BwoUTQ.css                                  166.43 kB │ gzip:  26.80 kB
+../dist/public/assets/index-CUG68vTd.js                                 1,463.45 kB │ gzip: 394.64 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.51s
+building server...
+
+  dist/index.cjs  1.2mb ⚠️
+
+⚡ Done in 123ms
+[root@localhost ots-energy]# 
