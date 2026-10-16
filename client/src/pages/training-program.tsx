@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardShell from "@/components/layout/dashboard-shell";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,14 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
-import { trainingProgramAPI } from "@/lib/api";
+import { companiesAPI, trainingProgramAPI } from "@/lib/api";
 import type { TrainingProgramOverview } from "@/lib/api";
-import type { TrainingActivity, TrainingDocument } from "@shared/schema";
+import type { TrainingActivity } from "@shared/schema";
 import { toast } from "sonner";
 import {
   AlertCircle, ArrowDownToLine, BookOpenCheck, CalendarDays, Check, CheckCircle2,
   Clock3, FileCheck2, FilePlus2, GraduationCap, History, RefreshCw, ShieldAlert,
-  Target, UsersRound, X,
+  Target, UsersRound,
 } from "lucide-react";
 
 type ActivityForm = {
@@ -33,16 +32,20 @@ type CompletionForm = {
 };
 type DocumentForm = {
   title: string; documentType: "attendance" | "certificate" | "evaluation" | "material" | "feedback" | "other";
-  documentUrl: string; revision: string; documentDate: string; expiresAt: string; notes: string;
+  documentUrl: string; documentCode: string; revision: string; entityType: "profile" | "request" | "scenario" | "session" | "evaluation" | "activity";
+  entityId: string; responsibleId: string; effectiveFrom: string; documentDate: string; expiresAt: string; notes: string;
 };
+type ImprovementForm = { title: string; cause: string; responsibleId: string; targetDate: string; evidence: string };
 
 const blankActivity: ActivityForm = {
   studentId: "", requestId: "", dncAssessmentId: "", cycleId: "", simulatorSessionId: "", title: "", objective: "",
   trainingType: "course", plannedStart: "", plannedEnd: "", plannedHours: "2",
 };
 const blankDocument: DocumentForm = {
-  title: "", documentType: "other", documentUrl: "", revision: "1", documentDate: "", expiresAt: "", notes: "",
+  title: "", documentType: "other", documentUrl: "", documentCode: "", revision: "1", entityType: "activity",
+  entityId: "", responsibleId: "", effectiveFrom: "", documentDate: "", expiresAt: "", notes: "",
 };
+const blankImprovement: ImprovementForm = { title: "", cause: "", responsibleId: "", targetDate: "", evidence: "" };
 const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 3 + index);
 
 function dateLabel(value?: string | Date | null, withTime = false) {
@@ -88,7 +91,7 @@ function auditActionLabel(action: string) {
     activity_completed: "Actividad cerrada",
     dnc_reassessed: "Reevaluación DNC registrada",
     document_registered: "Documento registrado",
-    document_deleted: "Documento eliminado",
+    document_deleted: "Versión documental retirada",
     repetition_created: "Repetición generada",
     retraining_created: "Reentrenamiento generado",
   };
@@ -133,9 +136,8 @@ function SectionTitle({ number, title, detail, trailing }: { number: string; tit
 export default function TrainingProgramPage() {
   const { company, user } = useAuth();
   const queryClient = useQueryClient();
-  const companyId = Number(company?.id);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [year, setYear] = useState(String(new Date().getFullYear()));
-  const queryKey = ["training-program", companyId, Number(year)];
   const [showActivity, setShowActivity] = useState(false);
   const [activityForm, setActivityForm] = useState<ActivityForm>(blankActivity);
   const [editActivity, setEditActivity] = useState<TrainingActivity | null>(null);
@@ -146,10 +148,19 @@ export default function TrainingProgramPage() {
     attendanceStatus: "present", outcome: "pass", completedHours: "2", score: "", feedback: "",
   });
   const [documentActivity, setDocumentActivity] = useState<TrainingActivity | null>(null);
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
   const [documentForm, setDocumentForm] = useState<DocumentForm>(blankDocument);
-  const [pendingDelete, setPendingDelete] = useState<TrainingDocument | null>(null);
+  const [improvementForm, setImprovementForm] = useState<ImprovementForm>(blankImprovement);
+  const [effectivenessNotes, setEffectivenessNotes] = useState<Record<number, string>>({});
   const [formError, setFormError] = useState("");
 
+  const { data: allCompanies = [] } = useQuery({
+    queryKey: ["companies"],
+    queryFn: companiesAPI.getAll,
+    enabled: user?.role === "super_admin",
+  });
+  const companyId = selectedCompanyId ?? Number(company?.id ?? allCompanies[0]?.id ?? 0);
+  const queryKey = ["training-program", companyId, Number(year)];
   const { data, isLoading, isError, error, refetch } = useQuery<TrainingProgramOverview>({
     queryKey,
     queryFn: () => trainingProgramAPI.getByCompany(companyId, Number(year)),
@@ -197,21 +208,34 @@ export default function TrainingProgramPage() {
     onError: (err) => toast.error(errorMessage(err, "No se pudo registrar la reevaluación")),
   });
   const addDocument = useMutation({
-    mutationFn: ({ activityId, input }: { activityId: number; input: Parameters<typeof trainingProgramAPI.addDocument>[1] }) => trainingProgramAPI.addDocument(activityId, input),
-    onSuccess: () => { refresh(); setDocumentActivity(null); setDocumentForm(blankDocument); toast.success("Documento registrado en el expediente"); },
+    mutationFn: (input: Parameters<typeof trainingProgramAPI.createControlledDocument>[0]) => trainingProgramAPI.createControlledDocument(input),
+    onSuccess: () => { refresh(); setDocumentActivity(null); setShowDocumentDialog(false); setDocumentForm(blankDocument); toast.success("Versión documental registrada en el historial"); },
     onError: (err) => setFormError(errorMessage(err, "No se pudo registrar el documento")),
   });
-  const deleteDocument = useMutation({
-    mutationFn: (id: number) => trainingProgramAPI.deleteDocument(id),
-    onSuccess: () => { refresh(); setPendingDelete(null); toast.success("Documento eliminado"); },
-    onError: (err) => { setPendingDelete(null); toast.error(errorMessage(err, "No se pudo eliminar el documento")); },
+  const retireDocument = useMutation({
+    mutationFn: (id: number) => trainingProgramAPI.retireDocument(id),
+    onSuccess: () => { refresh(); toast.success("Versión retirada; la evidencia se conservó en el historial"); },
+    onError: (err) => toast.error(errorMessage(err, "No se pudo retirar el documento")),
+  });
+  const createImprovement = useMutation({
+    mutationFn: (input: Parameters<typeof trainingProgramAPI.createImprovementAction>[0]) => trainingProgramAPI.createImprovementAction(input),
+    onSuccess: () => { refresh(); setImprovementForm(blankImprovement); toast.success("Acción de mejora registrada"); },
+    onError: (err) => toast.error(errorMessage(err, "No se pudo registrar la acción")),
+  });
+  const updateImprovement = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: Parameters<typeof trainingProgramAPI.updateImprovementAction>[1] }) => trainingProgramAPI.updateImprovementAction(id, input),
+    onSuccess: () => { refresh(); toast.success("Seguimiento de mejora actualizado"); },
+    onError: (err) => toast.error(errorMessage(err, "No se pudo actualizar la acción")),
   });
 
   const programs = data?.programs ?? [];
   const activities = data?.activities ?? [];
   const documents = data?.documents ?? [];
+  const improvementActions = data?.improvementActions ?? [];
   const employees = data?.employees ?? [];
+  const responsibles = data?.responsibles ?? [];
   const requests = data?.approvedRequests ?? [];
+  const allRequests = data?.requests ?? [];
   const assessments = data?.assessments ?? [];
   const cycles = data?.cycles ?? [];
   const simulatorSessions = data?.simulatorSessions ?? [];
@@ -300,24 +324,59 @@ export default function TrainingProgramPage() {
 
   const submitDocument = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!documentActivity) return;
     let url: URL;
     try { url = new URL(documentForm.documentUrl); } catch { setFormError("Escribe una URL válida con HTTPS."); return; }
     if (url.protocol !== "https:") { setFormError("La dirección del documento debe usar HTTPS."); return; }
-    if (!documentForm.title.trim() || !documentForm.revision.trim()) { setFormError("El título y la revisión son obligatorios."); return; }
+    const entityId = Number(documentForm.entityId || documentActivity?.id);
+    const responsibleId = Number(documentForm.responsibleId || user?.id);
+    if (!documentForm.title.trim() || !documentForm.documentCode.trim() || !documentForm.revision.trim() || !entityId || !responsibleId) {
+      setFormError("Completa el código, título, revisión, vínculo y responsable."); return;
+    }
     addDocument.mutate({
-      activityId: documentActivity.id,
-      input: {
-        title: documentForm.title.trim(), documentType: documentForm.documentType,
-        documentUrl: url.toString(), revision: documentForm.revision.trim(),
-        documentDate: documentForm.documentDate || undefined, expiresAt: documentForm.expiresAt || undefined,
-        notes: documentForm.notes.trim() || undefined,
-      },
+      companyId,
+      entityType: documentForm.entityType,
+      entityId,
+      title: documentForm.title.trim(),
+      documentCode: documentForm.documentCode.trim(),
+      documentType: documentForm.documentType,
+      documentUrl: url.toString(),
+      revision: documentForm.revision.trim(),
+      effectiveFrom: documentForm.effectiveFrom || undefined,
+      documentDate: documentForm.documentDate || undefined,
+      expiresAt: documentForm.expiresAt || undefined,
+      responsibleId,
+      notes: documentForm.notes.trim() || undefined,
+    });
+  };
+
+  const submitImprovement = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!companyId || !improvementForm.title.trim() || !improvementForm.cause.trim() || !improvementForm.targetDate || !improvementForm.responsibleId) {
+      toast.error("Completa la acción, causa, responsable y fecha objetivo.");
+      return;
+    }
+    createImprovement.mutate({
+      companyId,
+      title: improvementForm.title.trim(),
+      cause: improvementForm.cause.trim(),
+      responsibleId: Number(improvementForm.responsibleId),
+      targetDate: improvementForm.targetDate,
+      evidence: improvementForm.evidence.trim() || undefined,
     });
   };
 
   const openEdit = (activity: TrainingActivity) => setEditActivity(activity);
   const metric = data?.metrics;
+  const documentEntityOptions = (() => {
+    switch (documentForm.entityType) {
+      case "profile": return (data?.profiles ?? []).map((item) => ({ id: item.id, label: item.title }));
+      case "request": return allRequests.map((item) => ({ id: item.id, label: item.title }));
+      case "scenario": return (data?.scenarios ?? []).map((item) => ({ id: item.id, label: item.title }));
+      case "session": return simulatorSessions.map((item) => ({ id: item.id, label: `${item.scenarioTitle} · sesión ${item.id}` }));
+      case "evaluation": return assessments.map((item) => ({ id: item.id, label: `Evaluación #${item.id} · operador ${item.employeeId}` }));
+      case "activity": return activities.map((item) => ({ id: item.id, label: item.title }));
+    }
+  })();
 
   if (isLoading) return <DashboardShell><div className="space-y-5" aria-label="Cargando programa anual">
     <div className="h-32 animate-pulse rounded-2xl bg-teal-100/70" />
@@ -351,6 +410,9 @@ export default function TrainingProgramPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">De la brecha de competencia a la evidencia de cierre: planea, ejecuta y da seguimiento a cada operador.</p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
+            {user?.role === "super_admin" && <div className="space-y-1.5"><Label htmlFor="program-company" className="text-xs text-slate-600">Empresa</Label>
+              <Select value={String(companyId)} onValueChange={(value) => setSelectedCompanyId(Number(value))}><SelectTrigger id="program-company" className="w-56 border-white/80 bg-white/80"><SelectValue /></SelectTrigger><SelectContent>{allCompanies.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}</SelectContent></Select>
+            </div>}
             <div className="space-y-1.5"><Label htmlFor="program-year" className="text-xs text-slate-600">Ciclo anual</Label>
               <Select value={year} onValueChange={setYear}><SelectTrigger id="program-year" className="w-36 border-white/80 bg-white/80"><SelectValue /></SelectTrigger><SelectContent>{years.map((item) => <SelectItem key={item} value={String(item)}>{item}</SelectItem>)}</SelectContent></Select>
             </div>
@@ -365,11 +427,15 @@ export default function TrainingProgramPage() {
         <Metric icon={CalendarDays} label="Trabajo planeado" value={metric?.plannedActivities ?? 0} detail={`${metric?.plannedHours ?? 0} h consideradas en el ciclo`} />
         <Metric icon={CheckCircle2} label="Trabajo completado" value={metric?.completedActivities ?? 0} detail={`${metric?.completedHours ?? 0} h documentadas`} tone="blue" />
         <Metric icon={UsersRound} label="Asistencia / aprobación" value={`${metric?.attendanceRate ?? 0}% / ${metric?.passRate ?? 0}%`} detail={`Tasa de cierre: ${metric?.completionRate ?? 0}%`} />
+        <Metric icon={CheckCircle2} label="Cumplimiento del programa" value={`${metric?.programCompliance ?? 0}%`} detail="Avance promedio de horas meta por operador" tone="blue" />
         <Metric icon={Clock3} label="Fuera de fecha" value={metric?.overdueActivities ?? 0} detail="Actividades planeadas vencidas" tone={metric?.overdueActivities ? "amber" : "teal"} />
         <Metric icon={RefreshCw} label="Reentrenamientos" value={metric?.retrainingActivities ?? 0} detail="Repeticiones creadas por resultado" tone="amber" />
         <Metric icon={Target} label="Reevaluaciones DNC" value={reassessmentActivities.length} detail="Actividades que requieren registrar el nuevo nivel" tone="blue" />
         <Metric icon={FileCheck2} label="Documentos por vencer" value={metric?.documentsExpiringSoon ?? 0} detail={`${metric?.expiredDocuments ?? 0} vencidos · siguientes 30 días`} tone={metric?.expiredDocuments ? "red" : metric?.documentsExpiringSoon ? "amber" : "teal"} />
         <Metric icon={GraduationCap} label="Operadores en programa" value={metric?.programCount ?? programs.length} detail={`${metric?.activityCount ?? activities.length} actividades registradas`} />
+        <Metric icon={Target} label="Necesidades DNC detectadas" value={metric?.needsDetected ?? 0} detail={`${metric?.needsAttended ?? 0} atendidas · ${metric?.needAttendanceRate ?? 0}%`} tone="blue" />
+        <Metric icon={CheckCircle2} label="Aprobaciones" value={metric?.approvals ?? 0} detail="Actividades evaluadas con resultado aprobado" />
+        <Metric icon={ShieldAlert} label="Brechas DNC abiertas" value={metric?.openDncGaps ?? 0} detail="Última evaluación del periodo" tone={metric?.openDncGaps ? "amber" : "teal"} />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -429,7 +495,7 @@ export default function TrainingProgramPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                  <Button variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-slate-700" onClick={() => { setDocumentActivity(activity); setDocumentForm(blankDocument); setFormError(""); }}><FilePlus2 className="mr-1.5 h-3.5 w-3.5" />Evidencia</Button>
+                  <Button variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-slate-700" onClick={() => { setDocumentActivity(activity); setDocumentForm({ ...blankDocument, entityType: "activity", entityId: String(activity.id), documentCode: `CAP-${activity.id}`, responsibleId: String(user?.id ?? "") }); setShowDocumentDialog(true); setFormError(""); }}><FilePlus2 className="mr-1.5 h-3.5 w-3.5" />Evidencia</Button>
                   {activity.status !== "completed" && activity.status !== "cancelled" && <>
                     <Button variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-slate-700" onClick={() => openEdit(activity)}><CalendarDays className="mr-1.5 h-3.5 w-3.5" />Editar</Button>
                     <Button size="sm" className="h-8 bg-teal-950 text-white hover:bg-teal-900" onClick={() => {
@@ -443,7 +509,7 @@ export default function TrainingProgramPage() {
                 {linkedDocs.map((doc) => <div key={doc.id} className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs">
                   <FileCheck2 className="h-3.5 w-3.5 text-teal-800" /><a href={doc.documentUrl} target="_blank" rel="noreferrer" className="max-w-[220px] truncate font-medium text-slate-700 underline-offset-2 hover:text-teal-900 hover:underline">{doc.title}</a>
                   <span className="font-mono text-[10px] text-slate-400">Rev. {doc.revision}</span>
-                  <button type="button" className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700" onClick={() => setPendingDelete(doc)} aria-label={`Eliminar documento ${doc.title}`}><X className="h-3.5 w-3.5" /></button>
+                  <span className="text-[10px] text-slate-500">{doc.status === "current" ? "Vigente" : "Retirado"}</span>
                 </div>)}
               </div>}
             </article>;
@@ -490,32 +556,76 @@ export default function TrainingProgramPage() {
           </div>
         </section>
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-          <SectionTitle number="04" title="Control documental" detail="Evidencia ligada a cada actividad, con revisión y vigencia." />
+          <SectionTitle number="04" title="Control documental" detail="Versiones, vigencia, responsable y evidencia ligadas al ciclo." trailing={<Button onClick={() => { setDocumentActivity(null); setDocumentForm({ ...blankDocument, responsibleId: String(user?.id ?? "") }); setShowDocumentDialog(true); setFormError(""); }} className="bg-teal-950 text-white hover:bg-teal-900"><FilePlus2 className="mr-2 h-4 w-4" />Registrar documento</Button>} />
           <div className="mt-4">
             {documents.length ? <div className="divide-y divide-slate-100">
-              {documents.slice().sort((a, b) => new Date(a.expiresAt ?? a.createdAt).getTime() - new Date(b.expiresAt ?? b.createdAt).getTime()).slice(0, 6).map((doc) => {
-                const related = activities.find((activity) => activity.id === doc.activityId);
+              {documents.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((doc) => {
                 const today = new Date().toISOString().slice(0, 10);
                 const next30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-                const expired = doc.expiresAt && doc.expiresAt < today;
+                const expired = doc.status === "current" && doc.expiresAt && doc.expiresAt < today;
                 const expiring = !expired && doc.expiresAt && doc.expiresAt <= next30Days;
+                const entityNames: Record<string, string> = {
+                  profile: data?.profiles.find((item) => item.id === doc.entityId)?.title ?? "Perfil",
+                  request: data?.requests.find((item) => item.id === doc.entityId)?.title ?? "Solicitud",
+                  scenario: data?.scenarios.find((item) => item.id === doc.entityId)?.title ?? "Escenario",
+                  session: data?.simulatorSessions.find((item) => item.id === doc.entityId)?.scenarioTitle ?? "Sesión",
+                  evaluation: `Evaluación DNC #${doc.entityId}`,
+                  activity: activities.find((item) => item.id === doc.activityId)?.title ?? "Actividad",
+                };
+                const owner = responsibles.find((person) => person.id === doc.responsibleId);
                 return <div key={doc.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="flex min-w-0 items-start gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-900"><FileCheck2 className="h-4 w-4" /></span>
-                    <div className="min-w-0"><a href={doc.documentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm font-semibold text-slate-800 hover:text-teal-900 hover:underline">{doc.title}</a><p className="mt-1 truncate text-xs text-slate-500">{related?.title ?? "Actividad"} · Rev. {doc.revision}</p><p className={`mt-1 text-[11px] ${expired ? "font-semibold text-rose-800" : expiring ? "font-medium text-amber-800" : "text-slate-500"}`}>{expired ? `Vencido el ${dateLabel(doc.expiresAt)}` : doc.expiresAt ? `Vence ${dateLabel(doc.expiresAt)}` : "Sin fecha de vencimiento"}</p></div>
+                    <div className="min-w-0"><a href={doc.documentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm font-semibold text-slate-800 hover:text-teal-900 hover:underline">{doc.title}</a><p className="mt-1 truncate text-xs text-slate-500"><span className="font-mono">{doc.documentCode}</span> · Rev. {doc.revision} · {entityNames[doc.entityType] ?? doc.entityType} #{doc.entityId}</p><p className="mt-1 truncate text-[11px] text-slate-500">Responsable: {owner?.name ?? "Sin responsable"} · Vigente desde {dateLabel(doc.effectiveFrom)}</p><p className={`mt-1 text-[11px] ${doc.status !== "current" ? "text-slate-400" : expired ? "font-semibold text-rose-800" : expiring ? "font-medium text-amber-800" : "text-slate-500"}`}>{doc.status !== "current" ? "Versión retirada; historial conservado" : expired ? `Vencido el ${dateLabel(doc.expiresAt)}` : doc.expiresAt ? `Vence ${dateLabel(doc.expiresAt)}` : "Sin fecha de vencimiento"}</p></div>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-slate-400 hover:text-rose-700" aria-label={`Eliminar documento ${doc.title}`} onClick={() => setPendingDelete(doc)}><X className="h-4 w-4" /></Button>
+                  {doc.status === "current" && <Button variant="outline" size="sm" className="shrink-0" onClick={() => retireDocument.mutate(doc.id)} disabled={retireDocument.isPending}>Retirar versión</Button>}
                 </div>;
               })}
-              {documents.length > 6 && <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">Mostrando 6 de {documents.length} documentos. Consulta cada actividad para ver el expediente completo.</p>}
-            </div> : <EmptyNotice title="Sin documentos registrados" description="Agrega listas de asistencia, certificados, evaluaciones o material desde una actividad." compact />}
+            </div> : <EmptyNotice title="Sin documentos registrados" description="Registra procedimientos, perfiles, solicitudes y evidencia de ejecución con sus revisiones." compact />}
           </div>
         </section>
       </div>
 
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <SectionTitle number="05" title="Acciones de mejora continua" detail="Registra causa, responsable y fecha objetivo; valida si la acción fue efectiva." />
+        <form onSubmit={submitImprovement} className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-2 xl:grid-cols-5">
+          <Field label="Acción" htmlFor="improvement-title"><Input id="improvement-title" value={improvementForm.title} onChange={(event) => setImprovementForm({ ...improvementForm, title: event.target.value })} placeholder="p. ej., Actualizar evaluación" required /></Field>
+          <Field label="Causa" htmlFor="improvement-cause"><Input id="improvement-cause" value={improvementForm.cause} onChange={(event) => setImprovementForm({ ...improvementForm, cause: event.target.value })} placeholder="Causa raíz identificada" required /></Field>
+          <Field label="Responsable" htmlFor="improvement-owner"><Select value={improvementForm.responsibleId} onValueChange={(value) => setImprovementForm({ ...improvementForm, responsibleId: value })}><SelectTrigger id="improvement-owner"><SelectValue placeholder="Elegir responsable" /></SelectTrigger><SelectContent>{responsibles.map((person) => <SelectItem key={person.id} value={String(person.id)}>{person.name}</SelectItem>)}</SelectContent></Select></Field>
+          <Field label="Fecha objetivo" htmlFor="improvement-date"><Input id="improvement-date" type="date" value={improvementForm.targetDate} onChange={(event) => setImprovementForm({ ...improvementForm, targetDate: event.target.value })} required /></Field>
+          <div className="flex items-end"><Button type="submit" className="w-full bg-teal-950 text-white hover:bg-teal-900" disabled={createImprovement.isPending}>{createImprovement.isPending ? "Guardando…" : "Registrar acción"}</Button></div>
+          <div className="md:col-span-2 xl:col-span-5"><Field label="Evidencia inicial (opcional)" htmlFor="improvement-evidence"><Textarea id="improvement-evidence" rows={2} value={improvementForm.evidence} onChange={(event) => setImprovementForm({ ...improvementForm, evidence: event.target.value })} placeholder="Describe o enlaza la evidencia disponible" /></Field></div>
+        </form>
+        <div className="mt-4 space-y-3">
+          {improvementActions.length ? improvementActions.map((action) => {
+            const owner = responsibles.find((person) => person.id === action.responsibleId);
+            const verifiedBy = responsibles.find((person) => person.id === action.verifiedById);
+            return <article key={action.id} className="rounded-lg border border-slate-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-900">{action.title}</h3><Badge variant="outline">{action.status === "planned" ? "Planeada" : action.status === "in_progress" ? "En curso" : action.status === "implemented" ? "Implementada" : action.status === "verified" ? "Verificada" : "Cancelada"}</Badge><Badge className={action.effectiveness === "effective" ? "bg-teal-100 text-teal-900 hover:bg-teal-100" : action.effectiveness === "ineffective" ? "bg-rose-100 text-rose-900 hover:bg-rose-100" : "bg-slate-100 text-slate-700 hover:bg-slate-100"}>{action.effectiveness === "effective" ? "Efectiva" : action.effectiveness === "ineffective" ? "No efectiva" : "Sin verificar"}</Badge></div>
+                  <p className="mt-1 text-sm text-slate-600">Causa: {action.cause}</p>
+                  <p className="mt-1 text-xs text-slate-500">Responsable: {owner?.name ?? "No disponible"} · Fecha objetivo: {dateLabel(action.targetDate)}{action.verifiedAt ? ` · Verificada ${dateLabel(action.verifiedAt)} por ${verifiedBy?.name ?? "usuario"}` : ""}</p>
+                  {action.evidence && <p className="mt-2 break-words text-xs text-slate-600">Evidencia: {action.evidence}</p>}
+                  {action.effectivenessNotes && <p className="mt-2 break-words rounded-md bg-slate-50 p-2 text-xs text-slate-700">Verificación: {action.effectivenessNotes}</p>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {action.status !== "verified" && action.status !== "cancelled" && <Select value={action.status} onValueChange={(value) => updateImprovement.mutate({ id: action.id, input: { status: value as "planned" | "in_progress" | "implemented" | "cancelled" } })}><SelectTrigger className="w-36" aria-label={`Estado de ${action.title}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">Planeada</SelectItem><SelectItem value="in_progress">En curso</SelectItem><SelectItem value="implemented">Implementada</SelectItem><SelectItem value="cancelled">Cancelada</SelectItem></SelectContent></Select>}
+                </div>
+              </div>
+              {action.status === "implemented" && <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <Input aria-label={`Notas de efectividad de ${action.title}`} value={effectivenessNotes[action.id] ?? ""} onChange={(event) => setEffectivenessNotes({ ...effectivenessNotes, [action.id]: event.target.value })} placeholder="Resultado y evidencia de la verificación" />
+                <Button type="button" variant="outline" disabled={!effectivenessNotes[action.id]?.trim() || updateImprovement.isPending} onClick={() => updateImprovement.mutate({ id: action.id, input: { effectiveness: "effective", effectivenessNotes: effectivenessNotes[action.id].trim() } })}>Verificar efectiva</Button>
+                <Button type="button" variant="outline" className="border-rose-200 text-rose-800 hover:bg-rose-50" disabled={!effectivenessNotes[action.id]?.trim() || updateImprovement.isPending} onClick={() => updateImprovement.mutate({ id: action.id, input: { effectiveness: "ineffective", effectivenessNotes: effectivenessNotes[action.id].trim() } })}>No efectiva</Button>
+              </div>}
+            </article>;
+          }) : <EmptyNotice title="Sin acciones de mejora" description="Registra una acción cuando identifiques una causa que requiera corrección o mejora." compact />}
+        </div>
+      </section>
+
       <section aria-labelledby="activity-audit-heading" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex gap-3">
-            <span className="mt-0.5 font-mono text-xs font-semibold tracking-wider text-teal-800">05</span>
+            <span className="mt-0.5 font-mono text-xs font-semibold tracking-wider text-teal-800">06</span>
             <div>
               <h2 id="activity-audit-heading" className="text-lg font-semibold tracking-tight text-slate-900">Historial reciente</h2>
               <p className="mt-1 text-sm text-slate-500">Registro de cambios y resultados del programa anual.</p>
@@ -664,35 +774,37 @@ export default function TrainingProgramPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!documentActivity} onOpenChange={(open) => { if (!open) { setDocumentActivity(null); setFormError(""); } }}>
+      <Dialog open={showDocumentDialog} onOpenChange={(open) => { setShowDocumentDialog(open); if (!open) { setDocumentActivity(null); setFormError(""); } }}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader><DialogTitle>Registrar evidencia documental</DialogTitle><DialogDescription>La evidencia queda ligada a “{documentActivity?.title}”. Usa un enlace HTTPS accesible para el equipo.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Registrar versión documental</DialogTitle><DialogDescription>{documentActivity ? `La evidencia quedará ligada a “${documentActivity.title}”.` : "Vincula la evidencia a un perfil, solicitud, escenario, sesión, evaluación o actividad."} Usa un enlace HTTPS accesible para el equipo.</DialogDescription></DialogHeader>
           <form onSubmit={submitDocument} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Título del documento" htmlFor="document-title"><Input id="document-title" value={documentForm.title} onChange={(event) => setDocumentForm({ ...documentForm, title: event.target.value })} required /></Field>
               <Field label="Tipo documental" htmlFor="document-type"><Select value={documentForm.documentType} onValueChange={(value: DocumentForm["documentType"]) => setDocumentForm({ ...documentForm, documentType: value })}><SelectTrigger id="document-type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="attendance">Asistencia</SelectItem><SelectItem value="certificate">Certificado</SelectItem><SelectItem value="evaluation">Evaluación</SelectItem><SelectItem value="material">Material</SelectItem><SelectItem value="feedback">Retroalimentación</SelectItem><SelectItem value="other">Otro</SelectItem></SelectContent></Select></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Código documental" htmlFor="document-code"><Input id="document-code" value={documentForm.documentCode} onChange={(event) => setDocumentForm({ ...documentForm, documentCode: event.target.value })} placeholder="p. ej., PROC-CAP-01" required /></Field>
+              <Field label="Responsable" htmlFor="document-responsible"><Select value={documentForm.responsibleId} onValueChange={(value) => setDocumentForm({ ...documentForm, responsibleId: value })}><SelectTrigger id="document-responsible"><SelectValue placeholder="Elegir responsable" /></SelectTrigger><SelectContent>{responsibles.map((person) => <SelectItem key={person.id} value={String(person.id)}>{person.name}</SelectItem>)}</SelectContent></Select></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Vincular a" htmlFor="document-entity-type"><Select value={documentForm.entityType} onValueChange={(value: DocumentForm["entityType"]) => { setDocumentActivity(null); setDocumentForm({ ...documentForm, entityType: value, entityId: "" }); }}><SelectTrigger id="document-entity-type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="profile">Perfil</SelectItem><SelectItem value="request">Solicitud</SelectItem><SelectItem value="scenario">Escenario</SelectItem><SelectItem value="session">Sesión</SelectItem><SelectItem value="evaluation">Evaluación</SelectItem><SelectItem value="activity">Actividad</SelectItem></SelectContent></Select></Field>
+              <Field label="Registro vinculado" htmlFor="document-entity-id"><Select value={documentForm.entityId} onValueChange={(value) => setDocumentForm({ ...documentForm, entityId: value })}><SelectTrigger id="document-entity-id"><SelectValue placeholder="Elegir registro" /></SelectTrigger><SelectContent>{documentEntityOptions.map((option) => <SelectItem key={option.id} value={String(option.id)}>{option.label}</SelectItem>)}</SelectContent></Select></Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
               <Field label="URL segura (HTTPS)" htmlFor="document-url"><Input id="document-url" type="url" placeholder="https://…" value={documentForm.documentUrl} onChange={(event) => setDocumentForm({ ...documentForm, documentUrl: event.target.value })} required /></Field>
               <Field label="Revisión" htmlFor="document-revision"><Input id="document-revision" value={documentForm.revision} onChange={(event) => setDocumentForm({ ...documentForm, revision: event.target.value })} required /></Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Vigente desde" htmlFor="document-effective-from"><Input id="document-effective-from" type="date" value={documentForm.effectiveFrom} onChange={(event) => setDocumentForm({ ...documentForm, effectiveFrom: event.target.value })} /></Field>
               <Field label="Fecha del documento" htmlFor="document-date"><Input id="document-date" type="date" value={documentForm.documentDate} onChange={(event) => setDocumentForm({ ...documentForm, documentDate: event.target.value })} /></Field>
               <Field label="Fecha de vencimiento" htmlFor="document-expires"><Input id="document-expires" type="date" value={documentForm.expiresAt} onChange={(event) => setDocumentForm({ ...documentForm, expiresAt: event.target.value })} /></Field>
             </div>
             <Field label="Notas" htmlFor="document-notes"><Textarea id="document-notes" value={documentForm.notes} onChange={(event) => setDocumentForm({ ...documentForm, notes: event.target.value })} rows={2} /></Field>
             {formError && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{formError}</p>}
-            <DialogFooter><Button type="button" variant="outline" onClick={() => setDocumentActivity(null)}>Cancelar</Button><Button type="submit" className="bg-teal-950 text-white hover:bg-teal-900" disabled={addDocument.isPending}>{addDocument.isPending ? "Registrando…" : "Registrar documento"}</Button></DialogFooter>
+            <DialogFooter><Button type="button" variant="outline" onClick={() => { setShowDocumentDialog(false); setDocumentActivity(null); }}>Cancelar</Button><Button type="submit" className="bg-teal-950 text-white hover:bg-teal-900" disabled={addDocument.isPending}>{addDocument.isPending ? "Registrando…" : "Registrar revisión"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle><AlertDialogDescription>Se quitará “{pendingDelete?.title}” del expediente de capacitación. Esta acción no se puede deshacer.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Conservar</AlertDialogCancel><AlertDialogAction className="bg-rose-700 text-white hover:bg-rose-800" onClick={() => pendingDelete && deleteDocument.mutate(pendingDelete.id)} disabled={deleteDocument.isPending}>{deleteDocument.isPending ? "Eliminando…" : "Eliminar documento"}</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   </DashboardShell>;
 }

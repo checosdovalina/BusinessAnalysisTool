@@ -3,6 +3,7 @@ import {
   scenarioSteps, sessionStepResults,
   evaluationTopics, evaluationTopicItems, cycleTopicItems,
   trainingReports, annualTrainingPrograms, trainingActivities, trainingDocuments, trainingActivityAuditEvents,
+  improvementActions,
   companySettings, userPreferences,
   trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
   evaluationTemplates, templateTopics, templateEvents,
@@ -23,6 +24,7 @@ import {
   type AnnualTrainingProgram, type InsertAnnualTrainingProgram,
   type TrainingActivity, type InsertTrainingActivity,
   type TrainingDocument, type InsertTrainingDocument,
+  type ImprovementAction, type InsertImprovementAction,
   type TrainingActivityAuditEvent,
   type CompanySettings, type InsertCompanySettings,
   type UserPreferences, type InsertUserPreferences,
@@ -241,6 +243,14 @@ export interface IStorage {
   createTrainingDocument(document: InsertTrainingDocument, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingDocument>;
 
   deleteTrainingDocument(id: number, audit: { actorId: number; action: string }): Promise<void>;
+
+  getImprovementActionsByCompany(companyId: number): Promise<ImprovementAction[]>;
+
+  getImprovementAction(id: number): Promise<ImprovementAction | undefined>;
+
+  createImprovementAction(action: InsertImprovementAction): Promise<ImprovementAction>;
+
+  updateImprovementAction(id: number, updates: Partial<InsertImprovementAction>): Promise<ImprovementAction | undefined>;
 
   getTrainingActivityAuditByCompany(companyId: number): Promise<TrainingActivityAuditEvent[]>;
   
@@ -935,11 +945,27 @@ export class DatabaseStorage implements IStorage {
 
   async createTrainingDocument(document: InsertTrainingDocument, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingDocument> {
     return db.transaction(async (tx) => {
-      const [created] = await tx.insert(trainingDocuments).values(document).returning();
-      await tx.insert(trainingActivityAuditEvents).values({
-        companyId: created.companyId, activityId: created.activityId, actorId: audit.actorId,
-        action: audit.action, details: audit.details ?? created.title,
-      });
+      const existingVersions = await tx.select().from(trainingDocuments)
+        .where(and(
+          eq(trainingDocuments.companyId, document.companyId),
+          eq(trainingDocuments.documentCode, document.documentCode),
+        )).orderBy(desc(trainingDocuments.createdAt));
+      const current = existingVersions.find((item) => item.status === "current");
+      if (current) {
+        await tx.update(trainingDocuments).set({ status: "obsolete" }).where(eq(trainingDocuments.id, current.id));
+      }
+      const latest = current ?? existingVersions[0];
+      const [created] = await tx.insert(trainingDocuments).values({
+        ...document,
+        status: "current",
+        supersedesId: document.supersedesId ?? latest?.id ?? null,
+      }).returning();
+      if (created.activityId) {
+        await tx.insert(trainingActivityAuditEvents).values({
+          companyId: created.companyId, activityId: created.activityId, actorId: audit.actorId,
+          action: audit.action, details: audit.details ?? `${created.documentCode} (rev. ${created.revision})`,
+        });
+      }
       return created;
     });
   }
@@ -948,12 +974,40 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       const [document] = await tx.select().from(trainingDocuments).where(eq(trainingDocuments.id, id));
       if (!document) return;
-      await tx.delete(trainingDocuments).where(eq(trainingDocuments.id, id));
-      await tx.insert(trainingActivityAuditEvents).values({
-        companyId: document.companyId, activityId: document.activityId, actorId: audit.actorId,
-        action: audit.action, details: `Documento eliminado: ${document.title} (rev. ${document.revision})`,
-      });
+      if (document.status !== "obsolete") {
+        await tx.update(trainingDocuments).set({ status: "obsolete" }).where(eq(trainingDocuments.id, id));
+      }
+      if (document.activityId) {
+        await tx.insert(trainingActivityAuditEvents).values({
+          companyId: document.companyId, activityId: document.activityId, actorId: audit.actorId,
+          action: audit.action, details: `Versión retirada: ${document.documentCode} (rev. ${document.revision})`,
+        });
+      }
     });
+  }
+
+  async getImprovementActionsByCompany(companyId: number): Promise<ImprovementAction[]> {
+    return db.select().from(improvementActions)
+      .where(eq(improvementActions.companyId, companyId))
+      .orderBy(desc(improvementActions.targetDate), desc(improvementActions.createdAt));
+  }
+
+  async getImprovementAction(id: number): Promise<ImprovementAction | undefined> {
+    const [action] = await db.select().from(improvementActions).where(eq(improvementActions.id, id));
+    return action || undefined;
+  }
+
+  async createImprovementAction(action: InsertImprovementAction): Promise<ImprovementAction> {
+    const [created] = await db.insert(improvementActions).values(action).returning();
+    return created;
+  }
+
+  async updateImprovementAction(id: number, updates: Partial<InsertImprovementAction>): Promise<ImprovementAction | undefined> {
+    const [updated] = await db.update(improvementActions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(improvementActions.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getTrainingActivityAuditByCompany(companyId: number): Promise<TrainingActivityAuditEvent[]> {

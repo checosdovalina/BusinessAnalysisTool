@@ -1,4 +1,5 @@
 import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, EmployeeJobProfile, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent, ImprovementAction } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -447,9 +448,14 @@ export interface TrainingProgramOverview {
   }>;
   activities: TrainingActivity[];
   documents: TrainingDocument[];
+  improvementActions: ImprovementAction[];
   auditEvents: TrainingActivityAuditEvent[];
   auditActors: Record<number, string>;
   employees: Pick<User, "id" | "name" | "email" | "role">[];
+  responsibles: Pick<User, "id" | "name" | "email" | "role">[];
+  profiles: JobProfile[];
+  requests: TrainingRequest[];
+  scenarios: Pick<SimulatorScenario, "id" | "title" | "companyId">[];
   cycles: Pick<Cycle, "id" | "title" | "studentId" | "startDate" | "type" | "status">[];
   simulatorSessions: Array<Pick<SimulatorSession, "id" | "scenarioId" | "studentId" | "score" | "startTime" | "endTime" | "duration"> & { scenarioTitle: string }>;
   approvedRequests: TrainingRequest[];
@@ -460,6 +466,7 @@ export interface TrainingProgramOverview {
     plannedActivities: number;
     completedActivities: number;
     completionRate: number;
+    programCompliance: number;
     passRate: number;
     attendanceRate: number;
     plannedHours: number;
@@ -469,6 +476,11 @@ export interface TrainingProgramOverview {
     pendingReassessments: number;
     documentsExpiringSoon: number;
     expiredDocuments: number;
+    needsDetected: number;
+    needsAttended: number;
+    needAttendanceRate: number;
+    approvals: number;
+    openDncGaps: number;
   };
 }
 
@@ -514,10 +526,40 @@ export const trainingProgramAPI = {
     expiresAt?: string | null;
     notes?: string | null;
   }) => fetcher<TrainingDocument>(`/training-activities/${activityId}/documents`, { method: "POST", body: JSON.stringify(data) }),
+  createControlledDocument: (data: {
+    companyId: number;
+    entityType: "profile" | "request" | "scenario" | "session" | "evaluation" | "activity";
+    entityId: number;
+    title: string;
+    documentCode: string;
+    documentType: "attendance" | "certificate" | "evaluation" | "material" | "feedback" | "other";
+    documentUrl: string;
+    revision: string;
+    effectiveFrom?: string | null;
+    documentDate?: string | null;
+    expiresAt?: string | null;
+    responsibleId: number;
+    notes?: string | null;
+  }) => fetcher<TrainingDocument>("/controlled-documents", { method: "POST", body: JSON.stringify(data) }),
+  retireDocument: (id: number) => fetcher<void>(`/training-documents/${id}`, { method: "DELETE" }),
   deleteDocument: async (id: number) => {
     const response = await fetch(`${API_BASE}/training-documents/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getAuthToken()}` } });
     if (!response.ok) throw new Error("No se pudo eliminar el documento");
   },
+  createImprovementAction: (data: {
+    companyId: number;
+    title: string;
+    cause: string;
+    responsibleId: number;
+    targetDate: string;
+    evidence?: string | null;
+  }) => fetcher<ImprovementAction>("/improvement-actions", { method: "POST", body: JSON.stringify(data) }),
+  updateImprovementAction: (id: number, data: {
+    status?: "planned" | "in_progress" | "implemented" | "verified" | "cancelled";
+    evidence?: string | null;
+    effectiveness?: "pending" | "effective" | "ineffective";
+    effectivenessNotes?: string;
+  }) => fetcher<ImprovementAction>(`/improvement-actions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
 // Evaluation Templates API

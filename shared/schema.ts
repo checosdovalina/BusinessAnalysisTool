@@ -613,24 +613,57 @@ export type TrainingActivity = typeof trainingActivities.$inferSelect;
 export const trainingDocuments = pgTable("training_documents", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
-  activityId: integer("activity_id").notNull().references(() => trainingActivities.id, { onDelete: "cascade" }),
+  activityId: integer("activity_id").references(() => trainingActivities.id, { onDelete: "set null" }),
+  entityType: text("entity_type").notNull().default("activity"),
+  entityId: integer("entity_id"),
   title: text("title").notNull(),
+  documentCode: text("document_code").notNull(),
   documentType: text("document_type").notNull().default("other"),
   documentUrl: text("document_url").notNull(),
   revision: text("revision").notNull().default("1"),
+  effectiveFrom: date("effective_from", { mode: "string" }),
   documentDate: date("document_date", { mode: "string" }),
   expiresAt: date("expires_at", { mode: "string" }),
+  responsibleId: integer("responsible_id").references(() => users.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("current"),
+  supersedesId: integer("supersedes_id"),
   notes: text("notes"),
   createdById: integer("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   activityIdx: index("training_documents_activity_idx").on(table.activityId),
   expiryIdx: index("training_documents_expiry_idx").on(table.expiresAt),
+  entityIdx: index("training_documents_entity_idx").on(table.companyId, table.entityType, table.entityId),
+  codeIdx: index("training_documents_code_idx").on(table.companyId, table.documentCode),
+  revisionUnique: uniqueIndex("training_documents_company_code_revision_unique").on(table.companyId, table.documentCode, table.revision),
 }));
 
 export const insertTrainingDocumentSchema = createInsertSchema(trainingDocuments).omit({ id: true, createdAt: true });
 export type InsertTrainingDocument = typeof trainingDocuments.$inferInsert;
 export type TrainingDocument = typeof trainingDocuments.$inferSelect;
+
+export const improvementActions = pgTable("improvement_actions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  cause: text("cause").notNull(),
+  responsibleId: integer("responsible_id").notNull().references(() => users.id),
+  targetDate: date("target_date", { mode: "string" }).notNull(),
+  status: text("status").notNull().default("planned"),
+  evidence: text("evidence"),
+  effectiveness: text("effectiveness").notNull().default("pending"),
+  effectivenessNotes: text("effectiveness_notes"),
+  verifiedById: integer("verified_by_id").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  companyTargetIdx: index("improvement_actions_company_target_idx").on(table.companyId, table.targetDate),
+}));
+export const insertImprovementActionSchema = createInsertSchema(improvementActions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertImprovementAction = typeof improvementActions.$inferInsert;
+export type ImprovementAction = typeof improvementActions.$inferSelect;
 
 export const trainingActivityAuditEvents = pgTable("training_activity_audit_events", {
   id: serial("id").primaryKey(),
@@ -701,6 +734,7 @@ export const trainingDocumentsRelations = relations(trainingDocuments, ({ one })
   company: one(companies, { fields: [trainingDocuments.companyId], references: [companies.id] }),
   activity: one(trainingActivities, { fields: [trainingDocuments.activityId], references: [trainingActivities.id] }),
   createdBy: one(users, { fields: [trainingDocuments.createdById], references: [users.id] }),
+  responsible: one(users, { fields: [trainingDocuments.responsibleId], references: [users.id], relationName: "documentResponsible" }),
 }));
 
 // ============================================

@@ -1857,13 +1857,38 @@ export async function registerRoutes(
       const programIds = new Set(programs.map((program) => program.id));
       const activities = allActivities.filter((activity) => programIds.has(activity.annualProgramId));
       const activityIds = new Set(activities.map((activity) => activity.id));
-      const documents = allDocuments.filter((document) => activityIds.has(document.activityId));
+      const documents = allDocuments.filter((document) => {
+        const relevantActivity = document.activityId !== null && activityIds.has(document.activityId);
+        const evidenceDate = document.documentDate ?? document.createdAt.toISOString().slice(0, 10);
+        const relevantPeriod = evidenceDate.slice(0, 4) === String(year);
+        return relevantActivity || relevantPeriod;
+      });
+      const improvementActions = (await storage.getImprovementActionsByCompany(companyId)).filter((action) =>
+        action.createdAt.getFullYear() === year || action.targetDate.slice(0, 4) === String(year)
+      );
       const auditEvents = allAuditEvents.filter((event) => activityIds.has(event.activityId));
       const yearActivities = activities;
       const closed = yearActivities.filter((activity) => activity.status === "completed");
       const completed = closed.filter((activity) => activity.attendanceStatus === "present");
       const evaluated = completed.filter((activity) => activity.outcome === "pass" || activity.outcome === "fail");
       const eligibleActivities = yearActivities.filter((activity) => activity.status !== "cancelled");
+      const periodAssessments = assessments.filter((assessment) => new Date(assessment.assessedAt).getFullYear() === year);
+      const latestPeriodAssessments = new Map<string, typeof periodAssessments[number]>();
+      for (const assessment of periodAssessments) {
+        const key = `${assessment.employeeId}:${assessment.profileId}:${assessment.competencyId}`;
+        const previous = latestPeriodAssessments.get(key);
+        if (!previous || new Date(assessment.assessedAt).getTime() > new Date(previous.assessedAt).getTime()) {
+          latestPeriodAssessments.set(key, assessment);
+        }
+      }
+      const detectedNeeds = Array.from(latestPeriodAssessments.values()).filter((assessment) => assessment.currentLevel < assessment.requiredLevel);
+      const attendedNeeds = detectedNeeds.filter((assessment) => yearActivities.some((activity) =>
+        activity.dncAssessmentId === assessment.id && activity.status === "completed" &&
+        activity.attendanceStatus === "present"
+      ));
+      const openDncGaps = detectedNeeds;
+      const approvedActivities = evaluated.filter((activity) => activity.outcome === "pass");
+      const currentDocuments = documents.filter((document) => document.status === "current");
       const today = new Date().toISOString().slice(0, 10);
       const next30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
       const metrics = {
@@ -1872,6 +1897,13 @@ export async function registerRoutes(
         plannedActivities: yearActivities.filter((activity) => activity.status !== "completed" && activity.status !== "cancelled").length,
         completedActivities: completed.length,
         completionRate: eligibleActivities.length ? Math.round(completed.length / eligibleActivities.length * 100) : 0,
+        programCompliance: programs.length ? Math.round(programs.reduce((total, program) => {
+          const planned = Number(program.targetHours || 0);
+          const doneHours = yearActivities.filter((activity) => activity.annualProgramId === program.id &&
+            activity.status === "completed" && activity.attendanceStatus === "present")
+            .reduce((hours, activity) => hours + Number(activity.completedHours || 0), 0);
+          return total + (planned > 0 ? Math.min(100, doneHours / planned * 100) : 0);
+        }, 0) / programs.length) : 0,
         passRate: evaluated.length ? Math.round(evaluated.filter((activity) => activity.outcome === "pass").length / evaluated.length * 100) : 0,
         attendanceRate: closed.length ? Math.round(completed.length / closed.length * 100) : 0,
         plannedHours: yearActivities.filter((activity) => activity.status !== "cancelled").reduce((sum, activity) => sum + Number(activity.plannedHours || 0), 0),
@@ -1883,11 +1915,16 @@ export async function registerRoutes(
         ).length,
         retrainingActivities: yearActivities.filter((activity) => activity.attemptNumber > 1).length,
         pendingReassessments: yearActivities.filter((activity) => activity.reassessmentRequired).length,
-        documentsExpiringSoon: documents.filter((document) => {
+        documentsExpiringSoon: currentDocuments.filter((document) => {
           if (!document.expiresAt) return false;
           return document.expiresAt >= today && document.expiresAt <= next30Days;
         }).length,
-        expiredDocuments: documents.filter((document) => document.expiresAt && document.expiresAt < today).length,
+        expiredDocuments: currentDocuments.filter((document) => document.expiresAt && document.expiresAt < today).length,
+        needsDetected: detectedNeeds.length,
+        needsAttended: attendedNeeds.length,
+        needAttendanceRate: detectedNeeds.length ? Math.round(attendedNeeds.length / detectedNeeds.length * 100) : 0,
+        approvals: approvedActivities.length,
+        openDncGaps: openDncGaps.length,
       };
       const programsWithProgress = programs.map((program) => {
         const programActivities = yearActivities.filter((activity) => activity.annualProgramId === program.id);
@@ -1909,9 +1946,14 @@ export async function registerRoutes(
         programs: programsWithProgress,
         activities,
         documents,
+        improvementActions,
         auditEvents,
         auditActors: Object.fromEntries(users.map(({ id, name }) => [id, name])),
         employees: users.filter((user) => user.role === "student").map(({ id, name, email, role }) => ({ id, name, email, role })),
+        responsibles: users.filter((user) => user.role !== "student").map(({ id, name, email, role }) => ({ id, name, email, role })),
+        profiles: await storage.getJobProfilesByCompany(companyId),
+        requests,
+        scenarios: scenarios.map(({ id, title, companyId: scenarioCompanyId }) => ({ id, title, companyId: scenarioCompanyId })),
         cycles: cycles.map(({ id, title, studentId, startDate, type, status }) => ({ id, title, studentId, startDate, type, status })),
         simulatorSessions: sessions.map(({ id, scenarioId, studentId, score, startTime, endTime, duration }) => ({
           id,
@@ -1924,12 +1966,161 @@ export async function registerRoutes(
           scenarioTitle: scenarios.find((scenario) => scenario.id === scenarioId)?.title ?? `Escenario #${scenarioId}`,
         })),
         approvedRequests: requests.filter((request) => request.status === "approved"),
-        assessments,
+        assessments: periodAssessments,
         metrics,
       });
     } catch (error) {
       console.error("Error al consultar el programa anual:", error);
       res.status(500).json({ error: "No se pudo cargar el programa anual" });
+    }
+  });
+
+  app.post("/api/controlled-documents", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        companyId: z.number().int().positive(),
+        entityType: z.enum(["profile", "request", "scenario", "session", "evaluation", "activity"]),
+        entityId: z.number().int().positive(),
+        title: z.string().trim().min(2).max(180),
+        documentCode: z.string().trim().min(2).max(80),
+        documentType: z.enum(["attendance", "certificate", "evaluation", "material", "feedback", "other"]).default("other"),
+        documentUrl: z.string().url().max(1500).refine((value) => value.startsWith("https://"), "El enlace del documento debe usar HTTPS"),
+        revision: z.string().trim().min(1).max(40),
+        effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+        documentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+        expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+        responsibleId: z.number().int().positive(),
+        notes: z.string().trim().max(1500).nullable().optional(),
+      }).strict().parse(req.body);
+      if (!hasCompanyAccess(req, body.companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      const responsible = await storage.getUser(body.responsibleId);
+      if (!responsible || responsible.companyId !== body.companyId) return res.status(400).json({ error: "El responsable debe pertenecer a la empresa" });
+
+      let activityId: number | null = null;
+      let entityBelongsToCompany = false;
+      switch (body.entityType) {
+        case "profile": {
+          const entity = await storage.getJobProfile(body.entityId);
+          entityBelongsToCompany = entity?.companyId === body.companyId;
+          break;
+        }
+        case "request": {
+          const entity = await storage.getTrainingRequest(body.entityId);
+          entityBelongsToCompany = entity?.companyId === body.companyId;
+          break;
+        }
+        case "scenario": {
+          const entity = await storage.getSimulatorScenario(body.entityId);
+          entityBelongsToCompany = entity?.companyId === body.companyId || entity?.companyId === null;
+          break;
+        }
+        case "session": {
+          const entity = await storage.getSimulatorSession(body.entityId);
+          entityBelongsToCompany = entity?.companyId === body.companyId;
+          break;
+        }
+        case "evaluation": {
+          const entity = (await storage.getCompetencyAssessmentsByCompany(body.companyId)).find((item) => item.id === body.entityId);
+          entityBelongsToCompany = Boolean(entity);
+          break;
+        }
+        case "activity": {
+          const entity = await storage.getTrainingActivity(body.entityId);
+          entityBelongsToCompany = entity?.companyId === body.companyId;
+          activityId = entityBelongsToCompany ? body.entityId : null;
+          break;
+        }
+      }
+      if (!entityBelongsToCompany) return res.status(400).json({ error: "El registro vinculado no pertenece a la empresa" });
+      const earlierVersions = (await storage.getTrainingDocumentsByCompany(body.companyId))
+        .filter((document) => document.documentCode === body.documentCode);
+      if (earlierVersions.some((document) => document.entityType !== body.entityType || document.entityId !== body.entityId)) {
+        return res.status(409).json({ error: "El código documental ya está vinculado a otro registro" });
+      }
+      if (earlierVersions.some((document) => document.revision === body.revision)) {
+        return res.status(409).json({ error: "Esa revisión ya existe en el historial del documento" });
+      }
+      const document = await storage.createTrainingDocument({
+        companyId: body.companyId,
+        activityId,
+        entityType: body.entityType,
+        entityId: body.entityId,
+        title: body.title,
+        documentCode: body.documentCode,
+        documentType: body.documentType,
+        documentUrl: body.documentUrl,
+        revision: body.revision,
+        effectiveFrom: body.effectiveFrom ?? null,
+        documentDate: body.documentDate ?? null,
+        expiresAt: body.expiresAt ?? null,
+        responsibleId: body.responsibleId,
+        status: "current",
+        notes: body.notes ?? null,
+        createdById: req.user!.id,
+      }, { actorId: req.user!.id, action: "document_revision_registered" });
+      res.status(201).json(document);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar la revisión documental" });
+    }
+  });
+
+  app.post("/api/improvement-actions", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        companyId: z.number().int().positive(),
+        title: z.string().trim().min(3).max(180),
+        cause: z.string().trim().min(5).max(2000),
+        responsibleId: z.number().int().positive(),
+        targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        evidence: z.string().trim().max(1500).nullable().optional(),
+      }).strict().parse(req.body);
+      if (!hasCompanyAccess(req, body.companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      const responsible = await storage.getUser(body.responsibleId);
+      if (!responsible || responsible.companyId !== body.companyId) return res.status(400).json({ error: "El responsable debe pertenecer a la empresa" });
+      const action = await storage.createImprovementAction({
+        ...body,
+        status: "planned",
+        effectiveness: "pending",
+        effectivenessNotes: null,
+        verifiedById: null,
+        verifiedAt: null,
+        createdById: req.user!.id,
+      });
+      res.status(201).json(action);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar la acción de mejora" });
+    }
+  });
+
+  app.patch("/api/improvement-actions/:id", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const action = await storage.getImprovementAction(id);
+      if (!action) return res.status(404).json({ error: "Acción de mejora no encontrada" });
+      if (!hasCompanyAccess(req, action.companyId)) return res.status(403).json({ error: "No tienes acceso a esta acción" });
+      const body = z.object({
+        status: z.enum(["planned", "in_progress", "implemented", "verified", "cancelled"]).optional(),
+        evidence: z.string().trim().max(1500).nullable().optional(),
+        effectiveness: z.enum(["pending", "effective", "ineffective"]).optional(),
+        effectivenessNotes: z.string().trim().min(3).max(2000).optional(),
+      }).strict().parse(req.body);
+      if (body.effectiveness && body.effectiveness !== "pending" && !body.effectivenessNotes) {
+        return res.status(400).json({ error: "Describe la evidencia de verificación de efectividad" });
+      }
+      const verifying = body.effectiveness !== undefined && body.effectiveness !== "pending";
+      if (verifying && action.status !== "implemented") {
+        return res.status(409).json({ error: "Marca la acción como implementada antes de verificar su efectividad" });
+      }
+      if (body.status === "verified" && !verifying && action.effectiveness === "pending") {
+        return res.status(400).json({ error: "Verifica la efectividad antes de cerrar la acción" });
+      }
+      const updated = await storage.updateImprovementAction(id, {
+        ...body,
+        ...(verifying ? { verifiedById: req.user!.id, verifiedAt: new Date(), status: "verified" } : {}),
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo actualizar la acción de mejora" });
     }
   });
 
@@ -2275,6 +2466,7 @@ export async function registerRoutes(
       if (!hasCompanyAccess(req, activity.companyId)) return res.status(403).json({ error: "No tienes acceso a esta actividad" });
       const body = z.object({
         title: z.string().trim().min(2).max(180),
+        documentCode: z.string().trim().min(2).max(80).optional(),
         documentType: z.enum(["attendance", "certificate", "evaluation", "material", "feedback", "other"]).default("other"),
         documentUrl: z.string().url().max(1500).refine((value) => value.startsWith("https://"), "El enlace del documento debe usar HTTPS"),
         revision: z.string().trim().min(1).max(40).default("1"),
@@ -2291,12 +2483,17 @@ export async function registerRoutes(
       const document = await storage.createTrainingDocument({
         companyId: activity.companyId,
         activityId,
+        entityType: "activity",
+        entityId: activityId,
         title: body.title,
+        documentCode: body.documentCode ?? `ACT-${activityId}-${body.title.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").slice(0, 30)}`,
         documentType: body.documentType,
         documentUrl: body.documentUrl,
         revision: body.revision,
         documentDate: body.documentDate ?? null,
         expiresAt: body.expiresAt ?? null,
+        effectiveFrom: body.documentDate ?? null,
+        responsibleId: req.user!.id,
         notes: body.notes ?? null,
         createdById: req.user!.id,
       }, { actorId: req.user!.id, action: "document_registered", details: `${body.title} (rev. ${body.revision})` });
@@ -2312,7 +2509,7 @@ export async function registerRoutes(
       if (!document) return res.status(404).json({ error: "Documento no encontrado" });
       if (!hasCompanyAccess(req, document.companyId)) return res.status(403).json({ error: "No tienes acceso a este documento" });
       await storage.deleteTrainingDocument(document.id, { actorId: req.user!.id, action: "document_deleted" });
-      res.status(204).send();
+      res.json({ success: true, documentId: document.id, status: "obsolete" });
     } catch {
       res.status(500).json({ error: "No se pudo eliminar el documento" });
     }
