@@ -1,0 +1,80 @@
+[root@localhost ots-energy]# cd /var/www/ots-energy
+
+pm2 list
+pm2 describe ots-energy
+git status --short
+git branch --show-current
+git rev-parse HEAD > /root/ots-energy-prev-commit.txt
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ joper-app          │ fork     │ 277  │ online    │ 0%       │ 183.9mb  │
+│ 9  │ microsip-api       │ fork     │ 781  │ errored   │ 0%       │ 0b       │
+│ 16 │ nexxobi-api        │ fork     │ 10   │ online    │ 0%       │ 122.8mb  │
+│ 6  │ ots-energy         │ fork     │ 96   │ online    │ 0%       │ 55.7mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+ Describing process with id 6 - name ots-energy 
+┌───────────────────┬──────────────────────────────────────┐
+│ status            │ online                               │
+│ name              │ ots-energy                           │
+│ namespace         │ default                              │
+│ version           │ N/A                                  │
+│ restarts          │ 96                                   │
+│ uptime            │ 104s                                 │
+│ script path       │ /usr/bin/npm                         │
+│ script args       │ run dev                              │
+│ error log path    │ /root/.pm2/logs/ots-energy-error.log │
+│ out log path      │ /root/.pm2/logs/ots-energy-out.log   │
+│ pid path          │ /root/.pm2/pids/ots-energy-6.pid     │
+│ interpreter       │ /usr/bin/node                        │
+│ interpreter args  │ N/A                                  │
+│ script id         │ 6                                    │
+│ exec cwd          │ /var/www/ots-energy                  │
+│ exec mode         │ fork_mode                            │
+│ node.js version   │ 20.19.6                              │
+│ node env          │ production                           │
+│ watch & reload    │ ✘                                    │
+│ unstable restarts │ 0                                    │
+│ created at        │ 2026-10-16T02:47:58.270Z             │
+└───────────────────┴──────────────────────────────────────┘
+ Actions available 
+┌────────────────────────┐
+│ km:heapdump            │
+│ km:cpu:profiling:start │
+│ km:cpu:profiling:stop  │
+│ km:heap:sampling:start │
+│ km:heap:sampling:stop  │
+└────────────────────────┘
+ Trigger via: pm2 trigger ots-energy <action_name>
+
+ Code metrics value 
+┌────────────────────────┬──────────┐
+│ Used Heap Size         │ 7.24 MiB │
+│ Heap Usage             │ 82.97 %  │
+│ Heap Size              │ 8.73 MiB │
+│ Event Loop Latency p95 │ 1.01 ms  │
+│ Event Loop Latency     │ 0.25 ms  │
+│ Active handles         │ 5        │
+│ Active requests        │ 0        │
+└────────────────────────┴──────────┘
+ Divergent env variables from local env 
+┌────────────────┬──────────────────────┐
+│ SSH_CONNECTION │ 177.241.173.96 3949  │
+│ XDG_SESSION_ID │ 28                   │
+│ SSH_CLIENT     │ 177.241.173.96 3949  │
+│ SSH_TTY        │ /dev/pts/2           │
+└────────────────┴──────────────────────┘
+
+ Add your own code metrics: http://bit.ly/code-metrics
+ Use `pm2 logs ots-energy [--lines 1000]` to display logs
+ Use `pm2 env 6` to display environment variables
+ Use `pm2 monit` to monitor CPU and Memory usage ots-energy
+ M package-lock.json
+ M package.json
+ M server/db.ts
+ M server/index.ts
+?? .env
+?? ecosystem.config.cjs
+?? neon_backup.sql
+main
+[root@localhost ots-energy]# 
