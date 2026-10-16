@@ -310,6 +310,9 @@ export default function TrainingRequestsPage() {
                               {request.description}
                             </p>
                           )}
+                          {request.trainingMethod && (
+                            <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">Método DNC: {request.trainingMethod}</p>
+                          )}
                           <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
                             {request.proposedStartDate && (
                               <span className="flex items-center gap-1">
@@ -328,6 +331,9 @@ export default function TrainingRequestsPage() {
                                 <Clock className="h-3 w-3" />
                                 {request.estimatedHours}h estimadas
                               </span>
+                            )}
+                            {request.responsibleId && (
+                              <span>Responsable: {companyUsers.find((person) => person.id === request.responsibleId)?.name ?? "Asignado"}</span>
                             )}
                           </div>
                         </div>
@@ -687,6 +693,7 @@ function RequestDetailView({
                   <p className="flex items-center gap-2">
                     <Calendar className="h-3 w-3 text-muted-foreground" />
                     {new Date(request.proposedStartDate).toLocaleDateString("es-MX")}
+                    {request.proposedEndDate && ` — ${new Date(request.proposedEndDate).toLocaleDateString("es-MX")}`}
                   </p>
                 )}
                 {request.participantCount && (
@@ -701,6 +708,12 @@ function RequestDetailView({
                     {request.estimatedHours} horas
                   </p>
                 )}
+                {request.responsibleId && (
+                  <p>Responsable: {companyUsers.find((person) => person.id === request.responsibleId)?.name ?? "Asignado"}</p>
+                )}
+                {request.trainingMethod && <p>Método: {request.trainingMethod}</p>}
+                {request.simulatorScenarioId && <p>Escenario de simulador: #{request.simulatorScenarioId}</p>}
+                {request.annualProgramId && <p>Programa anual vinculado: #{request.annualProgramId}</p>}
               </div>
             </div>
           </div>

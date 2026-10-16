@@ -2,6 +2,7 @@ import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, serial, timestamp, date, integer, boolean, pgEnum, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
+import { pgTable, text, varchar, serial, timestamp, integer, boolean, pgEnum, real, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Enums
 export const roleEnum = pgEnum("role", ["super_admin", "admin", "trainer", "student"]);
@@ -177,6 +178,9 @@ export const simulatorSessions = pgTable("simulator_sessions", {
   endTime: timestamp("end_time"),
   duration: integer("duration"), // in seconds
   score: integer("score"),
+  trainingRequestId: integer("training_request_id"),
+  repeatOfSessionId: integer("repeat_of_session_id"),
+  feedback: text("feedback"),
   responseTime: integer("response_time"), // average in seconds
   maneuverPrecision: integer("maneuver_precision"), // percentage
   procedureAdherence: integer("procedure_adherence"), // percentage
@@ -547,7 +551,9 @@ export const annualTrainingPrograms = pgTable("annual_training_programs", {
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  studentYearUnique: uniqueIndex("annual_training_programs_student_year_unique").on(table.companyId, table.studentId, table.year),
+}));
 
 export const insertAnnualTrainingProgramSchema = createInsertSchema(annualTrainingPrograms).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAnnualTrainingProgram = z.infer<typeof insertAnnualTrainingProgramSchema>;
@@ -847,6 +853,9 @@ export const trainingRequests = pgTable("training_requests", {
   // Notas adicionales
   notes: text("notes"),
   dncAssessmentId: integer("dnc_assessment_id"), // Link to competency_assessments, validated in the API
+  annualProgramId: integer("annual_program_id").references(() => annualTrainingPrograms.id, { onDelete: "set null" }),
+  trainingMethod: text("training_method"),
+  simulatorScenarioId: integer("simulator_scenario_id").references(() => simulatorScenarios.id, { onDelete: "set null" }),
   
   // Fechas de auditoría
   submittedAt: timestamp("submitted_at"),
@@ -1010,6 +1019,14 @@ export const insertJobProfileCompetencySchema = createInsertSchema(jobProfileCom
 export type InsertJobProfileCompetency = z.infer<typeof insertJobProfileCompetencySchema>;
 export type JobProfileCompetency = typeof jobProfileCompetencies.$inferSelect;
 
+export const employeeJobProfiles = pgTable("employee_job_profiles", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  employeeId: integer("employee_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  profileId: integer("profile_id").notNull().references(() => jobProfiles.id),
+  assignedById: integer("assigned_by_id").notNull().references(() => users.id),
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+});
 export const competencyAssessments = pgTable("competency_assessments", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
@@ -1093,3 +1110,5 @@ export const requestRecipientsRelations = relations(requestRecipients, ({ one })
     references: [users.id],
   }),
 }));
+
+export type EmployeeJobProfile = typeof employeeJobProfiles.$inferSelect;

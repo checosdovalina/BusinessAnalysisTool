@@ -9,15 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Send, FileText, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Clock, TrendingUp, Search, MoreHorizontal, Eye, Trash2, Target } from "lucide-react";
+import { Download, Send, FileText, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Clock, TrendingUp, Search, MoreHorizontal, Eye, Trash2, Target, GraduationCap } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { cyclesAPI, usersAPI, reportsAPI } from "@/lib/api";
+import { cyclesAPI, usersAPI, reportsAPI, competencyDncAPI } from "@/lib/api";
 import type { VerifyResult } from "@/lib/api";
 import { toast } from "sonner";
-import type { Cycle, User, TrainingReport } from "@shared/schema";
+import type { Cycle, User, TrainingReport, CompetencyAssessment } from "@shared/schema";
 
 const statusLabels: Record<string, string> = {
   pending: "Pendiente",
@@ -55,6 +55,7 @@ export default function Reports() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteReportOpen, setIsDeleteReportOpen] = useState(false);
   const [reportToDeleteId, setReportToDeleteId] = useState<number | null>(null);
+  const [annualProgramYear, setAnnualProgramYear] = useState(new Date().getFullYear());
 
   const { data: cycles = [], isLoading: cyclesLoading } = useQuery({
     queryKey: ["cycles", user?.companyId],
@@ -72,6 +73,11 @@ export default function Reports() {
     queryKey: ["reports", user?.companyId],
     queryFn: () => user?.companyId ? reportsAPI.getByCompany(user.companyId) : Promise.resolve([]),
     enabled: !!user?.companyId,
+  });
+  const { data: competencyData } = useQuery({
+    queryKey: ["competency-dnc", user?.companyId, annualProgramYear],
+    queryFn: () => user?.companyId ? competencyDncAPI.getByCompany(user.companyId, annualProgramYear) : Promise.reject(new Error("Empresa no disponible")),
+    enabled: !!user?.companyId && ["admin", "trainer", "super_admin"].includes(user.role),
   });
 
   const students = users.filter((u: User) => u.role === "student");
@@ -228,6 +234,28 @@ export default function Reports() {
 
   const selectedCycle = selectedCycleId ? cycles.find((c: Cycle) => c.id === selectedCycleId) : null;
   const selectedReport = viewReportId ? reports.find((r: TrainingReport) => r.id === viewReportId) : null;
+  const annualPrograms = competencyData?.annualPrograms ?? [];
+  const annualProgramIds = new Set(annualPrograms.map((program) => program.id));
+  const annualDncRequests = (competencyData?.requests ?? []).filter((request) => request.annualProgramId !== null && annualProgramIds.has(request.annualProgramId));
+  const latestAssessmentByCompetency = new Map<string, CompetencyAssessment>();
+  for (const assessment of competencyData?.assessments ?? []) {
+    const key = `${assessment.employeeId}:${assessment.profileId}:${assessment.competencyId}`;
+    const current = latestAssessmentByCompetency.get(key);
+    if (!current || new Date(assessment.assessedAt).getTime() > new Date(current.assessedAt).getTime()) {
+      latestAssessmentByCompetency.set(key, assessment);
+    }
+  }
+  const pendingDncRequests = annualDncRequests.filter((request) => {
+    const original = competencyData?.assessments.find((assessment) => assessment.id === request.dncAssessmentId);
+    if (!original) return false;
+    const key = `${original.employeeId}:${original.profileId}:${original.competencyId}`;
+    const latest = latestAssessmentByCompetency.get(key);
+    return Boolean(latest && latest.currentLevel < original.requiredLevel);
+  });
+  const annualCompletedCount = annualDncRequests.filter((request) => request.status === "completed").length;
+  const annualPlannedHours = annualDncRequests.reduce((sum, request) => sum + (request.estimatedHours ?? 0), 0);
+  const annualExecutedHours = annualPrograms.reduce((sum, program) => sum + program.completedHours, 0);
+  const canViewDncProgram = ["admin", "trainer", "super_admin"].includes(user?.role ?? "");
 
   const radarDataParsed = useMemo(() => {
     if (!selectedReport?.radarData) return [];
@@ -366,9 +394,10 @@ export default function Reports() {
         </div>
 
         <Tabs defaultValue="cycles" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className={`grid w-full ${canViewDncProgram ? "grid-cols-5" : "grid-cols-4"}`}>
             <TabsTrigger value="cycles">Ciclos de Entrenamiento</TabsTrigger>
             <TabsTrigger value="reports">Reportes Generados</TabsTrigger>
+            {canViewDncProgram && <TabsTrigger value="dnc-program">Programa DNC</TabsTrigger>}
             <TabsTrigger value="analytics">Visualización</TabsTrigger>
             <TabsTrigger value="progress">Avance Anual</TabsTrigger>
           </TabsList>
@@ -621,6 +650,61 @@ export default function Reports() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {canViewDncProgram && <TabsContent value="dnc-program" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+                  <div>
+                    <CardTitle>Programa anual derivado de DNC</CardTitle>
+                    <CardDescription>Seguimiento por empresa/año de necesidades, horas ejecutadas, cumplimiento y brechas abiertas.</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="dnc-program-year" className="text-sm text-muted-foreground">Año</label>
+                    <Input id="dnc-program-year" type="number" min="2000" max="9999" className="w-28" value={annualProgramYear} onChange={(event) => setAnnualProgramYear(Number(event.target.value) || new Date().getFullYear())} />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <div className="rounded-lg border p-3"><p className="text-2xl font-semibold">{annualPrograms.length}</p><p className="text-xs text-muted-foreground">Programas por operador</p></div>
+                  <div className="rounded-lg border p-3"><p className="text-2xl font-semibold">{annualDncRequests.length}</p><p className="text-xs text-muted-foreground">Solicitudes planificadas</p></div>
+                  <div className="rounded-lg border p-3"><p className="text-2xl font-semibold">{annualPlannedHours.toFixed(1)} h</p><p className="text-xs text-muted-foreground">Horas planeadas</p></div>
+                  <div className="rounded-lg border p-3"><p className="text-2xl font-semibold">{annualExecutedHours.toFixed(1)} h</p><p className="text-xs text-muted-foreground">Horas ejecutadas</p></div>
+                  <div className="rounded-lg border p-3"><p className="text-2xl font-semibold">{pendingDncRequests.length}</p><p className="text-xs text-muted-foreground">Brechas pendientes</p></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm"><span>Cumplimiento de solicitudes</span><strong>{annualDncRequests.length ? Math.round((annualCompletedCount / annualDncRequests.length) * 100) : 0}%</strong></div>
+                  <Progress value={annualDncRequests.length ? (annualCompletedCount / annualDncRequests.length) * 100 : 0} />
+                </div>
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader><TableRow>
+                      <TableHead>Operador</TableHead><TableHead>Solicitudes</TableHead><TableHead>Horas ejecutadas</TableHead><TableHead>Avance</TableHead><TableHead>Estado</TableHead>
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {annualPrograms.length ? annualPrograms.map((program) => {
+                        const operator = users.find((person) => person.id === program.studentId);
+                        const programRequests = annualDncRequests.filter((request) => request.annualProgramId === program.id);
+                        const openGaps = pendingDncRequests.filter((request) => request.annualProgramId === program.id).length;
+                        return (
+                          <TableRow key={program.id}>
+                            <TableCell className="font-medium">{operator?.name ?? `Operador ${program.studentId}`}</TableCell>
+                            <TableCell>{programRequests.filter((request) => request.status === "completed").length}/{programRequests.length} completadas</TableCell>
+                            <TableCell>{program.completedHours.toFixed(1)} h de {program.targetHours.toFixed(1)} h</TableCell>
+                            <TableCell><div className="flex min-w-28 items-center gap-2"><Progress value={program.progressPercentage} className="h-2" /><span className="text-xs">{Math.round(program.progressPercentage)}%</span></div></TableCell>
+                            <TableCell><Badge variant="outline" className={openGaps ? "border-amber-200 bg-amber-50 text-amber-900" : "border-teal-200 bg-teal-50 text-teal-900"}>{openGaps ? `${openGaps} brecha(s) abierta(s)` : "Sin brechas pendientes"}</Badge></TableCell>
+                          </TableRow>
+                        );
+                      }) : (
+                        <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No hay planes DNC incorporados al programa anual para {annualProgramYear}.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>}
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-4 mt-4">

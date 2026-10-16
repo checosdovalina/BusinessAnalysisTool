@@ -7,6 +7,7 @@ import {
   trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
   evaluationTemplates, templateTopics, templateEvents,
   jobProfiles, competencies, jobProfileCompetencies, competencyAssessments,
+  employeeJobProfiles,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Cycle, type InsertCycle,
@@ -38,6 +39,7 @@ import {
   type Competency, type InsertCompetency,
   type JobProfileCompetency, type InsertJobProfileCompetency,
   type CompetencyAssessment, type InsertCompetencyAssessment,
+  type EmployeeJobProfile,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, asc, or, ne } from "drizzle-orm";
@@ -45,205 +47,359 @@ import { eq, and, desc, isNull, asc, or, ne } from "drizzle-orm";
 export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
+
   getUserByEmail(email: string): Promise<User | undefined>;
+
   createUser(user: InsertUser): Promise<User>;
+
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined>;
+
   deleteUser(id: number): Promise<void>;
+
   getUsersByCompany(companyId: number): Promise<User[]>;
   
   // Companies
+
   getCompany(id: number): Promise<Company | undefined>;
+
   getAllCompanies(): Promise<Company[]>;
+
   createCompany(company: InsertCompany): Promise<Company>;
+
   updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company | undefined>;
+
   deleteCompany(id: number): Promise<void>;
   
   // Cycles
+
   getCycle(id: number): Promise<Cycle | undefined>;
+
   getCyclesByCompany(companyId: number): Promise<Cycle[]>;
+
   getCyclesByStudent(studentId: number): Promise<Cycle[]>;
+
   getCyclesByTrainer(trainerId: number): Promise<Cycle[]>;
+
   createCycle(cycle: InsertCycle): Promise<Cycle>;
+
   updateCycle(id: number, updates: Partial<InsertCycle>): Promise<Cycle | undefined>;
+
   deleteCycle(id: number): Promise<void>;
   
   // Events
+
   getEvent(id: number): Promise<Event | undefined>;
+
   getEventsByCycle(cycleId: number): Promise<Event[]>;
+
   createEvent(event: InsertEvent): Promise<Event>;
+
   updateEvent(id: number, updates: Partial<InsertEvent>): Promise<Event | undefined>;
   
   // Simulator Scenarios
+
   getSimulatorScenario(id: number): Promise<SimulatorScenario | undefined>;
+
   getAllSimulatorScenarios(): Promise<SimulatorScenario[]>;
+
   getSimulatorScenariosByCompany(companyId: number | null): Promise<SimulatorScenario[]>;
+
   createSimulatorScenario(scenario: InsertSimulatorScenario): Promise<SimulatorScenario>;
+
   updateSimulatorScenario(id: number, updates: Partial<InsertSimulatorScenario>): Promise<SimulatorScenario | undefined>;
+
   deleteSimulatorScenario(id: number): Promise<void>;
   
   // Simulator Sessions
+
   getSimulatorSession(id: number): Promise<SimulatorSession | undefined>;
+
   getSimulatorSessionsByCompany(companyId: number): Promise<SimulatorSession[]>;
+
   getSimulatorSessionsByStudent(studentId: number): Promise<SimulatorSession[]>;
+
   createSimulatorSession(session: InsertSimulatorSession): Promise<SimulatorSession>;
+
   updateSimulatorSession(id: number, updates: Partial<InsertSimulatorSession>): Promise<SimulatorSession | undefined>;
   
   // Scenario Steps
+
   getScenarioStep(id: number): Promise<ScenarioStep | undefined>;
+
   getScenarioSteps(scenarioId: number): Promise<ScenarioStep[]>;
+
   createScenarioStep(step: InsertScenarioStep): Promise<ScenarioStep>;
+
   createScenarioStepsBatch(steps: InsertScenarioStep[]): Promise<ScenarioStep[]>;
+
   updateScenarioStep(id: number, updates: Partial<InsertScenarioStep>): Promise<ScenarioStep | undefined>;
+
   deleteScenarioStep(id: number): Promise<void>;
+
   deleteScenarioSteps(scenarioId: number): Promise<void>;
   
   // Session Step Results
+
   getSessionStepResult(id: number): Promise<SessionStepResult | undefined>;
+
   getSessionStepResults(sessionId: number): Promise<SessionStepResult[]>;
+
   createSessionStepResult(result: InsertSessionStepResult): Promise<SessionStepResult>;
   
   // Evaluation Topics
+
   getEvaluationTopic(id: number): Promise<EvaluationTopic | undefined>;
+
   getAllEvaluationTopics(): Promise<EvaluationTopic[]>;
+
   createEvaluationTopic(topic: InsertEvaluationTopic): Promise<EvaluationTopic>;
+
   updateEvaluationTopic(id: number, updates: Partial<InsertEvaluationTopic>): Promise<EvaluationTopic | undefined>;
+
   deleteEvaluationTopic(id: number): Promise<void>;
   
   // Evaluation Topic Items
+
   getEvaluationTopicItem(id: number): Promise<EvaluationTopicItem | undefined>;
+
   getEvaluationTopicItems(topicId: number): Promise<EvaluationTopicItem[]>;
+
   getEvaluationTopicItemsByCompany(companyId: number | null): Promise<EvaluationTopicItem[]>;
+
   createEvaluationTopicItem(item: InsertEvaluationTopicItem): Promise<EvaluationTopicItem>;
+
   updateEvaluationTopicItem(id: number, updates: Partial<InsertEvaluationTopicItem>): Promise<EvaluationTopicItem | undefined>;
+
   deleteEvaluationTopicItem(id: number): Promise<void>;
   
   // Cycle Topic Items
+
   getCycleTopicItem(id: number): Promise<CycleTopicItem | undefined>;
+
   getCycleTopicItems(cycleId: number): Promise<CycleTopicItem[]>;
+
   createCycleTopicItem(item: InsertCycleTopicItem): Promise<CycleTopicItem>;
+
   updateCycleTopicItem(id: number, updates: Partial<InsertCycleTopicItem>): Promise<CycleTopicItem | undefined>;
+
   deleteCycleTopicItem(id: number): Promise<void>;
+
   deleteCycleTopicItems(cycleId: number): Promise<void>;
+
   syncCycleTopicItems(cycleId: number, items: Array<{ topicItemId: number; weight: number; customFocus?: string }>): Promise<CycleTopicItem[]>;
   
   // Training Reports
+
   getTrainingReport(id: number): Promise<TrainingReport | undefined>;
+
   getTrainingReportsByCompany(companyId: number): Promise<TrainingReport[]>;
+
   getTrainingReportsByStudent(studentId: number): Promise<TrainingReport[]>;
+
   getTrainingReportByCycle(cycleId: number): Promise<TrainingReport | undefined>;
+
   createTrainingReport(report: InsertTrainingReport): Promise<TrainingReport>;
+
   updateTrainingReport(id: number, updates: Partial<InsertTrainingReport>): Promise<TrainingReport | undefined>;
+
   deleteTrainingReport(id: number): Promise<void>;
   
   // Annual Training Programs
+
   getAnnualTrainingProgram(id: number): Promise<AnnualTrainingProgram | undefined>;
+
   getAnnualTrainingProgramsByCompany(companyId: number, year?: number): Promise<AnnualTrainingProgram[]>;
+
   getAnnualTrainingProgramByStudent(studentId: number, year: number): Promise<AnnualTrainingProgram | undefined>;
+
   createAnnualTrainingProgram(program: InsertAnnualTrainingProgram): Promise<AnnualTrainingProgram>;
+
   updateAnnualTrainingProgram(id: number, updates: Partial<InsertAnnualTrainingProgram>): Promise<AnnualTrainingProgram | undefined>;
 
   // Annual training execution and controlled documents
+
   getTrainingActivitiesByCompany(companyId: number): Promise<TrainingActivity[]>;
+
   getTrainingActivity(id: number): Promise<TrainingActivity | undefined>;
+
   createTrainingActivity(activity: InsertTrainingActivity, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingActivity>;
+
   updateTrainingActivity(id: number, updates: Partial<InsertTrainingActivity>, audit?: { actorId: number; action: string; details?: string | null }): Promise<TrainingActivity | undefined>;
+
   completeTrainingActivity(id: number, updates: Partial<InsertTrainingActivity>, retry: InsertTrainingActivity | null, audit: { actorId: number; action: string; details?: string | null }): Promise<{ activity: TrainingActivity; retry?: TrainingActivity }>;
+
   getTrainingDocumentsByCompany(companyId: number): Promise<TrainingDocument[]>;
+
   getTrainingDocument(id: number): Promise<TrainingDocument | undefined>;
+
   createTrainingDocument(document: InsertTrainingDocument, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingDocument>;
+
   deleteTrainingDocument(id: number, audit: { actorId: number; action: string }): Promise<void>;
+
   getTrainingActivityAuditByCompany(companyId: number): Promise<TrainingActivityAuditEvent[]>;
   
   // Company Settings
+
   getCompanySettings(companyId: number): Promise<CompanySettings | undefined>;
+
   createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings>;
+
   updateCompanySettings(companyId: number, updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined>;
   
   // User Preferences
+
   getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+
   createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
+
   updateUserPreferences(userId: number, updates: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined>;
   
   // Training Requests
+
   getTrainingRequest(id: number): Promise<TrainingRequest | undefined>;
+
   getTrainingRequestsByCompany(companyId: number): Promise<TrainingRequest[]>;
+
   createTrainingRequest(request: InsertTrainingRequest): Promise<TrainingRequest>;
+
   updateTrainingRequest(id: number, updates: Partial<InsertTrainingRequest>): Promise<TrainingRequest | undefined>;
+
   deleteTrainingRequest(id: number): Promise<void>;
   
   // Request Incidents
+
   getRequestIncidents(requestId: number): Promise<RequestIncident[]>;
+
   createRequestIncident(incident: InsertRequestIncident): Promise<RequestIncident>;
+
   updateRequestIncident(id: number, updates: Partial<InsertRequestIncident>): Promise<RequestIncident | undefined>;
+
   deleteRequestIncident(id: number): Promise<void>;
   
   // Request Roles
+
   getRequestRoles(requestId: number): Promise<RequestRole[]>;
+
   createRequestRole(role: InsertRequestRole): Promise<RequestRole>;
+
   updateRequestRole(id: number, updates: Partial<InsertRequestRole>): Promise<RequestRole | undefined>;
+
   deleteRequestRole(id: number): Promise<void>;
   
   // Request Procedures
+
   getRequestProcedures(requestId: number): Promise<RequestProcedure[]>;
+
   createRequestProcedure(procedure: InsertRequestProcedure): Promise<RequestProcedure>;
+
   updateRequestProcedure(id: number, updates: Partial<InsertRequestProcedure>): Promise<RequestProcedure | undefined>;
+
   deleteRequestProcedure(id: number): Promise<void>;
   
   // Request Topics
+
   getRequestTopics(requestId: number): Promise<RequestTopic[]>;
+
   createRequestTopic(topic: InsertRequestTopic): Promise<RequestTopic>;
+
   updateRequestTopic(id: number, updates: Partial<InsertRequestTopic>): Promise<RequestTopic | undefined>;
+
   deleteRequestTopic(id: number): Promise<void>;
   
   // Request Recipients
+
   getRequestRecipients(requestId: number): Promise<RequestRecipient[]>;
+
   createRequestRecipient(recipient: InsertRequestRecipient): Promise<RequestRecipient>;
+
   deleteRequestRecipient(id: number): Promise<void>;
   
   // Evaluation Templates
+
   getEvaluationTemplate(id: number): Promise<EvaluationTemplate | undefined>;
+
   getAllEvaluationTemplates(): Promise<EvaluationTemplate[]>;
+
   getEvaluationTemplatesByCompany(companyId: number | null): Promise<EvaluationTemplate[]>;
+
   getEvaluationTemplateWithDetails(id: number): Promise<{ template: EvaluationTemplate; topics: TemplateTopic[]; events: TemplateEvent[] } | undefined>;
+
   createEvaluationTemplate(template: InsertEvaluationTemplate): Promise<EvaluationTemplate>;
+
   updateEvaluationTemplate(id: number, updates: Partial<InsertEvaluationTemplate>): Promise<EvaluationTemplate | undefined>;
+
   deleteEvaluationTemplate(id: number): Promise<void>;
   
   // Template Topics
+
   getTemplateTopics(templateId: number): Promise<TemplateTopic[]>;
+
   createTemplateTopic(topic: InsertTemplateTopic): Promise<TemplateTopic>;
+
   deleteTemplateTopics(templateId: number): Promise<void>;
   
   // Template Events
+
   getTemplateEvents(templateId: number): Promise<TemplateEvent[]>;
+
   createTemplateEvent(event: InsertTemplateEvent): Promise<TemplateEvent>;
+
   deleteTemplateEvents(templateId: number): Promise<void>;
 
   // Competency profiles and DNC
+
   getJobProfilesByCompany(companyId: number): Promise<JobProfile[]>;
+
   getJobProfile(id: number): Promise<JobProfile | undefined>;
+
   createJobProfile(profile: InsertJobProfile): Promise<JobProfile>;
+
   updateJobProfile(id: number, updates: Partial<InsertJobProfile>): Promise<JobProfile | undefined>;
+
   deleteJobProfile(id: number): Promise<void>;
+
   getCompetenciesByCompany(companyId: number): Promise<Competency[]>;
+
   getCompetency(id: number): Promise<Competency | undefined>;
+
   createCompetency(competency: InsertCompetency): Promise<Competency>;
+
   updateCompetency(id: number, updates: Partial<InsertCompetency>): Promise<Competency | undefined>;
+
   deleteCompetency(id: number): Promise<void>;
+
   getJobProfileCompetenciesByCompany(companyId: number): Promise<JobProfileCompetency[]>;
+
   getJobProfileCompetency(id: number): Promise<JobProfileCompetency | undefined>;
+
   createJobProfileCompetency(item: InsertJobProfileCompetency): Promise<JobProfileCompetency>;
+
   updateJobProfileCompetency(id: number, updates: Partial<InsertJobProfileCompetency>): Promise<JobProfileCompetency | undefined>;
+
   deleteJobProfileCompetency(id: number): Promise<void>;
+
   getCompetencyAssessmentsByCompany(companyId: number): Promise<CompetencyAssessment[]>;
+
   createCompetencyAssessment(assessment: InsertCompetencyAssessment & { assessedById: number }): Promise<CompetencyAssessment>;
+
   recordTrainingReassessment(
     activityId: number,
     assessment: InsertCompetencyAssessment & { assessedById: number },
     updates: Partial<InsertTrainingActivity>,
     retry: InsertTrainingActivity | null,
     audit: { actorId: number; action: string; details?: string | null },
+
   ): Promise<{ assessment: CompetencyAssessment; activity: TrainingActivity; retry?: TrainingActivity }>;
+
+  createDncTrainingRequest(request: InsertTrainingRequest, studentId: number, year: number): Promise<TrainingRequest>;
+
+  recalculateAnnualProgramProgress(programId: number): Promise<AnnualTrainingProgram | undefined>;
+
+  // Company Settings
+
+  getEmployeeJobProfilesByCompany(companyId: number): Promise<EmployeeJobProfile[]>;
+
+  assignEmployeeJobProfile(assignment: Omit<EmployeeJobProfile, "id" | "assignedAt">): Promise<EmployeeJobProfile>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -809,13 +965,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTrainingRequest(request: InsertTrainingRequest): Promise<TrainingRequest> {
-    const [newRequest] = await db.insert(trainingRequests).values(request).returning();
+    const normalizedRequest = {
+      ...request,
+      proposedStartDate: request.proposedStartDate instanceof Date ? request.proposedStartDate : request.proposedStartDate ? new Date(request.proposedStartDate) : null,
+      proposedEndDate: request.proposedEndDate instanceof Date ? request.proposedEndDate : request.proposedEndDate ? new Date(request.proposedEndDate) : null,
+    };
+    const [newRequest] = await db.insert(trainingRequests).values(normalizedRequest).returning();
     return newRequest;
   }
 
   async updateTrainingRequest(id: number, updates: Partial<InsertTrainingRequest>): Promise<TrainingRequest | undefined> {
+    const normalizedUpdates = {
+      ...updates,
+      ...(updates.proposedStartDate !== undefined ? {
+        proposedStartDate: updates.proposedStartDate instanceof Date ? updates.proposedStartDate : updates.proposedStartDate ? new Date(updates.proposedStartDate) : null,
+      } : {}),
+      ...(updates.proposedEndDate !== undefined ? {
+        proposedEndDate: updates.proposedEndDate instanceof Date ? updates.proposedEndDate : updates.proposedEndDate ? new Date(updates.proposedEndDate) : null,
+      } : {}),
+    } as Partial<typeof trainingRequests.$inferInsert>;
     const [request] = await db.update(trainingRequests)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...normalizedUpdates, updatedAt: new Date() })
       .where(eq(trainingRequests.id, id))
       .returning();
     return request || undefined;
@@ -1114,6 +1284,90 @@ export class DatabaseStorage implements IStorage {
       });
       return { assessment: createdAssessment, activity: updatedActivity, retry: createdRetry };
     });
+  }
+
+  async createDncTrainingRequest(request: InsertTrainingRequest, studentId: number, year: number): Promise<TrainingRequest> {
+    return db.transaction(async (tx) => {
+      let [program] = await tx.select().from(annualTrainingPrograms).where(and(
+        eq(annualTrainingPrograms.companyId, request.companyId),
+        eq(annualTrainingPrograms.studentId, studentId),
+        eq(annualTrainingPrograms.year, year),
+      ));
+      const plannedHours = request.estimatedHours ?? 0;
+      if (!program) {
+        const [created] = await tx.insert(annualTrainingPrograms).values({
+          companyId: request.companyId,
+          studentId,
+          year,
+          targetHours: plannedHours,
+          targetSessions: 1,
+        }).onConflictDoNothing().returning();
+        program = created ?? (await tx.select().from(annualTrainingPrograms).where(and(
+          eq(annualTrainingPrograms.companyId, request.companyId),
+          eq(annualTrainingPrograms.studentId, studentId),
+          eq(annualTrainingPrograms.year, year),
+        )))[0];
+      } else {
+        const [updated] = await tx.update(annualTrainingPrograms).set({
+          targetHours: program.targetHours + plannedHours,
+          targetSessions: (program.targetSessions ?? 0) + 1,
+          updatedAt: new Date(),
+        }).where(eq(annualTrainingPrograms.id, program.id)).returning();
+        program = updated;
+      }
+      if (!program) throw new Error("No se pudo preparar el programa anual");
+      const normalizedRequest = {
+        ...request,
+        proposedStartDate: request.proposedStartDate instanceof Date ? request.proposedStartDate : request.proposedStartDate ? new Date(request.proposedStartDate) : null,
+        proposedEndDate: request.proposedEndDate instanceof Date ? request.proposedEndDate : request.proposedEndDate ? new Date(request.proposedEndDate) : null,
+      };
+      const [createdRequest] = await tx.insert(trainingRequests).values({
+        ...normalizedRequest,
+        annualProgramId: program.id,
+      }).returning();
+      return createdRequest;
+    });
+  }
+
+  async recalculateAnnualProgramProgress(programId: number): Promise<AnnualTrainingProgram | undefined> {
+    const program = await this.getAnnualTrainingProgram(programId);
+    if (!program) return undefined;
+    const requests = await this.getTrainingRequestsByCompany(program.companyId);
+    const programRequests = requests.filter((request) => request.annualProgramId === programId);
+    const requestIds = new Set(programRequests.map((request) => request.id));
+    const sessions = (await this.getSimulatorSessionsByCompany(program.companyId))
+      .filter((session) => session.trainingRequestId !== null && requestIds.has(session.trainingRequestId));
+    const completedSessions = sessions.filter((session) => session.endTime !== null);
+    const completedHours = completedSessions.reduce((total, session) => total + (session.duration ?? 0) / 3600, 0);
+    const completedRequests = programRequests.filter((request) => request.status === "completed").length;
+    const progressPercentage = programRequests.length
+      ? Math.round((completedRequests / programRequests.length) * 100)
+      : 0;
+    const isCompleted = programRequests.length > 0 && completedRequests === programRequests.length;
+    return this.updateAnnualTrainingProgram(programId, {
+      completedHours: Math.round(completedHours * 100) / 100,
+      completedSessions: completedSessions.length,
+      progressPercentage,
+      isCompleted,
+      completedAt: isCompleted ? (program.completedAt ?? new Date()) : null,
+    });
+  }
+
+  async getEmployeeJobProfilesByCompany(companyId: number): Promise<EmployeeJobProfile[]> {
+    return db.select().from(employeeJobProfiles).where(eq(employeeJobProfiles.companyId, companyId));
+  }
+
+  async assignEmployeeJobProfile(assignment: Omit<EmployeeJobProfile, "id" | "assignedAt">): Promise<EmployeeJobProfile> {
+    const [saved] = await db.insert(employeeJobProfiles).values(assignment).onConflictDoUpdate({
+      target: employeeJobProfiles.employeeId,
+      set: {
+        companyId: assignment.companyId,
+        profileId: assignment.profileId,
+        assignedById: assignment.assignedById,
+        assignedAt: new Date(),
+      },
+    }).returning();
+    return saved;
   }
 }
 

@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema, insertCompanySchema, insertTrainingRequestSchema, insertRequestIncidentSchema, insertRequestRoleSchema, insertRequestProcedureSchema, insertRequestTopicSchema, insertRequestRecipientSchema } from "@shared/schema";
+import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema, insertCompanySchema, insertTrainingRequestSchema, insertRequestIncidentSchema, insertRequestRoleSchema, insertRequestProcedureSchema, insertRequestTopicSchema, insertRequestRecipientSchema, type TrainingRequest } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -544,9 +544,34 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/simulator-sessions", async (req, res) => {
+  app.post("/api/simulator-sessions", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const sessionData = insertSimulatorSessionSchema.parse(req.body);
+      if (!hasCompanyAccess(req, sessionData.companyId)) {
+        return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      }
+      if (req.user?.role === "student" && sessionData.studentId !== req.user.id) {
+        return res.status(403).json({ error: "Solo puedes registrar tus propias sesiones" });
+      }
+      if (sessionData.trainingRequestId) {
+        const request = await storage.getTrainingRequest(sessionData.trainingRequestId);
+        if (!request || request.companyId !== sessionData.companyId || request.simulatorScenarioId !== sessionData.scenarioId) {
+          return res.status(400).json({ error: "La solicitud, la empresa y el escenario deben coincidir" });
+        }
+        if (request.dncAssessmentId) {
+          const assessments = await storage.getCompetencyAssessmentsByCompany(request.companyId);
+          const source = assessments.find((assessment) => assessment.id === request.dncAssessmentId);
+          if (!source || source.employeeId !== sessionData.studentId) {
+            return res.status(400).json({ error: "La sesión debe corresponder al operador de la brecha DNC" });
+          }
+        }
+      }
+      if (sessionData.repeatOfSessionId) {
+        const previous = await storage.getSimulatorSession(sessionData.repeatOfSessionId);
+        if (!previous || previous.trainingRequestId !== sessionData.trainingRequestId || previous.studentId !== sessionData.studentId) {
+          return res.status(400).json({ error: "La repetición debe vincularse a una sesión previa del mismo operador y solicitud" });
+        }
+      }
       const newSession = await storage.createSimulatorSession(sessionData);
       res.status(201).json(newSession);
     } catch (error) {
@@ -554,13 +579,58 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/simulator-sessions/:id", async (req, res) => {
+  app.patch("/api/simulator-sessions/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updates = req.body;
+      const existing = await storage.getSimulatorSession(id);
+      if (!existing) return res.status(404).json({ error: "Session not found" });
+      if (!hasCompanyAccess(req, existing.companyId)) return res.status(403).json({ error: "No tienes acceso a esta sesión" });
+      if (req.user?.role === "student" && existing.studentId !== req.user.id) {
+        return res.status(403).json({ error: "Solo puedes actualizar tus propias sesiones" });
+      }
+      const updates = z.object({
+        endTime: z.union([z.date(), z.string(), z.null()]).optional().transform((value) => typeof value === "string" ? new Date(value) : value),
+        duration: z.number().int().min(0).optional(),
+        score: z.number().int().min(0).max(100).nullable().optional(),
+        responseTime: z.number().int().min(0).nullable().optional(),
+        maneuverPrecision: z.number().int().min(0).max(100).nullable().optional(),
+        procedureAdherence: z.number().int().min(0).max(100).nullable().optional(),
+        logs: z.array(z.string()).optional(),
+        feedback: z.string().trim().max(3000).nullable().optional(),
+        trainingRequestId: z.number().int().positive().optional(),
+        repeatOfSessionId: z.number().int().positive().optional(),
+      }).strict().parse(req.body);
+      if (updates.trainingRequestId) {
+        const request = await storage.getTrainingRequest(updates.trainingRequestId);
+        if (!request || request.companyId !== existing.companyId || request.simulatorScenarioId !== existing.scenarioId) {
+          return res.status(400).json({ error: "La solicitud debe corresponder a la empresa y escenario de la sesión" });
+        }
+        if (request.dncAssessmentId) {
+          const assessments = await storage.getCompetencyAssessmentsByCompany(request.companyId);
+          const source = assessments.find((assessment) => assessment.id === request.dncAssessmentId);
+          if (!source || source.employeeId !== existing.studentId) {
+            return res.status(400).json({ error: "La sesión existente debe corresponder al operador de la brecha" });
+          }
+        }
+      }
+      if (updates.repeatOfSessionId) {
+        const previous = await storage.getSimulatorSession(updates.repeatOfSessionId);
+        const expectedRequestId = updates.trainingRequestId ?? existing.trainingRequestId;
+        if (!previous || previous.trainingRequestId !== expectedRequestId || previous.studentId !== existing.studentId) {
+          return res.status(400).json({ error: "La repetición debe ser del mismo operador y solicitud" });
+        }
+      }
       const updatedSession = await storage.updateSimulatorSession(id, updates);
       if (!updatedSession) {
         return res.status(404).json({ error: "Session not found" });
+      }
+      if (updatedSession.endTime && updatedSession.trainingRequestId) {
+        const request = await storage.getTrainingRequest(updatedSession.trainingRequestId);
+        if (request?.annualProgramId) await storage.recalculateAnnualProgramProgress(request.annualProgramId);
+      }
+      if (existing.trainingRequestId && existing.trainingRequestId !== updatedSession.trainingRequestId) {
+        const oldRequest = await storage.getTrainingRequest(existing.trainingRequestId);
+        if (oldRequest?.annualProgramId) await storage.recalculateAnnualProgramProgress(oldRequest.annualProgramId);
       }
       res.json(updatedSession);
     } catch (error) {
@@ -1460,13 +1530,20 @@ export async function registerRoutes(
       if (!Number.isInteger(companyId) || companyId <= 0) return res.status(400).json({ error: "Empresa inválida" });
       if (!hasCompanyAccess(req, companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
 
-      const [profiles, competencyList, profileCompetencies, assessments, employeeList, requests] = await Promise.all([
+      const selectedYear = req.query.year ? Number(req.query.year) : undefined;
+      if (selectedYear !== undefined && (!Number.isInteger(selectedYear) || selectedYear < 2000 || selectedYear > 9999)) {
+        return res.status(400).json({ error: "Año inválido" });
+      }
+      const [profiles, competencyList, profileCompetencies, assessments, employeeList, requests, assignments, sessions, annualPrograms] = await Promise.all([
         storage.getJobProfilesByCompany(companyId),
         storage.getCompetenciesByCompany(companyId),
         storage.getJobProfileCompetenciesByCompany(companyId),
         storage.getCompetencyAssessmentsByCompany(companyId),
         storage.getUsersByCompany(companyId),
         storage.getTrainingRequestsByCompany(companyId),
+        storage.getEmployeeJobProfilesByCompany(companyId),
+        storage.getSimulatorSessionsByCompany(companyId),
+        storage.getAnnualTrainingProgramsByCompany(companyId, selectedYear),
       ]);
       res.json({
         profiles,
@@ -1475,9 +1552,42 @@ export async function registerRoutes(
         assessments,
         requests: requests.filter((request) => request.dncAssessmentId !== null),
         employees: employeeList.map(({ id, name, email, role }) => ({ id, name, email, role })),
+        assignments,
+        sessions,
+        annualPrograms,
       });
     } catch (error) {
       res.status(500).json({ error: "No se pudo cargar el análisis de competencias" });
+    }
+  });
+
+  app.put("/api/employee-job-profiles/:employeeId", authenticateToken, authorizeRoles(...competencyManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const employeeId = Number(req.params.employeeId);
+      const body = z.object({
+        companyId: z.number().int().positive(),
+        profileId: z.number().int().positive(),
+      }).strict().parse(req.body);
+      if (!hasCompanyAccess(req, body.companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+      const [employee, profile] = await Promise.all([
+        storage.getUser(employeeId),
+        storage.getJobProfile(body.profileId),
+      ]);
+      if (!employee || employee.companyId !== body.companyId || employee.role !== "student") {
+        return res.status(400).json({ error: "Selecciona un operador de la empresa autorizada" });
+      }
+      if (!profile || profile.companyId !== body.companyId || !profile.active) {
+        return res.status(400).json({ error: "El perfil debe estar activo y pertenecer a la empresa" });
+      }
+      const assignment = await storage.assignEmployeeJobProfile({
+        companyId: body.companyId,
+        employeeId,
+        profileId: body.profileId,
+        assignedById: req.user!.id,
+      });
+      res.json(assignment);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo asignar el perfil al operador" });
     }
   });
 
@@ -1632,11 +1742,34 @@ export async function registerRoutes(
       if (profile.companyId !== body.companyId || competency.companyId !== body.companyId || employee.companyId !== body.companyId) {
         return res.status(403).json({ error: "Los registros deben pertenecer a la empresa autorizada" });
       }
+      const currentAssignment = (await storage.getEmployeeJobProfilesByCompany(body.companyId))
+        .find((assignment) => assignment.employeeId === employee.id);
+      if (!currentAssignment || currentAssignment.profileId !== profile.id) {
+        return res.status(400).json({ error: "Asigna primero el perfil vigente del operador y evalúalo con ese perfil" });
+      }
       const assessment = await storage.createCompetencyAssessment({
         ...body,
         requiredLevel: link.requiredLevel,
         assessedById: req.user!.id,
       });
+      const requests = await storage.getTrainingRequestsByCompany(body.companyId);
+      const records = await storage.getCompetencyAssessmentsByCompany(body.companyId);
+      const affectedRequests: Array<{ request: TrainingRequest; status: "completed" | "approved" }> = [];
+      for (const request of requests) {
+        if (!request.dncAssessmentId) continue;
+        const original = records.find((item) => item.id === request.dncAssessmentId);
+        if (!original || original.employeeId !== assessment.employeeId || original.profileId !== assessment.profileId ||
+          original.competencyId !== assessment.competencyId) continue;
+        if (assessment.currentLevel >= original.requiredLevel && request.status !== "completed") {
+          affectedRequests.push({ request, status: "completed" });
+        }
+        else if (assessment.currentLevel < original.requiredLevel && request.status === "completed") {
+          affectedRequests.push({ request, status: "approved" });
+        }
+      }
+      await Promise.all(affectedRequests.map(({ request, status }) => storage.updateTrainingRequest(request.id, { status })));
+      const programIds = Array.from(new Set(affectedRequests.map(({ request }) => request.annualProgramId).filter((id): id is number => id !== null)));
+      await Promise.all(programIds.map((programId) => storage.recalculateAnnualProgramProgress(programId)));
       res.status(201).json(assessment);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar la evaluación DNC" });
@@ -2200,14 +2333,53 @@ export async function registerRoutes(
       if (!hasCompanyAccess(req, requestData.companyId)) {
         return res.status(403).json({ error: "No puedes crear solicitudes en otra empresa" });
       }
+      if (!requestData.dncAssessmentId && requestData.annualProgramId) {
+        return res.status(400).json({ error: "El programa anual solo se asigna automáticamente a partir de una brecha DNC" });
+      }
       if (requestData.dncAssessmentId) {
         const assessments = await storage.getCompetencyAssessmentsByCompany(requestData.companyId);
         const source = assessments.find((assessment) => assessment.id === requestData.dncAssessmentId);
         if (!source) {
           return res.status(400).json({ error: "La evaluación DNC asociada no existe en esta empresa" });
         }
+        if (existingRequests.some((request) => request.dncAssessmentId === requestData.dncAssessmentId)) {
+          return res.status(409).json({ error: "Esta evaluación DNC ya está incorporada a una solicitud" });
+        }
       }
-      const newRequest = await storage.createTrainingRequest(requestData);
+      let newRequest;
+      if (requestData.dncAssessmentId) {
+        const assessmentList = await storage.getCompetencyAssessmentsByCompany(requestData.companyId);
+        const source = assessmentList.find((assessment) => assessment.id === requestData.dncAssessmentId);
+        if (!source || source.currentLevel >= source.requiredLevel) {
+          return res.status(400).json({ error: "Solo se pueden planificar brechas DNC abiertas" });
+        }
+        if (!requestData.responsibleId || !requestData.proposedStartDate || !requestData.proposedEndDate ||
+          !requestData.estimatedHours || requestData.estimatedHours <= 0 || !requestData.trainingMethod?.trim()) {
+          return res.status(400).json({ error: "La solicitud DNC requiere responsable, fechas, horas mayores a cero y método de entrenamiento" });
+        }
+        const planStart = requestData.proposedStartDate instanceof Date ? requestData.proposedStartDate : new Date(requestData.proposedStartDate);
+        const planEnd = requestData.proposedEndDate instanceof Date ? requestData.proposedEndDate : new Date(requestData.proposedEndDate);
+        if (Number.isNaN(planStart.getTime()) || Number.isNaN(planEnd.getTime()) || planEnd < planStart) {
+          return res.status(400).json({ error: "La fecha final debe ser igual o posterior a la fecha inicial" });
+        }
+        const responsible = await storage.getUser(requestData.responsibleId);
+        if (!responsible || responsible.companyId !== requestData.companyId) {
+          return res.status(400).json({ error: "El responsable debe pertenecer a la empresa" });
+        }
+        if (requestData.simulatorScenarioId) {
+          const scenario = await storage.getSimulatorScenario(requestData.simulatorScenarioId);
+          if (!scenario || (scenario.companyId !== null && scenario.companyId !== requestData.companyId)) {
+            return res.status(400).json({ error: "El escenario debe estar disponible para la empresa" });
+          }
+        }
+        newRequest = await storage.createDncTrainingRequest(
+          requestData,
+          source.employeeId,
+          planStart.getFullYear(),
+        );
+      } else {
+        newRequest = await storage.createTrainingRequest(requestData);
+      }
       res.status(201).json(newRequest);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create training request" });
@@ -2217,7 +2389,23 @@ export async function registerRoutes(
   app.patch("/api/training-requests/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
+      const existing = await storage.getTrainingRequest(id);
+      if (!existing) return res.status(404).json({ error: "Training request not found" });
+      if (!hasCompanyAccess(req, existing.companyId)) return res.status(403).json({ error: "No tienes acceso a esta solicitud" });
       const updates = req.body;
+      if (updates.annualProgramId !== undefined || updates.dncAssessmentId !== undefined) {
+        return res.status(400).json({ error: "El origen DNC y el programa anual no se pueden cambiar después de crear la solicitud" });
+      }
+      if (updates.status === "completed" && existing.dncAssessmentId) {
+        const records = await storage.getCompetencyAssessmentsByCompany(existing.companyId);
+        const source = records.find((assessment) => assessment.id === existing.dncAssessmentId);
+        const latest = source && records
+          .filter((assessment) => assessment.employeeId === source.employeeId && assessment.profileId === source.profileId && assessment.competencyId === source.competencyId)
+          .sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime())[0];
+        if (!source || !latest || latest.currentLevel < source.requiredLevel) {
+          return res.status(400).json({ error: "No se puede cerrar la solicitud hasta que una reevaluación alcance el nivel requerido" });
+        }
+      }
       
       if (updates.status === "submitted" && !updates.submittedAt) {
         updates.submittedAt = new Date();
@@ -2232,6 +2420,9 @@ export async function registerRoutes(
       const updatedRequest = await storage.updateTrainingRequest(id, updates);
       if (!updatedRequest) {
         return res.status(404).json({ error: "Training request not found" });
+      }
+      if (updatedRequest.status === "completed" && updatedRequest.annualProgramId) {
+        await storage.recalculateAnnualProgramProgress(updatedRequest.annualProgramId);
       }
       res.json(updatedRequest);
     } catch (error) {

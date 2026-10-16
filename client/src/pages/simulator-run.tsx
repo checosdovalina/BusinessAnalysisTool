@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { simulatorScenariosAPI, scenarioStepsAPI, sessionStepResultsAPI, simulatorSessionsAPI } from "@/lib/api";
@@ -139,6 +140,12 @@ export default function SimulatorRun() {
   const [criticalFailures, setCriticalFailures] = useState(0);
   const [inputModal, setInputModal] = useState<{ isOpen: boolean; actionType: string; actionLabel: string }>({ isOpen: false, actionType: "", actionLabel: "" });
   const [inputValue, setInputValue] = useState("");
+  const [sessionFeedback, setSessionFeedback] = useState("");
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const searchParams = new URLSearchParams(window.location.search);
+  const linkedRequestId = Number(searchParams.get("requestId")) || undefined;
+  const targetStudentId = Number(searchParams.get("studentId")) || user?.id;
+  const repeatedSessionId = Number(searchParams.get("repeatOf")) || undefined;
 
   const hasConfiguredSteps = scenarioSteps.length > 0;
   const currentStep = hasConfiguredSteps ? scenarioSteps[currentStepIndex] : null;
@@ -149,9 +156,12 @@ export default function SimulatorRun() {
     try {
       const session = await simulatorSessionsAPI.create({
         scenarioId,
-        studentId: user.id,
+        studentId: targetStudentId!,
         companyId: user.companyId,
+        trainerId: user.role === "student" ? undefined : user.id,
         startTime: new Date(),
+        trainingRequestId: linkedRequestId,
+        repeatOfSessionId: repeatedSessionId,
       });
       return session.id;
     } catch (error) {
@@ -179,10 +189,23 @@ export default function SimulatorRun() {
     try {
       await simulatorSessionsAPI.update(sessId, {
         endTime: new Date(),
+        duration: elapsedTime,
         score: finalScore,
+        logs: logs.map((log) => `[${log.time}] ${log.msg}`),
       });
     } catch (error) {
       console.error("Error completing session:", error);
+    }
+  };
+
+  const saveSessionFeedback = async () => {
+    if (!sessionId) return;
+    try {
+      await simulatorSessionsAPI.update(sessionId, { feedback: sessionFeedback.trim() || null });
+      setFeedbackSaved(true);
+      toast.success("Feedback de la sesión guardado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el feedback");
     }
   };
 
@@ -598,6 +621,16 @@ export default function SimulatorRun() {
                  {criticalFailures > 0 && (
                    <div className="text-sm text-red-400 mb-2">
                      ⚠ {criticalFailures} falla(s) crítica(s) registrada(s)
+                   </div>
+                 )}
+                 {sessionId && (
+                   <div className="mx-auto mt-5 max-w-xl space-y-2 text-left">
+                     <label htmlFor="session-feedback" className="text-sm font-medium">Feedback de ejecución</label>
+                     <Textarea id="session-feedback" value={sessionFeedback} onChange={(event) => { setSessionFeedback(event.target.value); setFeedbackSaved(false); }} maxLength={3000} placeholder="Observaciones del capacitador, aciertos, acciones a reforzar…" />
+                     <Button variant="outline" onClick={saveSessionFeedback} disabled={feedbackSaved}>
+                       {feedbackSaved ? "Feedback guardado" : "Guardar feedback"}
+                     </Button>
+                     {repeatedSessionId && <p className="text-xs text-muted-foreground">Repetición de la sesión {repeatedSessionId}</p>}
                    </div>
                  )}
                  <Button onClick={() => setLocation("/simulator")} className="mt-4 bg-accent text-accent-foreground">

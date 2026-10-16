@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardShell from "@/components/layout/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
-import { competencyDncAPI, trainingRequestsAPI } from "@/lib/api";
+import { competencyDncAPI, simulatorScenariosAPI, trainingRequestsAPI, simulatorSessionsAPI } from "@/lib/api";
 import type { CompetencyDncData } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -49,7 +50,8 @@ function formatDate(value: string | Date) {
 }
 
 export default function CompetencyDncPage() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const companyId = company?.id;
   const queryKey = ["competency-dnc", companyId];
@@ -65,10 +67,25 @@ export default function CompetencyDncPage() {
   const [observedLevel, setObservedLevel] = useState("0");
   const [evidence, setEvidence] = useState("");
   const [observations, setObservations] = useState("");
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
+  const [planAssessment, setPlanAssessment] = useState<CompetencyDncData["assessments"][number] | null>(null);
+  const [planForm, setPlanForm] = useState({
+    responsibleId: user?.id ? String(user.id) : "",
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    hours: "4",
+    method: "Práctica guiada y reevaluación",
+    scenarioId: "",
+  });
 
   const { data, isLoading, isError, error, refetch } = useQuery<CompetencyDncData>({
     queryKey,
     queryFn: () => competencyDncAPI.getByCompany(companyId as number),
+    enabled: !!companyId,
+  });
+  const { data: scenarios = [] } = useQuery({
+    queryKey: ["simulator-scenarios", companyId],
+    queryFn: () => simulatorScenariosAPI.getByCompany(companyId ?? null),
     enabled: !!companyId,
   });
 
@@ -130,8 +147,29 @@ export default function CompetencyDncPage() {
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "No se pudo registrar la evaluación"),
   });
+  const assignProfile = useMutation({
+    mutationFn: ({ employeeId: id, profileId: assignedProfileId }: { employeeId: number; profileId: number }) =>
+      competencyDncAPI.assignJobProfile(id, companyId as number, assignedProfileId),
+    onSuccess: () => { refresh(); toast.success("Perfil vigente asignado al operador"); },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "No se pudo asignar el perfil"),
+  });
+  const linkExistingSession = useMutation({
+    mutationFn: ({ sessionId, requestId }: { sessionId: number; requestId: number }) =>
+      simulatorSessionsAPI.update(sessionId, { trainingRequestId: requestId }),
+    onSuccess: () => { refresh(); toast.success("Sesión existente vinculada al programa DNC"); },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "No se pudo vincular la sesión"),
+  });
   const createTrainingRequest = useMutation({
-    mutationFn: (record: (CompetencyDncData["assessments"])[number]) => {
+    mutationFn: (input: {
+      record: CompetencyDncData["assessments"][number];
+      responsibleId: number;
+      startDate: string;
+      endDate: string;
+      hours: number;
+      method: string;
+      scenarioId?: number;
+    }) => {
+      const { record } = input;
       if (!companyId) throw new Error("No se encontró la empresa");
       const person = data?.employees.find((employee) => employee.id === record.employeeId);
       const recordProfile = profiles.find((item) => item.id === record.profileId);
@@ -145,6 +183,12 @@ export default function CompetencyDncPage() {
         targetAudience: person?.name ?? "Operador",
         participantCount: 1,
         priority: record.currentLevel === 0 ? "critical" : "high",
+        responsibleId: input.responsibleId,
+        proposedStartDate: new Date(`${input.startDate}T09:00:00`),
+        proposedEndDate: new Date(`${input.endDate}T17:00:00`),
+        estimatedHours: input.hours,
+        trainingMethod: input.method,
+        simulatorScenarioId: input.scenarioId,
         dncAssessmentId: record.id,
         notes: `Origen DNC: registro ${record.id}. Nivel requerido al evaluar: ${record.requiredLevel}/5; nivel observado: ${record.currentLevel}/5.`,
       });
@@ -152,6 +196,8 @@ export default function CompetencyDncPage() {
     onSuccess: () => {
       refresh();
       queryClient.invalidateQueries({ queryKey: ["training-requests"] });
+      setShowPlanDialog(false);
+      setPlanAssessment(null);
       toast.success("Solicitud de entrenamiento creada desde la brecha DNC");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "No se pudo crear la solicitud de entrenamiento"),
@@ -179,6 +225,19 @@ export default function CompetencyDncPage() {
         (!employeeId || String(record.employeeId) === employeeId))
       .sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime());
   }, [data?.assessments, profileId, competencyId, employeeId]);
+  const currentAssignments = data?.assignments ?? [];
+  const activeTrainers = (data?.employees ?? []).filter((person) => ["admin", "trainer", "super_admin"].includes(person.role));
+  const dncRequests = data?.requests ?? [];
+  const isPlanValid = !!planAssessment && !!planForm.responsibleId && !!planForm.startDate && !!planForm.endDate &&
+    planForm.endDate >= planForm.startDate && Number(planForm.hours) > 0 && !!planForm.method.trim();
+  const latestAssessmentsByCompetency = new Map<string, CompetencyDncData["assessments"][number]>();
+  for (const item of data?.assessments ?? []) {
+    const key = `${item.employeeId}:${item.profileId}:${item.competencyId}`;
+    const current = latestAssessmentsByCompetency.get(key);
+    if (!current || new Date(item.assessedAt).getTime() > new Date(current.assessedAt).getTime()) {
+      latestAssessmentsByCompetency.set(key, item);
+    }
+  }
 
   const updateSelectedRequirement = (linkId: number, level: number, isCritical: boolean) => {
     saveRequirement.mutate({
@@ -209,6 +268,10 @@ export default function CompetencyDncPage() {
       ? "Crea o activa una competencia antes de registrar una evaluación."
       : profile && !profile.active
         ? "Elige un perfil de puesto activo para registrar una evaluación."
+      : employeeId && !currentAssignments.some((assignment) => assignment.employeeId === Number(employeeId))
+        ? "Asigna el perfil vigente del operador antes de evaluarlo."
+      : employeeId && currentAssignments.find((assignment) => assignment.employeeId === Number(employeeId))?.profileId !== Number(profileId)
+        ? "La evaluación debe usar el perfil actualmente asignado al operador."
       : !profileLinks.length
         ? "Agrega al menos una competencia requerida a este perfil."
         : !employeeId ? "Selecciona a una persona para continuar." : "";
@@ -288,6 +351,35 @@ export default function CompetencyDncPage() {
           <SummaryTile icon={ClipboardCheck} label="Estándares de competencia" value={data?.profileCompetencies.length ?? 0} detail="Requisitos por perfil y competencia" />
           <SummaryTile icon={UsersRound} label="Registros de evaluación" value={data?.assessments.length ?? 0} detail="Historial acumulativo de registros" />
         </div>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-[#fbfcfb]">
+            <SectionHeading step="00" icon={UsersRound} title="Perfil vigente por operador" description="Asigna o cambia el perfil de puesto que se usará como estándar en las siguientes evaluaciones." />
+          </CardHeader>
+          <CardContent className="grid gap-3 p-5 md:grid-cols-2">
+            {(data?.employees ?? []).filter((person) => person.role === "student").map((person) => {
+              const assignment = currentAssignments.find((item) => item.employeeId === person.id);
+              return (
+                <div key={person.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{person.name}</p>
+                    <p className="text-xs text-slate-500">{assignment ? `Asignado ${formatDate(assignment.assignedAt)}` : "Sin perfil vigente"}</p>
+                  </div>
+                  <Select
+                    value={assignment ? String(assignment.profileId) : ""}
+                    onValueChange={(value) => assignProfile.mutate({ employeeId: person.id, profileId: Number(value) })}
+                  >
+                    <SelectTrigger className="w-full sm:w-56" aria-label={`Perfil vigente para ${person.name}`}><SelectValue placeholder="Asignar perfil" /></SelectTrigger>
+                    <SelectContent>{activeProfiles.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.title}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+            {!(data?.employees ?? []).some((person) => person.role === "student") && (
+              <p className="text-sm text-slate-500">No hay operadores registrados para asignar perfiles.</p>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid items-start gap-5 xl:grid-cols-[0.92fr_1.08fr]">
           <Card className="overflow-hidden border-slate-200 shadow-sm">
@@ -457,16 +549,21 @@ export default function CompetencyDncPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="assessment-profile">Perfil de puesto <span className="text-rose-700">*</span></Label>
-                    <Select value={profileId} onValueChange={(value) => { setProfileId(value); setCompetencyId(""); }}>
-                      <SelectTrigger id="assessment-profile"><SelectValue placeholder="Selecciona un perfil" /></SelectTrigger>
+                    <Select value={profileId} onValueChange={(value) => { setProfileId(value); setCompetencyId(""); }} disabled={!!employeeId}>
+                      <SelectTrigger id="assessment-profile"><SelectValue placeholder="Perfil asignado al operador" /></SelectTrigger>
                       <SelectContent>{activeProfiles.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.title}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="assessment-employee">Persona evaluada <span className="text-rose-700">*</span></Label>
-                    <Select value={employeeId} onValueChange={setEmployeeId}>
+                    <Select value={employeeId} onValueChange={(value) => {
+                      setEmployeeId(value);
+                      const assignment = currentAssignments.find((item) => item.employeeId === Number(value));
+                      setProfileId(assignment ? String(assignment.profileId) : "");
+                      setCompetencyId("");
+                    }}>
                       <SelectTrigger id="assessment-employee"><SelectValue placeholder="Selecciona una persona" /></SelectTrigger>
-                      <SelectContent>{(data?.employees ?? []).map((person) => <SelectItem key={person.id} value={String(person.id)}>{person.name} · {roleLabel(person.role)}</SelectItem>)}</SelectContent>
+                      <SelectContent>{(data?.employees ?? []).filter((person) => person.role === "student").map((person) => <SelectItem key={person.id} value={String(person.id)}>{person.name} · {roleLabel(person.role)}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -585,9 +682,13 @@ export default function CompetencyDncPage() {
                                 variant={hasTrainingRequest ? "outline" : "default"}
                                 className={hasTrainingRequest ? "border-amber-300 bg-white text-amber-900" : "bg-amber-900 text-white hover:bg-amber-800"}
                                 disabled={hasTrainingRequest || createTrainingRequest.isPending}
-                                onClick={() => createTrainingRequest.mutate(record)}
+                                onClick={() => {
+                                  setPlanAssessment(record);
+                                  setPlanForm((form) => ({ ...form, responsibleId: user?.id ? String(user.id) : "" }));
+                                  setShowPlanDialog(true);
+                                }}
                               >
-                                {hasTrainingRequest ? "Solicitud vinculada" : "Crear solicitud"}
+                                {hasTrainingRequest ? "Solicitud vinculada" : "Planificar en programa"}
                               </Button>
                             </div>
                           )}
@@ -603,10 +704,143 @@ export default function CompetencyDncPage() {
           </div>
         </div>
 
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-[#fbfcfb]">
+            <SectionHeading step="04" icon={Clock3} title="Programa anual DNC" description="Solicitudes planificadas, ejecución de simulador y estado de reevaluación por operador." />
+          </CardHeader>
+          <CardContent className="divide-y divide-slate-100 p-0">
+            {dncRequests.length ? dncRequests.map((request) => {
+              const assessment = data?.assessments.find((record) => record.id === request.dncAssessmentId);
+              const person = data?.employees.find((entry) => entry.id === assessment?.employeeId);
+              const latestAssessment = assessment
+                ? latestAssessmentsByCompetency.get(`${assessment.employeeId}:${assessment.profileId}:${assessment.competencyId}`) ?? assessment
+                : undefined;
+              const responsible = data?.employees.find((entry) => entry.id === request.responsibleId);
+              const linkedSessions = (data?.sessions ?? []).filter((session) => session.trainingRequestId === request.id);
+              const eligibleSessions = assessment && request.simulatorScenarioId
+                ? (data?.sessions ?? []).filter((session) => session.trainingRequestId === null &&
+                  session.studentId === assessment.employeeId && session.scenarioId === request.simulatorScenarioId && !!session.endTime)
+                : [];
+              const latestSession = [...linkedSessions].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())[0];
+              const selectedScenario = scenarios.find((scenario) => scenario.id === request.simulatorScenarioId);
+              const currentGap = latestAssessment && assessment ? Math.max(assessment.requiredLevel - latestAssessment.currentLevel, 0) : 0;
+              return (
+                <article key={request.id} className="space-y-3 p-5">
+                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-medium text-slate-900">{request.title}</h3>
+                        <Badge variant="outline" className={request.status === "completed" ? "border-teal-200 bg-teal-50 text-teal-900" : "border-amber-200 bg-amber-50 text-amber-900"}>
+                          {request.status === "completed" ? "Brecha cerrada" : "Brecha pendiente"}
+                        </Badge>
+                        <Badge variant="outline">{request.requestCode}</Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">{person?.name ?? "Operador"} · {request.trainingMethod ?? "Método pendiente"}{selectedScenario ? ` · ${selectedScenario.title}` : ""}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {request.proposedStartDate ? formatDate(request.proposedStartDate) : "Sin fecha"} — {request.proposedEndDate ? formatDate(request.proposedEndDate) : "Sin fecha"} · {request.estimatedHours ?? 0} h planeadas · {linkedSessions.length} sesión(es) · {latestSession?.duration ? `${(latestSession.duration / 3600).toFixed(2)} h ejecutadas` : "Sin ejecución"}
+                      </p>
+                      {responsible && <p className="mt-1 text-xs text-slate-600">Responsable: {responsible.name}</p>}
+                      {latestAssessment && <p className="mt-1 text-xs text-slate-600">Última reevaluación: nivel {latestAssessment.currentLevel}/5 de {latestAssessment.requiredLevel}/5 · brecha {currentGap}</p>}
+                      {latestSession?.feedback && <p className="mt-2 rounded-md bg-slate-50 p-2 text-xs text-slate-700">Feedback de sesión: {latestSession.feedback}</p>}
+                      {eligibleSessions.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {eligibleSessions.map((session) => (
+                            <Button key={session.id} size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={linkExistingSession.isPending} onClick={() => linkExistingSession.mutate({ sessionId: session.id, requestId: request.id })}>
+                              Vincular sesión existente #{session.id}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {request.simulatorScenarioId && assessment && (
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setLocation(`/simulator/run/${request.simulatorScenarioId}?requestId=${request.id}&studentId=${assessment.employeeId}`)}
+                        >
+                          {linkedSessions.length ? "Iniciar sesión" : "Ejecutar escenario"}
+                        </Button>
+                        {latestSession && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setLocation(`/simulator/run/${request.simulatorScenarioId}?requestId=${request.id}&studentId=${assessment.employeeId}&repeatOf=${latestSession.id}`)}
+                          >
+                            Repetir evento
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            }) : (
+              <div className="p-6 text-sm text-slate-500">Aún no hay solicitudes DNC incorporadas al programa anual.</div>
+            )}
+          </CardContent>
+        </Card>
+
         <section className="rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-xs leading-5 text-slate-600">
           <div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-teal-800" /><p><strong className="text-slate-800">Nota de control documental.</strong> Los requisitos del perfil definen el nivel esperado (1–5). La evaluación registra el nivel observado (0–5) en ese momento; un resultado inferior al requerido indica que se necesita capacitación. Cada evaluación nueva se guarda como un registro adicional.</p></div>
         </section>
       </div>
+
+      <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Incorporar brecha al programa anual</DialogTitle>
+            <DialogDescription>Asigna a la persona responsable, el calendario, las horas y el método para atender esta brecha.</DialogDescription>
+          </DialogHeader>
+          {planAssessment && (
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              if (!isPlanValid) return;
+              createTrainingRequest.mutate({
+                record: planAssessment,
+                responsibleId: Number(planForm.responsibleId),
+                startDate: planForm.startDate,
+                endDate: planForm.endDate,
+                hours: Number(planForm.hours),
+                method: planForm.method.trim(),
+                scenarioId: planForm.scenarioId ? Number(planForm.scenarioId) : undefined,
+              });
+            }} className="space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                Nivel observado {planAssessment.currentLevel}/5 · estándar {planAssessment.requiredLevel}/5
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plan-responsible">Responsable</Label>
+                <Select value={planForm.responsibleId} onValueChange={(value) => setPlanForm({ ...planForm, responsibleId: value })}>
+                  <SelectTrigger id="plan-responsible"><SelectValue placeholder="Selecciona responsable" /></SelectTrigger>
+                  <SelectContent>{activeTrainers.map((person) => <SelectItem key={person.id} value={String(person.id)}>{person.name} · {roleLabel(person.role)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="plan-start">Fecha inicial</Label><Input id="plan-start" type="date" required value={planForm.startDate} onChange={(event) => setPlanForm({ ...planForm, startDate: event.target.value })} /></div>
+                <div className="space-y-2"><Label htmlFor="plan-end">Fecha final</Label><Input id="plan-end" type="date" required min={planForm.startDate} value={planForm.endDate} onChange={(event) => setPlanForm({ ...planForm, endDate: event.target.value })} /></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="plan-hours">Horas planeadas</Label><Input id="plan-hours" type="number" min="0.25" step="0.25" required value={planForm.hours} onChange={(event) => setPlanForm({ ...planForm, hours: event.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="plan-scenario">Escenario (opcional)</Label>
+                  <Select value={planForm.scenarioId || "none"} onValueChange={(value) => setPlanForm({ ...planForm, scenarioId: value === "none" ? "" : value })}>
+                    <SelectTrigger id="plan-scenario"><SelectValue placeholder="Sin escenario de simulador" /></SelectTrigger>
+                    <SelectContent><SelectItem value="none">Sin escenario</SelectItem>{scenarios.map((scenario) => <SelectItem key={scenario.id} value={String(scenario.id)}>{scenario.title}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2"><Label htmlFor="plan-method">Método / escenario de capacitación</Label><Textarea id="plan-method" required maxLength={500} value={planForm.method} onChange={(event) => setPlanForm({ ...planForm, method: event.target.value })} placeholder="Práctica guiada, simulación, taller, evaluación en campo…" /></div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowPlanDialog(false)}>Cancelar</Button>
+                <Button type="submit" disabled={!isPlanValid || createTrainingRequest.isPending} className="bg-teal-900 text-white hover:bg-teal-800">
+                  {createTrainingRequest.isPending ? "Guardando plan…" : "Agregar al programa anual"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
         <DialogContent className="sm:max-w-lg">

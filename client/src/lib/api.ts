@@ -1,4 +1,5 @@
 import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, EmployeeJobProfile, AnnualTrainingProgram } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -387,10 +388,18 @@ export interface CompetencyDncData {
   assessments: CompetencyAssessment[];
   requests: TrainingRequest[];
   employees: Pick<User, "id" | "name" | "email" | "role">[];
+  assignments: EmployeeJobProfile[];
+  sessions: SimulatorSession[];
+  annualPrograms: AnnualTrainingProgram[];
 }
 
 export const competencyDncAPI = {
-  getByCompany: (companyId: number) => fetcher<CompetencyDncData>(`/competency-dnc/company/${companyId}`),
+  getByCompany: (companyId: number, year?: number) => fetcher<CompetencyDncData>(`/competency-dnc/company/${companyId}${year ? `?year=${year}` : ""}`),
+  assignJobProfile: (employeeId: number, companyId: number, profileId: number) =>
+    fetcher<EmployeeJobProfile>(`/employee-job-profiles/${employeeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ companyId, profileId }),
+    }),
   createProfile: (data: { companyId: number; title: string; department?: string | null; description?: string | null }) =>
     fetcher<JobProfile>("/job-profiles", { method: "POST", body: JSON.stringify(data) }),
   updateProfile: (id: number, data: Partial<Pick<JobProfile, "title" | "department" | "description" | "active">>) =>
