@@ -1,3 +1,4 @@
 - [VPS database and post-merge setup](vps-post-merge.md) — The app’s Neon database is shared with the VPS; keep schema changes explicit and lockfile URLs public.
 - [OTS Energy visual direction](ots-energy-design-direction.md) — The user approved the teal/amber dashboard; production summaries must use real records, not sample data.
 - [DNC execution aggregation](dnc-execution-aggregation.md) — Group field/classroom runs count once toward the linked annual program; do not multiply hours by attendee count or merge simulator records.
+- [Auth context and Vite HMR](auth-fast-refresh.md) — Keep the shared auth context isolated from provider/hook exports so hot updates cannot split context identity.
