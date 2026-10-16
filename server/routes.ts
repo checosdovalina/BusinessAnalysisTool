@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage as defaultStorage, type IStorage } from "./storage";
 import { insertUserSchema, insertCycleSchema, insertEventSchema, insertSimulatorScenarioSchema, insertSimulatorSessionSchema, insertScenarioStepSchema, insertSessionStepResultSchema, insertEvaluationTopicSchema, insertEvaluationTopicItemSchema, insertCycleTopicItemSchema, insertCompanySchema, insertTrainingRequestSchema, insertRequestIncidentSchema, insertRequestRoleSchema, insertRequestProcedureSchema, insertRequestTopicSchema, insertRequestRecipientSchema, type TrainingRequest } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -72,8 +72,10 @@ const updateUserSchema = z.object({
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  storageAdapter: IStorage = defaultStorage,
 ): Promise<Server> {
+  const storage = storageAdapter;
   const hasCompanyAccess = (req: AuthenticatedRequest, companyId: number) =>
     req.user?.role === "super_admin" || req.user?.companyId === companyId;
   
