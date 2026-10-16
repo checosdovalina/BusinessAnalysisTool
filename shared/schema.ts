@@ -1,8 +1,7 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, date, integer, boolean, pgEnum, real, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, date, integer, boolean, pgEnum, real, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { pgTable, text, varchar, serial, timestamp, integer, boolean, pgEnum, real, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Enums
 export const roleEnum = pgEnum("role", ["super_admin", "admin", "trainer", "student"]);

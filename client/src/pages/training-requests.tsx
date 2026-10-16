@@ -541,7 +541,12 @@ function RequestDetailView({
   const [showAddDialog, setShowAddDialog] = useState<string | null>(null);
   
   const [incidentForm, setIncidentForm] = useState({ title: "", description: "", severity: "", gridZone: "", simulationGoal: "" });
-  const [roleForm, setRoleForm] = useState({ participantName: "", roleType: "operator", responsibilities: "", contactEmail: "" });
+  const [roleForm, setRoleForm] = useState({
+    participantName: "",
+    roleType: "operator" as RequestRole["roleType"],
+    responsibilities: "",
+    contactEmail: "",
+  });
   const [procedureForm, setProcedureForm] = useState({ procedureTitle: "", referenceCode: "", description: "", isMandatory: true });
   const [topicForm, setTopicForm] = useState({ topicTitle: "", description: "", simulationGoal: "", scenarioCategory: "" });
 
@@ -982,7 +987,7 @@ function RequestDetailView({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de Rol</Label>
-                <Select value={roleForm.roleType} onValueChange={(v) => setRoleForm(prev => ({ ...prev, roleType: v }))}>
+                <Select value={roleForm.roleType} onValueChange={(v) => setRoleForm(prev => ({ ...prev, roleType: v as RequestRole["roleType"] }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {ROLE_TYPES.map(role => (

@@ -73,8 +73,8 @@ export default function ScenarioDesigner() {
   
   const [scenarioForm, setScenarioForm] = useState({
     title: "",
-    category: "Fault" as string,
-    difficulty: "Medium" as string,
+    category: "Fault" as SimulatorScenario["category"],
+    difficulty: "Medium" as SimulatorScenario["difficulty"],
     description: "",
   });
   
@@ -664,7 +664,7 @@ export default function ScenarioDesigner() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Categoría</Label>
-                <Select value={scenarioForm.category} onValueChange={(v) => setScenarioForm(prev => ({ ...prev, category: v }))}>
+                <Select value={scenarioForm.category} onValueChange={(v) => setScenarioForm(prev => ({ ...prev, category: v as SimulatorScenario["category"] }))}>
                   <SelectTrigger data-testid="select-scenario-category">
                     <SelectValue />
                   </SelectTrigger>
@@ -682,7 +682,7 @@ export default function ScenarioDesigner() {
               </div>
               <div className="space-y-2">
                 <Label>Dificultad</Label>
-                <Select value={scenarioForm.difficulty} onValueChange={(v) => setScenarioForm(prev => ({ ...prev, difficulty: v }))}>
+                <Select value={scenarioForm.difficulty} onValueChange={(v) => setScenarioForm(prev => ({ ...prev, difficulty: v as SimulatorScenario["difficulty"] }))}>
                   <SelectTrigger data-testid="select-scenario-difficulty">
                     <SelectValue />
                   </SelectTrigger>

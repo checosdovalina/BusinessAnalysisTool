@@ -1175,7 +1175,7 @@ export async function registerRoutes(
         const score = event.score || 0;
         
         // Calculate penalty deductions
-        const penaltyDeduction = (event.penaltyPoints || 0) * (event.attempts || 0);
+        const penaltyDeduction = event.hasPenalty ? (event.penaltyAmount || 0) : 0;
         const adjustedScore = Math.max(0, score - penaltyDeduction);
         
         totalWeight += weight;
