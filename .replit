@@ -7,7 +7,7 @@ channel = "stable-24_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
+build = ["bash", "-c", "npm run check && npm run build"]
 publicDir = "dist/public"
 run = ["npm", "run", "start"]
 
