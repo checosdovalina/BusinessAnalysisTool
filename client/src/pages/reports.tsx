@@ -702,6 +702,40 @@ export default function Reports() {
                     </TableBody>
                   </Table>
                 </div>
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold">Historial de ejecuciones de campo y aula</h3>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader><TableRow>
+                        <TableHead>Fecha</TableHead><TableHead>Solicitud DNC</TableHead><TableHead>Modalidad</TableHead>
+                        <TableHead>Duración</TableHead><TableHead>Participantes</TableHead><TableHead>Feedback</TableHead>
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {(competencyData?.executions ?? []).length ? competencyData!.executions.map((execution) => {
+                          const request = annualDncRequests.find((item) => item.id === execution.requestId);
+                          const methodLabel = execution.method === "field" ? "Campo" :
+                            execution.method === "classroom" ? "Aula" :
+                            execution.method === "workshop" ? "Taller" : "Otro";
+                          return (
+                            <TableRow key={execution.id}>
+                              <TableCell>{new Date(`${execution.executionDate}T00:00:00`).toLocaleDateString("es-MX")}</TableCell>
+                              <TableCell className="min-w-48">
+                                <span className="font-medium">{request?.requestCode ?? `Solicitud #${execution.requestId}`}</span>
+                                {request?.title && <span className="block text-xs text-muted-foreground">{request.title}</span>}
+                              </TableCell>
+                              <TableCell>{methodLabel}</TableCell>
+                              <TableCell>{execution.durationHours.toFixed(2)} h</TableCell>
+                              <TableCell>{execution.participantCount}</TableCell>
+                              <TableCell className="max-w-64 whitespace-normal">{execution.feedback || "—"}</TableCell>
+                            </TableRow>
+                          );
+                        }) : (
+                          <TableRow><TableCell colSpan={6} className="py-6 text-center text-muted-foreground">No hay ejecuciones de campo o aula para {annualProgramYear}.</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>}

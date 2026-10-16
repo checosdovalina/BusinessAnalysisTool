@@ -907,6 +907,27 @@ export const insertTrainingRequestSchema = createInsertSchema(trainingRequests).
 export type InsertTrainingRequest = z.infer<typeof insertTrainingRequestSchema>;
 export type TrainingRequest = typeof trainingRequests.$inferSelect;
 
+export const trainingRequestExecutions = pgTable("training_request_executions", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => trainingRequests.id, { onDelete: "cascade" }),
+  executionDate: date("execution_date").notNull(),
+  method: text("method").notNull(),
+  durationHours: real("duration_hours").notNull(),
+  participantCount: integer("participant_count").notNull(),
+  feedback: text("feedback"),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  requestDateIdx: index("training_request_executions_request_date_idx").on(table.requestId, table.executionDate),
+}));
+
+export const insertTrainingRequestExecutionSchema = createInsertSchema(trainingRequestExecutions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTrainingRequestExecution = z.infer<typeof insertTrainingRequestExecutionSchema>;
+export type TrainingRequestExecution = typeof trainingRequestExecutions.$inferSelect;
+
 // Request Incidents Table (Anexo: Reportes de fallas a reproducir)
 export const requestIncidents = pgTable("request_incidents", {
   id: serial("id").primaryKey(),

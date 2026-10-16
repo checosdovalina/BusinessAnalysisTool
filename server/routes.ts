@@ -1586,7 +1586,7 @@ export async function registerRoutes(
       if (selectedYear !== undefined && (!Number.isInteger(selectedYear) || selectedYear < 2000 || selectedYear > 9999)) {
         return res.status(400).json({ error: "Año inválido" });
       }
-      const [profiles, competencyList, profileCompetencies, assessments, employeeList, requests, assignments, sessions, annualPrograms] = await Promise.all([
+      const [profiles, competencyList, profileCompetencies, assessments, employeeList, requests, assignments, sessions, annualPrograms, executions] = await Promise.all([
         storage.getJobProfilesByCompany(companyId),
         storage.getCompetenciesByCompany(companyId),
         storage.getJobProfileCompetenciesByCompany(companyId),
@@ -1596,17 +1596,24 @@ export async function registerRoutes(
         storage.getEmployeeJobProfilesByCompany(companyId),
         storage.getSimulatorSessionsByCompany(companyId),
         storage.getAnnualTrainingProgramsByCompany(companyId, selectedYear),
+        storage.getTrainingRequestExecutionsByCompany(companyId),
       ]);
+      const dncRequests = requests.filter((request) => request.dncAssessmentId !== null);
+      const dncRequestIds = new Set(dncRequests.map((request) => request.id));
       res.json({
         profiles,
         competencies: competencyList,
         profileCompetencies,
         assessments,
-        requests: requests.filter((request) => request.dncAssessmentId !== null),
+        requests: dncRequests,
         employees: employeeList.map(({ id, name, email, role }) => ({ id, name, email, role })),
         assignments,
         sessions,
         annualPrograms,
+        executions: executions.filter((execution) =>
+          dncRequestIds.has(execution.requestId) &&
+          (!selectedYear || Number(execution.executionDate.slice(0, 4)) === selectedYear)
+        ),
       });
     } catch (error) {
       res.status(500).json({ error: "No se pudo cargar el análisis de competencias" });
@@ -2545,16 +2552,20 @@ export async function registerRoutes(
       if (!request) {
         return res.status(404).json({ error: "Training request not found" });
       }
+      if (!hasCompanyAccess(req, request.companyId)) {
+        return res.status(403).json({ error: "No tienes acceso a esta solicitud" });
+      }
       
-      const [incidents, roles, procedures, topics, recipients] = await Promise.all([
+      const [incidents, roles, procedures, topics, recipients, executions] = await Promise.all([
         storage.getRequestIncidents(id),
         storage.getRequestRoles(id),
         storage.getRequestProcedures(id),
         storage.getRequestTopics(id),
         storage.getRequestRecipients(id),
+        storage.getTrainingRequestExecutions(id),
       ]);
       
-      res.json({ ...request, incidents, roles, procedures, topics, recipients });
+      res.json({ ...request, incidents, roles, procedures, topics, recipients, executions });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch training request details" });
     }
@@ -2635,6 +2646,60 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/training-requests/:id/executions", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
+    try {
+      const requestId = Number(req.params.id);
+      if (!Number.isInteger(requestId) || requestId <= 0) return res.status(400).json({ error: "Solicitud inválida" });
+      const request = await storage.getTrainingRequest(requestId);
+      if (!request) return res.status(404).json({ error: "Solicitud no encontrada" });
+      if (!hasCompanyAccess(req, request.companyId)) return res.status(403).json({ error: "No tienes acceso a esta solicitud" });
+      if (!request.dncAssessmentId || !request.annualProgramId) {
+        return res.status(400).json({ error: "La ejecución requiere una solicitud DNC vinculada a un programa anual" });
+      }
+      if (request.simulatorScenarioId) {
+        return res.status(409).json({ error: "Esta solicitud usa simulador; registra la sesión desde el simulador para evitar duplicados" });
+      }
+      if (!["approved", "completed"].includes(request.status)) {
+        return res.status(409).json({ error: "Solo se puede registrar ejecución para solicitudes aprobadas" });
+      }
+      const body = z.object({
+        executionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+          const parsed = new Date(`${value}T00:00:00.000Z`);
+          return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+        }, "Fecha inválida"),
+        method: z.enum(["field", "classroom", "workshop", "other"]),
+        durationHours: z.number().positive().max(500),
+        participantCount: z.number().int().positive().max(5000),
+        feedback: z.string().trim().max(3000).nullable().optional(),
+      }).strict().parse(req.body);
+      const program = await storage.getAnnualTrainingProgram(request.annualProgramId);
+      if (!program || program.companyId !== request.companyId) {
+        return res.status(400).json({ error: "El programa anual de la solicitud no es válido" });
+      }
+      if (Number(body.executionDate.slice(0, 4)) !== program.year) {
+        return res.status(400).json({ error: `La fecha debe pertenecer al año del programa (${program.year})` });
+      }
+      const sourceAssessment = (await storage.getCompetencyAssessmentsByCompany(request.companyId))
+        .find((assessment) => assessment.id === request.dncAssessmentId);
+      if (!sourceAssessment || sourceAssessment.employeeId !== program.studentId) {
+        return res.status(400).json({ error: "La solicitud DNC no corresponde al operador del programa anual" });
+      }
+      const execution = await storage.createTrainingRequestExecution({
+        requestId,
+        executionDate: body.executionDate,
+        method: body.method,
+        durationHours: body.durationHours,
+        participantCount: body.participantCount,
+        feedback: body.feedback?.trim() || null,
+        createdById: req.user!.id,
+      });
+      await storage.recalculateAnnualProgramProgress(program.id);
+      res.status(201).json(execution);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar la ejecución" });
+    }
+  });
+
   app.patch("/api/training-requests/:id", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -2682,7 +2747,11 @@ export async function registerRoutes(
   app.delete("/api/training-requests/:id", authenticateToken, authorizeRoles("admin", "super_admin"), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
+      const request = await storage.getTrainingRequest(id);
+      if (!request) return res.status(404).json({ error: "Solicitud no encontrada" });
+      if (!hasCompanyAccess(req, request.companyId)) return res.status(403).json({ error: "No tienes acceso a esta solicitud" });
       await storage.deleteTrainingRequest(id);
+      if (request.annualProgramId) await storage.recalculateAnnualProgramProgress(request.annualProgramId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete training request" });

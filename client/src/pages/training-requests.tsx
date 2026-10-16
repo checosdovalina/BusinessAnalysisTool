@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trainingRequestsAPI, TrainingRequestFull, usersAPI } from "@/lib/api";
-import type { TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic } from "@shared/schema";
+import type { TrainingRequest, TrainingRequestExecution, RequestIncident, RequestRole, RequestProcedure, RequestTopic } from "@shared/schema";
 import { useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -549,6 +549,15 @@ function RequestDetailView({
   });
   const [procedureForm, setProcedureForm] = useState({ procedureTitle: "", referenceCode: "", description: "", isMandatory: true });
   const [topicForm, setTopicForm] = useState({ topicTitle: "", description: "", simulationGoal: "", scenarioCategory: "" });
+  const [executionForm, setExecutionForm] = useState({
+    executionDate: request.proposedStartDate
+      ? new Date(request.proposedStartDate).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
+    method: "field" as "field" | "classroom" | "workshop" | "other",
+    durationHours: "",
+    participantCount: String(request.participantCount ?? 1),
+    feedback: "",
+  });
 
   const createIncidentMutation = useMutation({
     mutationFn: (data: Partial<RequestIncident>) => trainingRequestsAPI.createIncident(request.id, data),
@@ -592,6 +601,24 @@ function RequestDetailView({
       toast.success("Tema agregado");
       onRefresh();
     },
+  });
+
+  const createExecutionMutation = useMutation({
+    mutationFn: () => trainingRequestsAPI.addExecution(request.id, {
+      executionDate: executionForm.executionDate,
+      method: executionForm.method,
+      durationHours: Number(executionForm.durationHours),
+      participantCount: Number(executionForm.participantCount),
+      feedback: executionForm.feedback.trim() || null,
+    }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["training-requests"] });
+      await queryClient.invalidateQueries({ queryKey: ["competency-dnc"] });
+      setExecutionForm((current) => ({ ...current, durationHours: "", feedback: "" }));
+      toast.success("Ejecución registrada y sumada al programa anual");
+      onRefresh();
+    },
+    onError: (error: Error) => toast.error(error.message || "No se pudo registrar la ejecución"),
   });
 
   const deleteIncidentMutation = useMutation({
@@ -730,6 +757,120 @@ function RequestDetailView({
           )}
         </CardContent>
       </Card>
+
+      {request.dncAssessmentId && request.annualProgramId && !request.simulatorScenarioId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ejecuciones de campo y aula</CardTitle>
+            <CardDescription>Registra las horas ejecutadas y participantes de cada sesión no simulada. Estas horas se suman una vez al programa anual.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {canEdit && ["approved", "completed"].includes(request.status) && (
+              <form
+                className="grid gap-4 rounded-lg border p-4 md:grid-cols-2 xl:grid-cols-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  createExecutionMutation.mutate();
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="execution-date">Fecha</Label>
+                  <Input
+                    id="execution-date"
+                    type="date"
+                    required
+                    value={executionForm.executionDate}
+                    onChange={(event) => setExecutionForm({ ...executionForm, executionDate: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="execution-method">Modalidad</Label>
+                  <Select
+                    value={executionForm.method}
+                    onValueChange={(value: "field" | "classroom" | "workshop" | "other") => setExecutionForm({ ...executionForm, method: value })}
+                  >
+                    <SelectTrigger id="execution-method"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="field">Práctica en campo</SelectItem>
+                      <SelectItem value="classroom">Aula</SelectItem>
+                      <SelectItem value="workshop">Taller</SelectItem>
+                      <SelectItem value="other">Otro método</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="execution-hours">Duración (horas)</Label>
+                  <Input
+                    id="execution-hours"
+                    type="number"
+                    min="0.01"
+                    max="500"
+                    step="0.01"
+                    required
+                    value={executionForm.durationHours}
+                    onChange={(event) => setExecutionForm({ ...executionForm, durationHours: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="execution-participants">Participantes</Label>
+                  <Input
+                    id="execution-participants"
+                    type="number"
+                    min="1"
+                    max="5000"
+                    step="1"
+                    required
+                    value={executionForm.participantCount}
+                    onChange={(event) => setExecutionForm({ ...executionForm, participantCount: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2 xl:col-span-1">
+                  <Label htmlFor="execution-feedback">Feedback</Label>
+                  <Textarea
+                    id="execution-feedback"
+                    maxLength={3000}
+                    rows={2}
+                    value={executionForm.feedback}
+                    onChange={(event) => setExecutionForm({ ...executionForm, feedback: event.target.value })}
+                    placeholder="Observaciones y comentarios de la sesión"
+                  />
+                </div>
+                <div className="md:col-span-2 xl:col-span-5">
+                  <Button type="submit" disabled={createExecutionMutation.isPending}>
+                    {createExecutionMutation.isPending ? "Guardando..." : "Registrar ejecución"}
+                  </Button>
+                </div>
+              </form>
+            )}
+            {request.executions?.length ? (
+              <div className="space-y-3">
+                {request.executions.map((execution: TrainingRequestExecution) => (
+                  <div key={execution.id} className="grid gap-2 rounded-lg border p-4 sm:grid-cols-[1fr_auto]">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{new Date(`${execution.executionDate}T00:00:00`).toLocaleDateString("es-MX")}</p>
+                        <Badge variant="outline">
+                          {execution.method === "field" ? "Práctica en campo" : execution.method === "classroom" ? "Aula" : execution.method === "workshop" ? "Taller" : "Otro método"}
+                        </Badge>
+                      </div>
+                      {execution.feedback && <p className="mt-2 text-sm text-muted-foreground">{execution.feedback}</p>}
+                    </div>
+                    <div className="text-sm text-muted-foreground sm:text-right">
+                      <p>{execution.durationHours.toFixed(2)} h</p>
+                      <p>{execution.participantCount} participantes</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Aún no hay ejecuciones registradas para esta solicitud.</p>
+            )}
+            {canEdit && !["approved", "completed"].includes(request.status) && (
+              <p className="text-sm text-muted-foreground">La ejecución se podrá registrar cuando la solicitud esté aprobada.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-4 gap-4">
         {[

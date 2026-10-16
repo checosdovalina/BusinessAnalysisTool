@@ -5,7 +5,7 @@ import {
   trainingReports, annualTrainingPrograms, trainingActivities, trainingDocuments, trainingActivityAuditEvents,
   improvementActions,
   companySettings, userPreferences,
-  trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
+  trainingRequests, trainingRequestExecutions, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
   evaluationTemplates, templateTopics, templateEvents,
   jobProfiles, competencies, jobProfileCompetencies, competencyAssessments,
   employeeJobProfiles,
@@ -29,6 +29,7 @@ import {
   type CompanySettings, type InsertCompanySettings,
   type UserPreferences, type InsertUserPreferences,
   type TrainingRequest, type InsertTrainingRequest,
+  type TrainingRequestExecution, type InsertTrainingRequestExecution,
   type RequestIncident, type InsertRequestIncident,
   type RequestRole, type InsertRequestRole,
   type RequestProcedure, type InsertRequestProcedure,
@@ -281,6 +282,12 @@ export interface IStorage {
   updateTrainingRequest(id: number, updates: Partial<InsertTrainingRequest>): Promise<TrainingRequest | undefined>;
 
   deleteTrainingRequest(id: number): Promise<void>;
+
+  getTrainingRequestExecutions(requestId: number): Promise<TrainingRequestExecution[]>;
+
+  getTrainingRequestExecutionsByCompany(companyId: number): Promise<TrainingRequestExecution[]>;
+
+  createTrainingRequestExecution(execution: InsertTrainingRequestExecution): Promise<TrainingRequestExecution>;
   
   // Request Incidents
 
@@ -1097,6 +1104,34 @@ export class DatabaseStorage implements IStorage {
     await db.delete(trainingRequests).where(eq(trainingRequests.id, id));
   }
 
+  async getTrainingRequestExecutions(requestId: number): Promise<TrainingRequestExecution[]> {
+    return db.select().from(trainingRequestExecutions)
+      .where(eq(trainingRequestExecutions.requestId, requestId))
+      .orderBy(desc(trainingRequestExecutions.executionDate), desc(trainingRequestExecutions.createdAt));
+  }
+
+  async getTrainingRequestExecutionsByCompany(companyId: number): Promise<TrainingRequestExecution[]> {
+    return db.select({
+      id: trainingRequestExecutions.id,
+      requestId: trainingRequestExecutions.requestId,
+      executionDate: trainingRequestExecutions.executionDate,
+      method: trainingRequestExecutions.method,
+      durationHours: trainingRequestExecutions.durationHours,
+      participantCount: trainingRequestExecutions.participantCount,
+      feedback: trainingRequestExecutions.feedback,
+      createdById: trainingRequestExecutions.createdById,
+      createdAt: trainingRequestExecutions.createdAt,
+    }).from(trainingRequestExecutions)
+      .innerJoin(trainingRequests, eq(trainingRequestExecutions.requestId, trainingRequests.id))
+      .where(eq(trainingRequests.companyId, companyId))
+      .orderBy(desc(trainingRequestExecutions.executionDate), desc(trainingRequestExecutions.createdAt));
+  }
+
+  async createTrainingRequestExecution(execution: InsertTrainingRequestExecution): Promise<TrainingRequestExecution> {
+    const [created] = await db.insert(trainingRequestExecutions).values(execution).returning();
+    return created;
+  }
+
   // Request Incidents
   async getRequestIncidents(requestId: number): Promise<RequestIncident[]> {
     return db.select().from(requestIncidents).where(eq(requestIncidents.requestId, requestId));
@@ -1440,7 +1475,16 @@ export class DatabaseStorage implements IStorage {
     const sessions = (await this.getSimulatorSessionsByCompany(program.companyId))
       .filter((session) => session.trainingRequestId !== null && requestIds.has(session.trainingRequestId));
     const completedSessions = sessions.filter((session) => session.endTime !== null);
-    const completedHours = completedSessions.reduce((total, session) => total + (session.duration ?? 0) / 3600, 0);
+    const executions = await db.select({
+      durationHours: trainingRequestExecutions.durationHours,
+    }).from(trainingRequestExecutions)
+      .innerJoin(trainingRequests, eq(trainingRequestExecutions.requestId, trainingRequests.id))
+      .where(and(
+        eq(trainingRequests.companyId, program.companyId),
+        eq(trainingRequests.annualProgramId, programId),
+      ));
+    const executionHours = executions.reduce((total, execution) => total + execution.durationHours, 0);
+    const completedHours = completedSessions.reduce((total, session) => total + (session.duration ?? 0) / 3600, 0) + executionHours;
     const completedRequests = programRequests.filter((request) => request.status === "completed").length;
     const progressPercentage = programRequests.length
       ? Math.round((completedRequests / programRequests.length) * 100)
@@ -1448,7 +1492,7 @@ export class DatabaseStorage implements IStorage {
     const isCompleted = programRequests.length > 0 && completedRequests === programRequests.length;
     return this.updateAnnualTrainingProgram(programId, {
       completedHours: Math.round(completedHours * 100) / 100,
-      completedSessions: completedSessions.length,
+      completedSessions: completedSessions.length + executions.length,
       progressPercentage,
       isCompleted,
       completedAt: isCompleted ? (program.completedAt ?? new Date()) : null,

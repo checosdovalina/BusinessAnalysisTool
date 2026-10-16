@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, EmployeeJobProfile, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent, ImprovementAction } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, TrainingRequestExecution, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, EmployeeJobProfile, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent, ImprovementAction } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -261,6 +261,7 @@ export interface TrainingRequestFull extends TrainingRequest {
   procedures: RequestProcedure[];
   topics: RequestTopic[];
   recipients: RequestRecipient[];
+  executions: TrainingRequestExecution[];
 }
 
 // Training Requests API
@@ -268,6 +269,16 @@ export const trainingRequestsAPI = {
   getByCompany: (companyId: number) => fetcher<TrainingRequest[]>(`/training-requests/company/${companyId}`),
   getById: (id: number) => fetcher<TrainingRequest>(`/training-requests/${id}`),
   getFull: (id: number) => fetcher<TrainingRequestFull>(`/training-requests/${id}/full`),
+  addExecution: (id: number, data: {
+    executionDate: string;
+    method: "field" | "classroom" | "workshop" | "other";
+    durationHours: number;
+    participantCount: number;
+    feedback?: string | null;
+  }) => fetcher<TrainingRequestExecution>(`/training-requests/${id}/executions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
   create: (data: Partial<TrainingRequest>) => fetcher<TrainingRequest>("/training-requests", {
     method: "POST",
     body: JSON.stringify(data),
@@ -394,6 +405,7 @@ export interface CompetencyDncData {
   profileCompetencies: JobProfileCompetency[];
   assessments: CompetencyAssessment[];
   requests: TrainingRequest[];
+  executions: TrainingRequestExecution[];
   employees: Pick<User, "id" | "name" | "email" | "role">[];
   assignments: EmployeeJobProfile[];
   sessions: SimulatorSession[];
