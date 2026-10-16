@@ -1643,6 +1643,496 @@ export async function registerRoutes(
     }
   });
 
+  // ============= ANNUAL TRAINING CYCLE =============
+  const trainingManagers = ["admin", "super_admin", "trainer"];
+  const activityTypes = ["course", "simulator", "field", "workshop", "briefing", "other"] as const;
+  const activityStatuses = ["planned", "scheduled", "in_progress", "cancelled"] as const;
+
+  app.get("/api/training-program/company/:companyId", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const companyId = Number(req.params.companyId);
+      const year = Number(req.query.year ?? new Date().getFullYear());
+      if (!Number.isInteger(companyId) || companyId <= 0 || !Number.isInteger(year) || year < 2000 || year > 2200) {
+        return res.status(400).json({ error: "Empresa o año inválido" });
+      }
+      if (!hasCompanyAccess(req, companyId)) return res.status(403).json({ error: "No tienes acceso a esta empresa" });
+
+      const [programs, allActivities, allDocuments, allAuditEvents, users, requests, assessments, cycles, sessions, scenarios] = await Promise.all([
+        storage.getAnnualTrainingProgramsByCompany(companyId, year),
+        storage.getTrainingActivitiesByCompany(companyId),
+        storage.getTrainingDocumentsByCompany(companyId),
+        storage.getTrainingActivityAuditByCompany(companyId),
+        storage.getUsersByCompany(companyId),
+        storage.getTrainingRequestsByCompany(companyId),
+        storage.getCompetencyAssessmentsByCompany(companyId),
+        storage.getCyclesByCompany(companyId),
+        storage.getSimulatorSessionsByCompany(companyId),
+        storage.getSimulatorScenariosByCompany(companyId),
+      ]);
+      const programIds = new Set(programs.map((program) => program.id));
+      const activities = allActivities.filter((activity) => programIds.has(activity.annualProgramId));
+      const activityIds = new Set(activities.map((activity) => activity.id));
+      const documents = allDocuments.filter((document) => activityIds.has(document.activityId));
+      const auditEvents = allAuditEvents.filter((event) => activityIds.has(event.activityId));
+      const yearActivities = activities;
+      const closed = yearActivities.filter((activity) => activity.status === "completed");
+      const completed = closed.filter((activity) => activity.attendanceStatus === "present");
+      const evaluated = completed.filter((activity) => activity.outcome === "pass" || activity.outcome === "fail");
+      const eligibleActivities = yearActivities.filter((activity) => activity.status !== "cancelled");
+      const today = new Date().toISOString().slice(0, 10);
+      const next30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const metrics = {
+        programCount: programs.length,
+        activityCount: yearActivities.length,
+        plannedActivities: yearActivities.filter((activity) => activity.status !== "completed" && activity.status !== "cancelled").length,
+        completedActivities: completed.length,
+        completionRate: eligibleActivities.length ? Math.round(completed.length / eligibleActivities.length * 100) : 0,
+        passRate: evaluated.length ? Math.round(evaluated.filter((activity) => activity.outcome === "pass").length / evaluated.length * 100) : 0,
+        attendanceRate: closed.length ? Math.round(completed.length / closed.length * 100) : 0,
+        plannedHours: yearActivities.filter((activity) => activity.status !== "cancelled").reduce((sum, activity) => sum + Number(activity.plannedHours || 0), 0),
+        completedHours: closed.reduce((sum, activity) => sum + Number(activity.completedHours || 0), 0),
+        overdueActivities: yearActivities.filter((activity) =>
+          activity.status !== "completed" && activity.status !== "cancelled" &&
+          (activity.plannedEnd ?? activity.plannedStart) &&
+          new Date(activity.plannedEnd ?? activity.plannedStart!).getTime() < Date.now()
+        ).length,
+        retrainingActivities: yearActivities.filter((activity) => activity.attemptNumber > 1).length,
+        pendingReassessments: yearActivities.filter((activity) => activity.reassessmentRequired).length,
+        documentsExpiringSoon: documents.filter((document) => {
+          if (!document.expiresAt) return false;
+          return document.expiresAt >= today && document.expiresAt <= next30Days;
+        }).length,
+        expiredDocuments: documents.filter((document) => document.expiresAt && document.expiresAt < today).length,
+      };
+      const programsWithProgress = programs.map((program) => {
+        const programActivities = yearActivities.filter((activity) => activity.annualProgramId === program.id);
+        const done = programActivities.filter((activity) => activity.status === "completed" && activity.attendanceStatus === "present");
+        const hours = done.reduce((sum, activity) => sum + Number(activity.completedHours || 0), 0);
+        const targetHours = Number(program.targetHours || 0);
+        return {
+          ...program,
+          completedHours: hours,
+          completedSessions: done.length,
+          progressPercentage: targetHours > 0 ? Math.min(100, Math.round(hours / targetHours * 100)) : 0,
+          student: users.find((user) => user.id === program.studentId)
+            ? (({ id, name, email, role }) => ({ id, name, email, role }))(users.find((user) => user.id === program.studentId)!)
+            : null,
+        };
+      });
+      res.json({
+        year,
+        programs: programsWithProgress,
+        activities,
+        documents,
+        auditEvents,
+        auditActors: Object.fromEntries(users.map(({ id, name }) => [id, name])),
+        employees: users.filter((user) => user.role === "student").map(({ id, name, email, role }) => ({ id, name, email, role })),
+        cycles: cycles.map(({ id, title, studentId, startDate, type, status }) => ({ id, title, studentId, startDate, type, status })),
+        simulatorSessions: sessions.map(({ id, scenarioId, studentId, score, startTime, endTime, duration }) => ({
+          id,
+          scenarioId,
+          studentId,
+          score,
+          startTime,
+          endTime,
+          duration,
+          scenarioTitle: scenarios.find((scenario) => scenario.id === scenarioId)?.title ?? `Escenario #${scenarioId}`,
+        })),
+        approvedRequests: requests.filter((request) => request.status === "approved"),
+        assessments,
+        metrics,
+      });
+    } catch (error) {
+      console.error("Error al consultar el programa anual:", error);
+      res.status(500).json({ error: "No se pudo cargar el programa anual" });
+    }
+  });
+
+  app.post("/api/annual-training-programs", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        studentId: z.number().int().positive(),
+        year: z.number().int().min(2000).max(2200),
+        targetHours: z.number().min(0).max(5000).optional(),
+        targetSessions: z.number().int().min(0).max(500).optional(),
+      }).parse(req.body);
+      const student = await storage.getUser(body.studentId);
+      if (!student || !hasCompanyAccess(req, student.companyId)) return res.status(403).json({ error: "El operador no pertenece a la empresa autorizada" });
+      if (student.role !== "student") return res.status(400).json({ error: "Selecciona una cuenta de operador" });
+      const existing = await storage.getAnnualTrainingProgramByStudent(body.studentId, body.year);
+      if (existing) {
+        if (existing.companyId !== student.companyId) return res.status(403).json({ error: "El programa no pertenece a la empresa autorizada" });
+        const updated = await storage.updateAnnualTrainingProgram(existing.id, {
+          targetHours: body.targetHours ?? existing.targetHours,
+          targetSessions: body.targetSessions ?? existing.targetSessions,
+        });
+        return res.json(updated);
+      }
+      const settings = await storage.getCompanySettings(student.companyId);
+      const program = await storage.createAnnualTrainingProgram({
+        companyId: student.companyId,
+        studentId: student.id,
+        year: body.year,
+        targetHours: body.targetHours ?? settings?.defaultTrainingHoursPerYear ?? 40,
+        targetSessions: body.targetSessions ?? settings?.defaultSessionsPerYear ?? 12,
+      });
+      res.status(201).json(program);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo crear el programa anual" });
+    }
+  });
+
+  app.post("/api/training-activities", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const body = z.object({
+        studentId: z.number().int().positive(),
+        trainerId: z.number().int().positive().nullable().optional(),
+        year: z.number().int().min(2000).max(2200),
+        requestId: z.number().int().positive().nullable().optional(),
+        dncAssessmentId: z.number().int().positive().nullable().optional(),
+        cycleId: z.number().int().positive().nullable().optional(),
+        simulatorSessionId: z.number().int().positive().nullable().optional(),
+        title: z.string().trim().min(2).max(180),
+        objective: z.string().trim().max(2000).nullable().optional(),
+        trainingType: z.enum(activityTypes).default("course"),
+        plannedStart: z.string().datetime().nullable().optional(),
+        plannedEnd: z.string().datetime().nullable().optional(),
+        plannedHours: z.number().min(0).max(500).default(0),
+        evidence: z.string().trim().max(2000).nullable().optional(),
+      }).parse(req.body);
+      const student = await storage.getUser(body.studentId);
+      if (!student || !hasCompanyAccess(req, student.companyId)) return res.status(403).json({ error: "El operador no pertenece a la empresa autorizada" });
+      if (student.role !== "student") return res.status(400).json({ error: "Selecciona una cuenta de operador" });
+
+      if (body.trainerId) {
+        const trainer = await storage.getUser(body.trainerId);
+        if (!trainer || trainer.companyId !== student.companyId || !["admin", "super_admin", "trainer"].includes(trainer.role)) {
+          return res.status(400).json({ error: "El instructor debe pertenecer a la empresa" });
+        }
+      }
+      if (body.plannedStart && body.plannedEnd && new Date(body.plannedEnd) < new Date(body.plannedStart)) {
+        return res.status(400).json({ error: "La fecha final no puede ser anterior a la fecha de inicio" });
+      }
+      if (body.requestId) {
+        const request = await storage.getTrainingRequest(body.requestId);
+        if (!request || request.companyId !== student.companyId || request.status !== "approved") {
+          return res.status(400).json({ error: "Solo se pueden programar solicitudes aprobadas de esta empresa" });
+        }
+      }
+      if (body.dncAssessmentId) {
+        const assessment = (await storage.getCompetencyAssessmentsByCompany(student.companyId))
+          .find((item) => item.id === body.dncAssessmentId);
+        if (!assessment || assessment.employeeId !== student.id) {
+          return res.status(400).json({ error: "La brecha DNC debe corresponder al operador seleccionado" });
+        }
+      }
+      if (body.cycleId) {
+        const cycle = await storage.getCycle(body.cycleId);
+        if (!cycle || cycle.companyId !== student.companyId || cycle.studentId !== student.id) {
+          return res.status(400).json({ error: "El ciclo debe pertenecer al operador seleccionado" });
+        }
+      }
+      if (body.simulatorSessionId) {
+        const session = await storage.getSimulatorSession(body.simulatorSessionId);
+        if (!session || session.companyId !== student.companyId || session.studentId !== student.id || !session.endTime) {
+          return res.status(400).json({ error: "Selecciona una sesión de simulador concluida del operador" });
+        }
+      }
+
+      let program = await storage.getAnnualTrainingProgramByStudent(student.id, body.year);
+      if (program && program.companyId !== student.companyId) return res.status(403).json({ error: "El programa no pertenece a la empresa autorizada" });
+      if (!program) {
+        const settings = await storage.getCompanySettings(student.companyId);
+        program = await storage.createAnnualTrainingProgram({
+          companyId: student.companyId,
+          studentId: student.id,
+          year: body.year,
+          targetHours: settings?.defaultTrainingHoursPerYear ?? 40,
+          targetSessions: settings?.defaultSessionsPerYear ?? 12,
+        });
+      }
+      const activity = await storage.createTrainingActivity({
+        companyId: student.companyId,
+        annualProgramId: program.id,
+        studentId: student.id,
+        trainerId: body.trainerId ?? null,
+        requestId: body.requestId ?? null,
+        dncAssessmentId: body.dncAssessmentId ?? null,
+        cycleId: body.cycleId ?? null,
+        simulatorSessionId: body.simulatorSessionId ?? null,
+        repeatedFromId: null,
+        attemptNumber: 1,
+        repetitionReason: null,
+        title: body.title,
+        objective: body.objective ?? null,
+        trainingType: body.trainingType,
+        status: body.plannedStart ? "scheduled" : "planned",
+        outcome: null,
+        attendanceStatus: null,
+        plannedStart: body.plannedStart ? new Date(body.plannedStart) : null,
+        plannedEnd: body.plannedEnd ? new Date(body.plannedEnd) : null,
+        plannedHours: body.plannedHours,
+        completedHours: 0,
+        score: null,
+        feedback: null,
+        evidence: body.evidence ?? null,
+        reassessmentRequired: false,
+        completedAt: null,
+        createdById: req.user!.id,
+      }, { actorId: req.user!.id, action: "activity_created", details: `Tipo: ${body.trainingType}; año: ${body.year}` });
+      res.status(201).json(activity);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo agregar la actividad al programa" });
+    }
+  });
+
+  app.patch("/api/training-activities/:id", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const existing = await storage.getTrainingActivity(id);
+      if (!existing) return res.status(404).json({ error: "Actividad no encontrada" });
+      if (!hasCompanyAccess(req, existing.companyId)) return res.status(403).json({ error: "No tienes acceso a esta actividad" });
+      if (existing.status === "completed") return res.status(409).json({ error: "Una actividad concluida no se puede editar; conserva la trazabilidad del resultado" });
+      const body = z.object({
+        trainerId: z.number().int().positive().nullable().optional(),
+        title: z.string().trim().min(2).max(180).optional(),
+        objective: z.string().trim().max(2000).nullable().optional(),
+        trainingType: z.enum(activityTypes).optional(),
+        status: z.enum(activityStatuses).optional(),
+        plannedStart: z.string().datetime().nullable().optional(),
+        plannedEnd: z.string().datetime().nullable().optional(),
+        plannedHours: z.number().min(0).max(500).optional(),
+        evidence: z.string().trim().max(2000).nullable().optional(),
+      }).strict().parse(req.body);
+      if (body.trainerId) {
+        const trainer = await storage.getUser(body.trainerId);
+        if (!trainer || trainer.companyId !== existing.companyId || !["admin", "super_admin", "trainer"].includes(trainer.role)) {
+          return res.status(400).json({ error: "El instructor debe pertenecer a la empresa" });
+        }
+      }
+      const start = body.plannedStart === undefined ? existing.plannedStart : body.plannedStart ? new Date(body.plannedStart) : null;
+      const end = body.plannedEnd === undefined ? existing.plannedEnd : body.plannedEnd ? new Date(body.plannedEnd) : null;
+      if (start && end && end < start) return res.status(400).json({ error: "La fecha final no puede ser anterior a la fecha de inicio" });
+      const updated = await storage.updateTrainingActivity(id, {
+        ...body,
+        plannedStart: body.plannedStart === undefined ? undefined : start,
+        plannedEnd: body.plannedEnd === undefined ? undefined : end,
+      }, { actorId: req.user!.id, action: "activity_updated", details: `Campos actualizados: ${Object.keys(body).join(", ")}` });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo actualizar la actividad" });
+    }
+  });
+
+  app.post("/api/training-activities/:id/complete", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      const activity = await storage.getTrainingActivity(id);
+      if (!activity) return res.status(404).json({ error: "Actividad no encontrada" });
+      if (!hasCompanyAccess(req, activity.companyId)) return res.status(403).json({ error: "No tienes acceso a esta actividad" });
+      if (activity.status === "completed") return res.status(409).json({ error: "La actividad ya fue concluida" });
+      const body = z.object({
+        attendanceStatus: z.enum(["present", "absent", "excused"]),
+        outcome: z.enum(["pass", "fail", "not_applicable"]),
+        completedHours: z.number().min(0).max(500),
+        score: z.number().min(0).max(100).nullable().optional(),
+        feedback: z.string().trim().max(3000).nullable().optional(),
+        evidence: z.string().trim().max(2000).nullable().optional(),
+      }).parse(req.body);
+      if (body.attendanceStatus !== "present" && body.outcome !== "not_applicable") {
+        return res.status(400).json({ error: "Un resultado aprobatorio o no aprobatorio requiere asistencia registrada" });
+      }
+      if (body.attendanceStatus !== "present" && body.completedHours > 0) {
+        return res.status(400).json({ error: "No se pueden registrar horas completadas si la persona no asistió" });
+      }
+      if (body.outcome === "not_applicable" && body.score != null) {
+        return res.status(400).json({ error: "No registres calificación cuando el resultado no aplica" });
+      }
+
+      const shouldRepeat = body.outcome === "fail" || body.attendanceStatus === "absent";
+      const reason = body.outcome === "fail" ? "Reentrenamiento por resultado no aprobatorio" : "Reprogramación por inasistencia";
+      const retry = shouldRepeat ? {
+        companyId: activity.companyId,
+        annualProgramId: activity.annualProgramId,
+        studentId: activity.studentId,
+        trainerId: activity.trainerId,
+        requestId: activity.requestId,
+        dncAssessmentId: activity.dncAssessmentId,
+        cycleId: activity.cycleId,
+        simulatorSessionId: null,
+        repeatedFromId: activity.id,
+        attemptNumber: activity.attemptNumber + 1,
+        repetitionReason: reason,
+        title: `${activity.title} — ${body.outcome === "fail" ? "Reentrenamiento" : "Reprogramación"} ${activity.attemptNumber + 1}`,
+        objective: activity.objective,
+        trainingType: activity.trainingType,
+        status: "planned",
+        outcome: null,
+        attendanceStatus: null,
+        plannedStart: null,
+        plannedEnd: null,
+        plannedHours: activity.plannedHours,
+        completedHours: 0,
+        score: null,
+        feedback: null,
+        evidence: null,
+        reassessmentRequired: false,
+        completedAt: null,
+        createdById: req.user!.id,
+      } : null;
+      const result = await storage.completeTrainingActivity(id, {
+        status: "completed",
+        outcome: body.outcome,
+        attendanceStatus: body.attendanceStatus,
+        completedHours: body.completedHours,
+        score: body.score ?? null,
+        feedback: body.feedback ?? null,
+        evidence: body.evidence ?? activity.evidence,
+        reassessmentRequired: body.outcome === "pass" && !!activity.dncAssessmentId,
+        completedAt: new Date(),
+      }, retry, {
+        actorId: req.user!.id,
+        action: "activity_completed",
+        details: `Asistencia: ${body.attendanceStatus}; resultado: ${body.outcome}; horas: ${body.completedHours}`,
+      });
+      if (activity.requestId) {
+        const related = (await storage.getTrainingActivitiesByCompany(activity.companyId))
+          .filter((item) => item.requestId === activity.requestId);
+        if (related.length > 0 && related.every((item) => item.status === "completed")) {
+          await storage.updateTrainingRequest(activity.requestId, { status: "completed" });
+        }
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo cerrar la actividad" });
+    }
+  });
+
+  app.post("/api/training-activities/:id/reassess", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const activity = await storage.getTrainingActivity(Number(req.params.id));
+      if (!activity) return res.status(404).json({ error: "Actividad no encontrada" });
+      if (!hasCompanyAccess(req, activity.companyId)) return res.status(403).json({ error: "No tienes acceso a esta actividad" });
+      if (!activity.reassessmentRequired || !activity.dncAssessmentId) {
+        return res.status(409).json({ error: "Esta actividad no tiene una reevaluación DNC pendiente" });
+      }
+      const body = z.object({
+        currentLevel: z.number().int().min(0).max(5),
+        evidence: z.string().trim().max(1500).nullable().optional(),
+        observations: z.string().trim().max(1500).nullable().optional(),
+      }).parse(req.body);
+      const assessments = await storage.getCompetencyAssessmentsByCompany(activity.companyId);
+      const original = assessments.find((item) => item.id === activity.dncAssessmentId);
+      if (!original || original.employeeId !== activity.studentId) return res.status(400).json({ error: "No se encontró la evaluación DNC original del operador" });
+      const currentLink = (await storage.getJobProfileCompetenciesByCompany(activity.companyId))
+        .find((link) => link.profileId === original.profileId && link.competencyId === original.competencyId);
+      if (!currentLink) return res.status(400).json({ error: "La competencia ya no está configurada para este perfil" });
+      const needsMoreTraining = body.currentLevel < currentLink.requiredLevel;
+      const nextAttempt = activity.attemptNumber + 1;
+      const retry = needsMoreTraining ? {
+        companyId: activity.companyId,
+        annualProgramId: activity.annualProgramId,
+        studentId: activity.studentId,
+        trainerId: activity.trainerId,
+        requestId: activity.requestId,
+        dncAssessmentId: null,
+        reassessmentId: null,
+        cycleId: activity.cycleId,
+        simulatorSessionId: null,
+        repeatedFromId: activity.id,
+        attemptNumber: nextAttempt,
+        repetitionReason: `La reevaluación DNC registró nivel ${body.currentLevel}/5; se requiere ${currentLink.requiredLevel}/5`,
+        title: `${activity.title} — Reentrenamiento ${nextAttempt}`,
+        objective: activity.objective,
+        trainingType: activity.trainingType,
+        status: "planned",
+        outcome: null,
+        attendanceStatus: null,
+        plannedStart: null,
+        plannedEnd: null,
+        plannedHours: activity.plannedHours,
+        completedHours: 0,
+        score: null,
+        feedback: null,
+        evidence: null,
+        reassessmentRequired: false,
+        completedAt: null,
+        createdById: req.user!.id,
+      } : null;
+      const result = await storage.recordTrainingReassessment(
+        activity.id,
+        {
+          companyId: activity.companyId,
+          profileId: original.profileId,
+          competencyId: original.competencyId,
+          employeeId: activity.studentId,
+          requiredLevel: currentLink.requiredLevel,
+          currentLevel: body.currentLevel,
+          evidence: body.evidence ?? null,
+          observations: body.observations ?? null,
+          assessedById: req.user!.id,
+        },
+        {},
+        retry,
+        { actorId: req.user!.id, action: "dnc_reassessed", details: `Nivel ${body.currentLevel}/${currentLink.requiredLevel}` },
+      );
+      res.status(201).json(result);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar la reevaluación" });
+    }
+  });
+
+  app.post("/api/training-activities/:id/documents", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const activityId = Number(req.params.id);
+      const activity = await storage.getTrainingActivity(activityId);
+      if (!activity) return res.status(404).json({ error: "Actividad no encontrada" });
+      if (!hasCompanyAccess(req, activity.companyId)) return res.status(403).json({ error: "No tienes acceso a esta actividad" });
+      const body = z.object({
+        title: z.string().trim().min(2).max(180),
+        documentType: z.enum(["attendance", "certificate", "evaluation", "material", "feedback", "other"]).default("other"),
+        documentUrl: z.string().url().max(1500).refine((value) => value.startsWith("https://"), "El enlace del documento debe usar HTTPS"),
+        revision: z.string().trim().min(1).max(40).default("1"),
+        documentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+          const parsed = new Date(`${value}T00:00:00.000Z`);
+          return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+        }, "Fecha inválida").nullable().optional(),
+        expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+          const parsed = new Date(`${value}T00:00:00.000Z`);
+          return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+        }, "Fecha inválida").nullable().optional(),
+        notes: z.string().trim().max(1500).nullable().optional(),
+      }).parse(req.body);
+      const document = await storage.createTrainingDocument({
+        companyId: activity.companyId,
+        activityId,
+        title: body.title,
+        documentType: body.documentType,
+        documentUrl: body.documentUrl,
+        revision: body.revision,
+        documentDate: body.documentDate ?? null,
+        expiresAt: body.expiresAt ?? null,
+        notes: body.notes ?? null,
+        createdById: req.user!.id,
+      }, { actorId: req.user!.id, action: "document_registered", details: `${body.title} (rev. ${body.revision})` });
+      res.status(201).json(document);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo registrar el documento" });
+    }
+  });
+
+  app.delete("/api/training-documents/:id", authenticateToken, authorizeRoles(...trainingManagers), async (req: AuthenticatedRequest, res) => {
+    try {
+      const document = await storage.getTrainingDocument(Number(req.params.id));
+      if (!document) return res.status(404).json({ error: "Documento no encontrado" });
+      if (!hasCompanyAccess(req, document.companyId)) return res.status(403).json({ error: "No tienes acceso a este documento" });
+      await storage.deleteTrainingDocument(document.id, { actorId: req.user!.id, action: "document_deleted" });
+      res.status(204).send();
+    } catch {
+      res.status(500).json({ error: "No se pudo eliminar el documento" });
+    }
+  });
+
   app.get("/api/training-requests/company/:companyId", authenticateToken, authorizeRoles("admin", "super_admin", "trainer"), async (req: AuthenticatedRequest, res) => {
     try {
       const companyId = parseInt(req.params.companyId);

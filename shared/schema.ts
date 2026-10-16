@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, integer, boolean, pgEnum, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, date, integer, boolean, pgEnum, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -553,6 +553,96 @@ export const insertAnnualTrainingProgramSchema = createInsertSchema(annualTraini
 export type InsertAnnualTrainingProgram = z.infer<typeof insertAnnualTrainingProgramSchema>;
 export type AnnualTrainingProgram = typeof annualTrainingPrograms.$inferSelect;
 
+// Annual training activities connect DNC needs and approved requests to execution.
+export const trainingActivities = pgTable("training_activities", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  annualProgramId: integer("annual_program_id").notNull().references(() => annualTrainingPrograms.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => users.id),
+  trainerId: integer("trainer_id").references(() => users.id),
+  requestId: integer("request_id").references(() => trainingRequests.id, { onDelete: "set null" }),
+  dncAssessmentId: integer("dnc_assessment_id").references(() => competencyAssessments.id, { onDelete: "set null" }),
+  reassessmentId: integer("reassessment_id").references(() => competencyAssessments.id, { onDelete: "set null" }),
+  cycleId: integer("cycle_id").references(() => cycles.id, { onDelete: "set null" }),
+  simulatorSessionId: integer("simulator_session_id").references(() => simulatorSessions.id, { onDelete: "set null" }),
+  repeatedFromId: integer("repeated_from_id").references((): any => trainingActivities.id, { onDelete: "set null" }),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  repetitionReason: text("repetition_reason"),
+  title: text("title").notNull(),
+  objective: text("objective"),
+  trainingType: text("training_type").notNull().default("course"),
+  status: text("status").notNull().default("planned"),
+  outcome: text("outcome"),
+  attendanceStatus: text("attendance_status"),
+  plannedStart: timestamp("planned_start"),
+  plannedEnd: timestamp("planned_end"),
+  plannedHours: real("planned_hours").notNull().default(0),
+  completedHours: real("completed_hours").notNull().default(0),
+  score: real("score"),
+  feedback: text("feedback"),
+  evidence: text("evidence"),
+  reassessmentRequired: boolean("reassessment_required").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  companyProgramIdx: index("training_activities_company_program_idx").on(table.companyId, table.annualProgramId),
+  requestIdx: index("training_activities_request_idx").on(table.requestId),
+  dncIdx: index("training_activities_dnc_idx").on(table.dncAssessmentId),
+  plannedStartIdx: index("training_activities_planned_start_idx").on(table.plannedStart),
+}));
+
+export const insertTrainingActivitySchema = createInsertSchema(trainingActivities).omit({
+  id: true, createdAt: true, updatedAt: true,
+}).extend({
+  plannedStart: z.union([z.date(), z.string(), z.null()]).optional().transform((value) => value && typeof value === "string" ? new Date(value) : value),
+  plannedEnd: z.union([z.date(), z.string(), z.null()]).optional().transform((value) => value && typeof value === "string" ? new Date(value) : value),
+  completedAt: z.union([z.date(), z.string(), z.null()]).optional().transform((value) => value && typeof value === "string" ? new Date(value) : value),
+});
+export type InsertTrainingActivity = typeof trainingActivities.$inferInsert;
+export type TrainingActivity = typeof trainingActivities.$inferSelect;
+
+// Document register captures controlled evidence and revision metadata; files stay in the linked storage.
+export const trainingDocuments = pgTable("training_documents", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  activityId: integer("activity_id").notNull().references(() => trainingActivities.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  documentType: text("document_type").notNull().default("other"),
+  documentUrl: text("document_url").notNull(),
+  revision: text("revision").notNull().default("1"),
+  documentDate: date("document_date", { mode: "string" }),
+  expiresAt: date("expires_at", { mode: "string" }),
+  notes: text("notes"),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  activityIdx: index("training_documents_activity_idx").on(table.activityId),
+  expiryIdx: index("training_documents_expiry_idx").on(table.expiresAt),
+}));
+
+export const insertTrainingDocumentSchema = createInsertSchema(trainingDocuments).omit({ id: true, createdAt: true });
+export type InsertTrainingDocument = typeof trainingDocuments.$inferInsert;
+export type TrainingDocument = typeof trainingDocuments.$inferSelect;
+
+export const trainingActivityAuditEvents = pgTable("training_activity_audit_events", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  activityId: integer("activity_id").notNull().references(() => trainingActivities.id, { onDelete: "cascade" }),
+  actorId: integer("actor_id").notNull().references(() => users.id),
+  action: text("action").notNull(),
+  details: text("details"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  companyCreatedIdx: index("training_activity_audit_company_created_idx").on(table.companyId, table.createdAt),
+  activityIdx: index("training_activity_audit_activity_idx").on(table.activityId),
+}));
+
+export const insertTrainingActivityAuditEventSchema = createInsertSchema(trainingActivityAuditEvents).omit({ id: true, createdAt: true });
+export type InsertTrainingActivityAuditEvent = typeof trainingActivityAuditEvents.$inferInsert;
+export type TrainingActivityAuditEvent = typeof trainingActivityAuditEvents.$inferSelect;
+
 // Relations for Reports Module
 export const trainingReportsRelations = relations(trainingReports, ({ one }) => ({
   cycle: one(cycles, {
@@ -589,6 +679,22 @@ export const annualTrainingProgramsRelations = relations(annualTrainingPrograms,
     fields: [annualTrainingPrograms.companyId],
     references: [companies.id],
   }),
+}));
+
+export const trainingActivitiesRelations = relations(trainingActivities, ({ one, many }) => ({
+  company: one(companies, { fields: [trainingActivities.companyId], references: [companies.id] }),
+  program: one(annualTrainingPrograms, { fields: [trainingActivities.annualProgramId], references: [annualTrainingPrograms.id] }),
+  student: one(users, { fields: [trainingActivities.studentId], references: [users.id], relationName: "trainingActivityStudent" }),
+  trainer: one(users, { fields: [trainingActivities.trainerId], references: [users.id], relationName: "trainingActivityTrainer" }),
+  request: one(trainingRequests, { fields: [trainingActivities.requestId], references: [trainingRequests.id] }),
+  dncAssessment: one(competencyAssessments, { fields: [trainingActivities.dncAssessmentId], references: [competencyAssessments.id] }),
+  documents: many(trainingDocuments),
+}));
+
+export const trainingDocumentsRelations = relations(trainingDocuments, ({ one }) => ({
+  company: one(companies, { fields: [trainingDocuments.companyId], references: [companies.id] }),
+  activity: one(trainingActivities, { fields: [trainingDocuments.activityId], references: [trainingActivities.id] }),
+  createdBy: one(users, { fields: [trainingDocuments.createdById], references: [users.id] }),
 }));
 
 // ============================================

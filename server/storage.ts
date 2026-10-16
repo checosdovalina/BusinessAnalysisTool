@@ -2,7 +2,7 @@ import {
   users, companies, cycles, events, simulatorScenarios, simulatorSessions,
   scenarioSteps, sessionStepResults,
   evaluationTopics, evaluationTopicItems, cycleTopicItems,
-  trainingReports, annualTrainingPrograms,
+  trainingReports, annualTrainingPrograms, trainingActivities, trainingDocuments, trainingActivityAuditEvents,
   companySettings, userPreferences,
   trainingRequests, requestIncidents, requestRoles, requestProcedures, requestTopics, requestRecipients,
   evaluationTemplates, templateTopics, templateEvents,
@@ -20,6 +20,9 @@ import {
   type CycleTopicItem, type InsertCycleTopicItem,
   type TrainingReport, type InsertTrainingReport,
   type AnnualTrainingProgram, type InsertAnnualTrainingProgram,
+  type TrainingActivity, type InsertTrainingActivity,
+  type TrainingDocument, type InsertTrainingDocument,
+  type TrainingActivityAuditEvent,
   type CompanySettings, type InsertCompanySettings,
   type UserPreferences, type InsertUserPreferences,
   type TrainingRequest, type InsertTrainingRequest,
@@ -37,7 +40,7 @@ import {
   type CompetencyAssessment, type InsertCompetencyAssessment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc, or } from "drizzle-orm";
+import { eq, and, desc, isNull, asc, or, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -138,6 +141,18 @@ export interface IStorage {
   getAnnualTrainingProgramByStudent(studentId: number, year: number): Promise<AnnualTrainingProgram | undefined>;
   createAnnualTrainingProgram(program: InsertAnnualTrainingProgram): Promise<AnnualTrainingProgram>;
   updateAnnualTrainingProgram(id: number, updates: Partial<InsertAnnualTrainingProgram>): Promise<AnnualTrainingProgram | undefined>;
+
+  // Annual training execution and controlled documents
+  getTrainingActivitiesByCompany(companyId: number): Promise<TrainingActivity[]>;
+  getTrainingActivity(id: number): Promise<TrainingActivity | undefined>;
+  createTrainingActivity(activity: InsertTrainingActivity, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingActivity>;
+  updateTrainingActivity(id: number, updates: Partial<InsertTrainingActivity>, audit?: { actorId: number; action: string; details?: string | null }): Promise<TrainingActivity | undefined>;
+  completeTrainingActivity(id: number, updates: Partial<InsertTrainingActivity>, retry: InsertTrainingActivity | null, audit: { actorId: number; action: string; details?: string | null }): Promise<{ activity: TrainingActivity; retry?: TrainingActivity }>;
+  getTrainingDocumentsByCompany(companyId: number): Promise<TrainingDocument[]>;
+  getTrainingDocument(id: number): Promise<TrainingDocument | undefined>;
+  createTrainingDocument(document: InsertTrainingDocument, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingDocument>;
+  deleteTrainingDocument(id: number, audit: { actorId: number; action: string }): Promise<void>;
+  getTrainingActivityAuditByCompany(companyId: number): Promise<TrainingActivityAuditEvent[]>;
   
   // Company Settings
   getCompanySettings(companyId: number): Promise<CompanySettings | undefined>;
@@ -222,6 +237,13 @@ export interface IStorage {
   deleteJobProfileCompetency(id: number): Promise<void>;
   getCompetencyAssessmentsByCompany(companyId: number): Promise<CompetencyAssessment[]>;
   createCompetencyAssessment(assessment: InsertCompetencyAssessment & { assessedById: number }): Promise<CompetencyAssessment>;
+  recordTrainingReassessment(
+    activityId: number,
+    assessment: InsertCompetencyAssessment & { assessedById: number },
+    updates: Partial<InsertTrainingActivity>,
+    retry: InsertTrainingActivity | null,
+    audit: { actorId: number; action: string; details?: string | null },
+  ): Promise<{ assessment: CompetencyAssessment; activity: TrainingActivity; retry?: TrainingActivity }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -630,6 +652,112 @@ export class DatabaseStorage implements IStorage {
     return program || undefined;
   }
 
+  // Annual training execution and controlled documents
+  async getTrainingActivitiesByCompany(companyId: number): Promise<TrainingActivity[]> {
+    return db.select().from(trainingActivities)
+      .where(eq(trainingActivities.companyId, companyId))
+      .orderBy(desc(trainingActivities.plannedStart), desc(trainingActivities.createdAt));
+  }
+
+  async getTrainingActivity(id: number): Promise<TrainingActivity | undefined> {
+    const [activity] = await db.select().from(trainingActivities).where(eq(trainingActivities.id, id));
+    return activity || undefined;
+  }
+
+  async createTrainingActivity(activity: InsertTrainingActivity, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingActivity> {
+    return db.transaction(async (tx) => {
+      const [created] = await tx.insert(trainingActivities).values(activity).returning();
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: created.companyId, activityId: created.id, actorId: audit.actorId,
+        action: audit.action, details: audit.details ?? null,
+      });
+      return created;
+    });
+  }
+
+  async updateTrainingActivity(id: number, updates: Partial<InsertTrainingActivity>, audit?: { actorId: number; action: string; details?: string | null }): Promise<TrainingActivity | undefined> {
+    return db.transaction(async (tx) => {
+      const [updated] = await tx.update(trainingActivities)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(trainingActivities.id, id))
+        .returning();
+      if (!updated) return undefined;
+      if (audit) {
+        await tx.insert(trainingActivityAuditEvents).values({
+          companyId: updated.companyId, activityId: updated.id, actorId: audit.actorId,
+          action: audit.action, details: audit.details ?? null,
+        });
+      }
+      return updated;
+    });
+  }
+
+  async completeTrainingActivity(
+    id: number,
+    updates: Partial<InsertTrainingActivity>,
+    retry: InsertTrainingActivity | null,
+    audit: { actorId: number; action: string; details?: string | null },
+  ): Promise<{ activity: TrainingActivity; retry?: TrainingActivity }> {
+    return db.transaction(async (tx) => {
+      const [activity] = await tx.update(trainingActivities)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(and(eq(trainingActivities.id, id), ne(trainingActivities.status, "completed"), ne(trainingActivities.status, "cancelled")))
+        .returning();
+      if (!activity) throw new Error("La actividad ya no existe");
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: activity.companyId, activityId: activity.id, actorId: audit.actorId,
+        action: audit.action, details: audit.details ?? null,
+      });
+      if (!retry) return { activity };
+      const [createdRetry] = await tx.insert(trainingActivities).values(retry).returning();
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: createdRetry.companyId, activityId: createdRetry.id, actorId: audit.actorId,
+        action: "repetition_created", details: `Actividad relacionada: ${activity.id}`,
+      });
+      return { activity, retry: createdRetry };
+    });
+  }
+
+  async getTrainingDocumentsByCompany(companyId: number): Promise<TrainingDocument[]> {
+    return db.select().from(trainingDocuments)
+      .where(eq(trainingDocuments.companyId, companyId))
+      .orderBy(desc(trainingDocuments.createdAt));
+  }
+
+  async getTrainingDocument(id: number): Promise<TrainingDocument | undefined> {
+    const [document] = await db.select().from(trainingDocuments).where(eq(trainingDocuments.id, id));
+    return document || undefined;
+  }
+
+  async createTrainingDocument(document: InsertTrainingDocument, audit: { actorId: number; action: string; details?: string | null }): Promise<TrainingDocument> {
+    return db.transaction(async (tx) => {
+      const [created] = await tx.insert(trainingDocuments).values(document).returning();
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: created.companyId, activityId: created.activityId, actorId: audit.actorId,
+        action: audit.action, details: audit.details ?? created.title,
+      });
+      return created;
+    });
+  }
+
+  async deleteTrainingDocument(id: number, audit: { actorId: number; action: string }): Promise<void> {
+    await db.transaction(async (tx) => {
+      const [document] = await tx.select().from(trainingDocuments).where(eq(trainingDocuments.id, id));
+      if (!document) return;
+      await tx.delete(trainingDocuments).where(eq(trainingDocuments.id, id));
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: document.companyId, activityId: document.activityId, actorId: audit.actorId,
+        action: audit.action, details: `Documento eliminado: ${document.title} (rev. ${document.revision})`,
+      });
+    });
+  }
+
+  async getTrainingActivityAuditByCompany(companyId: number): Promise<TrainingActivityAuditEvent[]> {
+    return db.select().from(trainingActivityAuditEvents)
+      .where(eq(trainingActivityAuditEvents.companyId, companyId))
+      .orderBy(desc(trainingActivityAuditEvents.createdAt));
+  }
+
   // Company Settings
   async getCompanySettings(companyId: number): Promise<CompanySettings | undefined> {
     const [settings] = await db.select().from(companySettings).where(eq(companySettings.companyId, companyId));
@@ -955,6 +1083,37 @@ export class DatabaseStorage implements IStorage {
   async createCompetencyAssessment(assessment: InsertCompetencyAssessment & { assessedById: number }): Promise<CompetencyAssessment> {
     const [created] = await db.insert(competencyAssessments).values(assessment).returning();
     return created;
+  }
+
+  async recordTrainingReassessment(
+    activityId: number,
+    assessment: InsertCompetencyAssessment & { assessedById: number },
+    updates: Partial<InsertTrainingActivity>,
+    retry: InsertTrainingActivity | null,
+    audit: { actorId: number; action: string; details?: string | null },
+  ): Promise<{ assessment: CompetencyAssessment; activity: TrainingActivity; retry?: TrainingActivity }> {
+    return db.transaction(async (tx) => {
+      const [createdAssessment] = await tx.insert(competencyAssessments).values(assessment).returning();
+      const [updatedActivity] = await tx.update(trainingActivities)
+        .set({ ...updates, reassessmentId: createdAssessment.id, reassessmentRequired: false, updatedAt: new Date() })
+        .where(and(eq(trainingActivities.id, activityId), eq(trainingActivities.reassessmentRequired, true)))
+        .returning();
+      if (!updatedActivity) throw new Error("La actividad ya no existe");
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: updatedActivity.companyId, activityId: updatedActivity.id, actorId: audit.actorId,
+        action: audit.action, details: audit.details ?? `Nivel reevaluado: ${createdAssessment.currentLevel}/${createdAssessment.requiredLevel}`,
+      });
+      if (!retry) return { assessment: createdAssessment, activity: updatedActivity };
+      const [createdRetry] = await tx.insert(trainingActivities).values({
+        ...retry,
+        dncAssessmentId: createdAssessment.id,
+      }).returning();
+      await tx.insert(trainingActivityAuditEvents).values({
+        companyId: createdRetry.companyId, activityId: createdRetry.id, actorId: audit.actorId,
+        action: "retraining_created", details: `Actividad relacionada: ${updatedActivity.id}`,
+      });
+      return { assessment: createdAssessment, activity: updatedActivity, retry: createdRetry };
+    });
   }
 }
 

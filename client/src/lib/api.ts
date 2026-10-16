@@ -1,4 +1,4 @@
-import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment } from "@shared/schema";
+import type { User, Company, Cycle, Event, SimulatorScenario, SimulatorSession, ScenarioStep, SessionStepResult, EvaluationTopic, EvaluationTopicItem, CycleTopicItem, TrainingRequest, RequestIncident, RequestRole, RequestProcedure, RequestTopic, RequestRecipient, TrainingReport, JobProfile, Competency, JobProfileCompetency, CompetencyAssessment, AnnualTrainingProgram, TrainingActivity, TrainingDocument, TrainingActivityAuditEvent } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -419,6 +419,89 @@ export const competencyDncAPI = {
     evidence?: string | null;
     observations?: string | null;
   }) => fetcher<CompetencyAssessment>("/competency-assessments", { method: "POST", body: JSON.stringify(data) }),
+};
+
+export interface TrainingProgramOverview {
+  year: number;
+  programs: Array<AnnualTrainingProgram & {
+    completedHours: number;
+    completedSessions: number;
+    progressPercentage: number;
+    student: Pick<User, "id" | "name" | "email" | "role"> | null;
+  }>;
+  activities: TrainingActivity[];
+  documents: TrainingDocument[];
+  auditEvents: TrainingActivityAuditEvent[];
+  auditActors: Record<number, string>;
+  employees: Pick<User, "id" | "name" | "email" | "role">[];
+  cycles: Pick<Cycle, "id" | "title" | "studentId" | "startDate" | "type" | "status">[];
+  simulatorSessions: Array<Pick<SimulatorSession, "id" | "scenarioId" | "studentId" | "score" | "startTime" | "endTime" | "duration"> & { scenarioTitle: string }>;
+  approvedRequests: TrainingRequest[];
+  assessments: CompetencyAssessment[];
+  metrics: {
+    programCount: number;
+    activityCount: number;
+    plannedActivities: number;
+    completedActivities: number;
+    completionRate: number;
+    passRate: number;
+    attendanceRate: number;
+    plannedHours: number;
+    completedHours: number;
+    overdueActivities: number;
+    retrainingActivities: number;
+    pendingReassessments: number;
+    documentsExpiringSoon: number;
+    expiredDocuments: number;
+  };
+}
+
+export const trainingProgramAPI = {
+  getByCompany: (companyId: number, year: number) =>
+    fetcher<TrainingProgramOverview>(`/training-program/company/${companyId}?year=${year}`),
+  saveProgram: (data: { studentId: number; year: number; targetHours?: number; targetSessions?: number }) =>
+    fetcher<AnnualTrainingProgram>("/annual-training-programs", { method: "POST", body: JSON.stringify(data) }),
+  createActivity: (data: {
+    studentId: number;
+    trainerId?: number | null;
+    year: number;
+    requestId?: number | null;
+    dncAssessmentId?: number | null;
+    cycleId?: number | null;
+    simulatorSessionId?: number | null;
+    title: string;
+    objective?: string | null;
+    trainingType: string;
+    plannedStart?: string | null;
+    plannedEnd?: string | null;
+    plannedHours: number;
+    evidence?: string | null;
+  }) => fetcher<TrainingActivity>("/training-activities", { method: "POST", body: JSON.stringify(data) }),
+  updateActivity: (id: number, data: Partial<Pick<TrainingActivity, "trainerId" | "title" | "objective" | "trainingType" | "status" | "plannedStart" | "plannedEnd" | "plannedHours" | "evidence">>) =>
+    fetcher<TrainingActivity>(`/training-activities/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  completeActivity: (id: number, data: {
+    attendanceStatus: "present" | "absent" | "excused";
+    outcome: "pass" | "fail" | "not_applicable";
+    completedHours: number;
+    score?: number | null;
+    feedback?: string | null;
+    evidence?: string | null;
+  }) => fetcher<{ activity: TrainingActivity; retry?: TrainingActivity }>(`/training-activities/${id}/complete`, { method: "POST", body: JSON.stringify(data) }),
+  reassessActivity: (id: number, data: { currentLevel: number; evidence?: string | null; observations?: string | null }) =>
+    fetcher<{ assessment: CompetencyAssessment; activity: TrainingActivity; retry?: TrainingActivity }>(`/training-activities/${id}/reassess`, { method: "POST", body: JSON.stringify(data) }),
+  addDocument: (activityId: number, data: {
+    title: string;
+    documentType: "attendance" | "certificate" | "evaluation" | "material" | "feedback" | "other";
+    documentUrl: string;
+    revision: string;
+    documentDate?: string | null;
+    expiresAt?: string | null;
+    notes?: string | null;
+  }) => fetcher<TrainingDocument>(`/training-activities/${activityId}/documents`, { method: "POST", body: JSON.stringify(data) }),
+  deleteDocument: async (id: number) => {
+    const response = await fetch(`${API_BASE}/training-documents/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getAuthToken()}` } });
+    if (!response.ok) throw new Error("No se pudo eliminar el documento");
+  },
 };
 
 // Evaluation Templates API

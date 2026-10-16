@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle, Clock, FileText, LayoutDashboard, Settings, Users, BarChart3, Building2, MonitorPlay, Target, ClipboardList, Wand2, BadgeCheck } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, FileText, LayoutDashboard, Settings, Users, BarChart3, Building2, MonitorPlay, Target, ClipboardList, Wand2, BadgeCheck, CalendarRange } from "lucide-react";
 
 export type Role = "super_admin" | "admin" | "trainer" | "student";
 
@@ -177,6 +177,7 @@ export const navItems = [
   { label: "Diseño de Simulaciones", icon: Wand2, href: "/scenario-designer", roles: ["admin", "super_admin", "trainer"] },
   { label: "Solicitudes OTS", icon: ClipboardList, href: "/training-requests", roles: ["admin", "super_admin", "trainer"] },
   { label: "Competencias y DNC", icon: BadgeCheck, href: "/competency-dnc", roles: ["admin", "super_admin", "trainer"] },
+  { label: "Programa anual", icon: CalendarRange, href: "/training-program", roles: ["admin", "super_admin", "trainer"] },
   { label: "Operadores", icon: Users, href: "/operators", roles: ["admin", "super_admin"] },
   { label: "Empresas", icon: Building2, href: "/companies", roles: ["super_admin"] },
   { label: "Reportes Ejecutivos", icon: BarChart3, href: "/reports" },
