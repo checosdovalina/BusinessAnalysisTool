@@ -1590,17 +1590,23 @@ export async function registerRoutes(
       if (selectedYear !== undefined && (!Number.isInteger(selectedYear) || selectedYear < 2000 || selectedYear > 9999)) {
         return res.status(400).json({ error: "Año inválido" });
       }
+      const readSection = <T,>(section: string, query: Promise<T>): Promise<T> =>
+        query.catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`[competency-dnc] ${section} query failed: ${message}`);
+          throw error;
+        });
       const [profiles, competencyList, profileCompetencies, assessments, employeeList, requests, assignments, sessions, annualPrograms, executions] = await Promise.all([
-        storage.getJobProfilesByCompany(companyId),
-        storage.getCompetenciesByCompany(companyId),
-        storage.getJobProfileCompetenciesByCompany(companyId),
-        storage.getCompetencyAssessmentsByCompany(companyId),
-        storage.getUsersByCompany(companyId),
-        storage.getTrainingRequestsByCompany(companyId),
-        storage.getEmployeeJobProfilesByCompany(companyId),
-        storage.getSimulatorSessionsByCompany(companyId),
-        storage.getAnnualTrainingProgramsByCompany(companyId, selectedYear),
-        storage.getTrainingRequestExecutionsByCompany(companyId),
+        readSection("job profiles", storage.getJobProfilesByCompany(companyId)),
+        readSection("competencies", storage.getCompetenciesByCompany(companyId)),
+        readSection("profile competencies", storage.getJobProfileCompetenciesByCompany(companyId)),
+        readSection("assessments", storage.getCompetencyAssessmentsByCompany(companyId)),
+        readSection("employees", storage.getUsersByCompany(companyId)),
+        readSection("training requests", storage.getTrainingRequestsByCompany(companyId)),
+        readSection("employee assignments", storage.getEmployeeJobProfilesByCompany(companyId)),
+        readSection("simulator sessions", storage.getSimulatorSessionsByCompany(companyId)),
+        readSection("annual programs", storage.getAnnualTrainingProgramsByCompany(companyId, selectedYear)),
+        readSection("training executions", storage.getTrainingRequestExecutionsByCompany(companyId)),
       ]);
       const dncRequests = requests.filter((request) => request.dncAssessmentId !== null);
       const dncRequestIds = new Set(dncRequests.map((request) => request.id));
