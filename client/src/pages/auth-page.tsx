@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { OtsEnergyLogo } from "@/components/brand/ots-energy-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Mail, Zap } from "lucide-react";
+import { Lock, Mail, ShieldCheck, Activity, Network, RadioTower } from "lucide-react";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -27,112 +28,89 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex">
-      <div className="w-full lg:w-[480px] flex flex-col justify-center items-center p-8 lg:p-12 bg-white">
-        <div className="w-full max-w-sm space-y-8">
-          <div className="space-y-2">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 mb-6">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Iniciar Sesión</h1>
-            <p className="text-sm text-gray-500">Ingresa tus credenciales para acceder al panel de control.</p>
+    <div className="min-h-[100dvh] w-full flex bg-background">
+      <section className="relative z-10 flex w-full lg:w-[43%] xl:w-[40%] min-h-[100dvh] flex-col justify-between bg-card px-6 py-7 sm:px-10 lg:px-14 xl:px-[5.5rem]">
+        <div className="flex items-center gap-3">
+          <OtsEnergyLogo
+            iconClassName="h-10 w-10 shrink-0"
+            wordmarkClassName="leading-tight text-[15px] tracking-[0.1em] [&_strong]:font-bold [&_i]:not-italic [&_i]:text-primary"
+            className="inline-flex items-center gap-3"
+            subtitle="Operación · Formación · Evidencia"
+          />
+        </div>
+        <div className="mx-auto w-full max-w-[380px] py-10">
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.06] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-primary">
+            <ShieldCheck className="h-3.5 w-3.5" /> ACCESO SEGURO
           </div>
-
+          <div className="mb-8 space-y-2">
+            <h1 className="text-[32px] font-bold tracking-[-0.04em] text-foreground">Bienvenido de nuevo</h1>
+            <p className="text-sm leading-6 text-muted-foreground">Ingresa para continuar con tu operación de entrenamiento.</p>
+          </div>
           <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">Correo Electrónico</Label>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs font-semibold tracking-wide text-foreground">Correo electrónico</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="operador@empresa.com" 
-                  className="pl-10 h-11 bg-gray-50 border-gray-200 focus-visible:ring-cyan-500/20 focus-visible:border-cyan-500" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  data-testid="input-email"
-                  required 
-                />
+                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="email" type="email" placeholder="operador@empresa.com" className="h-12 rounded-xl border-border bg-background pl-10 text-sm placeholder:text-muted-foreground/70 focus-visible:ring-primary/25" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-email" required />
               </div>
             </div>
-
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">Contraseña</Label>
-                <a href="#" className="text-xs font-medium text-cyan-600 hover:text-cyan-700 transition-colors">¿Olvidaste tu contraseña?</a>
+                <Label htmlFor="password" className="text-xs font-semibold tracking-wide text-foreground">Contraseña</Label>
+                <a href="#" className="text-xs font-semibold text-primary hover:text-primary/80 focus-visible:underline">¿Olvidaste tu contraseña?</a>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  id="password" 
-                  type="password" 
-                  placeholder="••••••••"
-                  className="pl-10 h-11 bg-gray-50 border-gray-200 focus-visible:ring-cyan-500/20 focus-visible:border-cyan-500" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  data-testid="input-password"
-                  required 
-                />
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="password" type="password" placeholder="••••••••" className="h-12 rounded-xl border-border bg-background pl-10 text-sm focus-visible:ring-primary/25" value={password} onChange={(e) => setPassword(e.target.value)} data-testid="input-password" required />
               </div>
             </div>
-
-            <Button 
-              type="submit" 
-              className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 shadow-lg shadow-cyan-500/25 transition-all duration-200" 
-              disabled={isLoading}
-              data-testid="button-login"
-            >
-              {isLoading ? "Verificando..." : "Acceder al Panel"}
+            <Button type="submit" className="mt-2 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md shadow-primary/15 hover:-translate-y-0.5 hover:bg-primary/90" disabled={isLoading} data-testid="button-login">
+              {isLoading ? "Verificando credenciales…" : "Entrar al centro de control"}
             </Button>
           </form>
-          
-          <p className="text-center text-xs text-gray-400">
-            ¿Problemas de acceso? <a href="#" className="text-cyan-600 font-medium hover:underline">Contactar Soporte</a>
+          <p className="mt-7 text-center text-xs text-muted-foreground">
+            ¿Problemas de acceso? <a href="#" className="font-semibold text-primary hover:underline">Contactar soporte</a>
           </p>
         </div>
-      </div>
+        <p className="text-[10px] tracking-wide text-muted-foreground">OTS Energy · Gestión de competencias y evidencia operativa</p>
+      </section>
 
-      <div className="hidden lg:flex flex-1 relative overflow-hidden bg-[hsl(222,47%,11%)]">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-blue-600/10" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(6,182,212,0.15),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(59,130,246,0.1),transparent_50%)]" />
-        
-        <div className="relative z-10 flex flex-col justify-center p-16 max-w-2xl">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-white tracking-wide">OTS <span className="text-cyan-400">ENERGY</span></span>
+      <section className="relative hidden flex-1 overflow-hidden bg-[hsl(195,46%,13%)] lg:flex">
+        <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "linear-gradient(rgba(107,196,183,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(107,196,183,.08) 1px, transparent 1px)", backgroundSize: "54px 54px", maskImage: "linear-gradient(90deg, transparent, black 35%, black)" }} />
+        <div className="absolute -right-24 top-[14%] h-[580px] w-[580px] rounded-full border border-teal-200/[0.11]" />
+        <div className="absolute -right-4 top-[22%] h-[420px] w-[420px] rounded-full border border-teal-200/[0.13]" />
+        <div className="absolute right-[9%] top-[30%] h-[270px] w-[270px] rounded-full border border-teal-200/[0.2]" />
+        <div className="absolute right-[23%] top-[40%] h-3 w-3 rounded-full bg-[hsl(37,83%,53%)] shadow-[0_0_0_8px_rgba(225,171,70,.12)]" />
+        <div className="relative z-10 flex w-full flex-col justify-center px-12 py-16 xl:px-20">
+          <div className="mb-7 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[hsl(174,66%,65%)]">
+            <span className="h-px w-8 bg-[hsl(174,66%,52%)]" /> Preparación que sostiene la red
           </div>
-          
-          <h2 className="text-4xl font-bold text-white mb-4 leading-tight">
-            Plataforma de Evaluación<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
-              para Operadores de Red
-            </span>
+          <h2 className="max-w-[680px] text-[clamp(2.6rem,4.1vw,4.5rem)] font-bold leading-[1.05] tracking-[-0.055em] text-white">
+            El criterio operativo también se entrena.
           </h2>
-          <p className="text-lg text-slate-400 max-w-md leading-relaxed">
-            Gestión integral de entrenamiento, simulación de maniobras y certificación operativa para redes eléctricas.
+          <p className="mt-6 max-w-[480px] text-[15px] leading-7 text-slate-300/80">
+            Un solo entorno para evaluación, práctica en simulador y evidencia de competencia. Diseñado para decisiones seguras, turno tras turno.
           </p>
-
-          <div className="mt-12 grid grid-cols-3 gap-6">
-            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <p className="text-2xl font-bold text-white">500+</p>
-              <p className="text-xs text-slate-500 mt-1">Evaluaciones Completadas</p>
+          <div className="mt-12 grid max-w-[630px] grid-cols-3 gap-3">
+            <div className="border-l border-[hsl(174,66%,52%)]/70 pl-4">
+              <Activity className="mb-4 h-4 w-4 text-[hsl(174,66%,62%)]" />
+              <p className="text-sm font-semibold text-white">Ciclos de evaluación</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Seguimiento claro del avance y la competencia.</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <p className="text-2xl font-bold text-white">98%</p>
-              <p className="text-xs text-slate-500 mt-1">Tasa de Aprobación</p>
+            <div className="border-l border-[hsl(37,83%,53%)]/80 pl-4">
+              <RadioTower className="mb-4 h-4 w-4 text-[hsl(37,83%,60%)]" />
+              <p className="text-sm font-semibold text-white">Práctica realista</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Escenarios de red para afinar la respuesta.</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <p className="text-2xl font-bold text-white">24/7</p>
-              <p className="text-xs text-slate-500 mt-1">Monitoreo Continuo</p>
+            <div className="border-l border-slate-400/50 pl-4">
+              <Network className="mb-4 h-4 w-4 text-slate-300" />
+              <p className="text-sm font-semibold text-white">Trazabilidad</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Evidencia organizada para mejora continua.</p>
             </div>
           </div>
         </div>
-
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
-      </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[hsl(174,66%,52%)]/40 to-transparent" />
+      </section>
     </div>
   );
 }

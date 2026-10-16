@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -54,82 +55,82 @@
 }
 
 :root {
-  --background: 220 16% 96%;
-  --foreground: 224 24% 16%;
+  --background: 180 18% 96%;
+  --foreground: 195 34% 16%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 224 24% 16%;
+  --card: 180 20% 99%;
+  --card-foreground: 195 34% 16%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 224 24% 16%;
+  --popover: 180 20% 99%;
+  --popover-foreground: 195 34% 16%;
 
-  --primary: 199 89% 48%;
+  --primary: 183 77% 30%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 92%;
-  --secondary-foreground: 224 24% 16%;
+  --secondary: 177 19% 90%;
+  --secondary-foreground: 195 34% 16%;
 
-  --muted: 220 14% 92%;
-  --muted-foreground: 220 10% 46%;
+  --muted: 175 18% 91%;
+  --muted-foreground: 194 13% 43%;
 
-  --accent: 217 91% 60%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 37 83% 53%;
+  --accent-foreground: 195 34% 16%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 13% 90%;
-  --input: 220 13% 90%;
-  --ring: 199 89% 48%;
+  --border: 177 16% 85%;
+  --input: 177 16% 85%;
+  --ring: 183 77% 30%;
 
   --radius: 0.625rem;
 
-  --chart-1: 199 89% 48%;
-  --chart-2: 217 91% 60%;
-  --chart-3: 142 71% 45%;
-  --chart-4: 38 92% 50%;
-  --chart-5: 326 80% 50%;
+  --chart-1: 183 77% 30%;
+  --chart-2: 37 83% 53%;
+  --chart-3: 151 43% 42%;
+  --chart-4: 14 67% 56%;
+  --chart-5: 201 45% 48%;
 
-  --sidebar: 222 47% 11%;
-  --sidebar-foreground: 213 31% 91%;
-  --sidebar-primary: 199 89% 48%;
+  --sidebar: 195 46% 13%;
+  --sidebar-foreground: 174 20% 88%;
+  --sidebar-primary: 174 66% 52%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 213 31% 91%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-ring: 199 89% 48%;
+  --sidebar-accent: 194 37% 20%;
+  --sidebar-accent-foreground: 174 20% 91%;
+  --sidebar-border: 194 31% 21%;
+  --sidebar-ring: 174 66% 52%;
   
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {
-  --background: 222 47% 11%;
-  --foreground: 213 31% 91%;
+  --background: 195 40% 10%;
+  --foreground: 174 20% 91%;
 
-  --card: 222 47% 14%;
-  --card-foreground: 213 31% 91%;
+  --card: 195 36% 14%;
+  --card-foreground: 174 20% 91%;
 
-  --popover: 222 47% 14%;
-  --popover-foreground: 213 31% 91%;
+  --popover: 195 36% 14%;
+  --popover-foreground: 174 20% 91%;
 
-  --primary: 199 89% 48%;
-  --primary-foreground: 222 47% 11%;
+  --primary: 174 66% 52%;
+  --primary-foreground: 195 40% 10%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 213 31% 91%;
+  --secondary: 194 31% 21%;
+  --secondary-foreground: 174 20% 91%;
 
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 55%;
+  --muted: 194 31% 21%;
+  --muted-foreground: 180 13% 62%;
 
-  --accent: 217 91% 60%;
-  --accent-foreground: 213 31% 91%;
+  --accent: 37 83% 53%;
+  --accent-foreground: 195 40% 10%;
 
   --destructive: 0 62% 30%;
   --destructive-foreground: 213 31% 91%;
 
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --ring: 199 89% 48%;
+  --border: 194 26% 25%;
+  --input: 194 26% 25%;
+  --ring: 174 66% 52%;
 }
 
 @layer base {
@@ -140,7 +141,7 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', 'Inter', sans-serif;
+    font-family: 'Space Grotesk', 'DM Sans', sans-serif;
     @apply tracking-tight;
   }
   
@@ -156,6 +157,15 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/40;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  button, a, input, select, textarea {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(.2,.8,.2,1);
   }
 }
 

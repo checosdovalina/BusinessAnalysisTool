@@ -1,0 +1,19 @@
+kind = "design"
+previewPath = "/__mockup-ots/"
+title = "OTS Energy UI Preview"
+description = "A safe, isolated preview of the OTS Energy current and modernized interface."
+version = "1.0.0"
+id = "artifacts/ots-energy-design-sandbox"
+router = "path"
+
+[[services]]
+name = "Component Preview Server"
+paths = [ "/__mockup-ots/" ]
+localPort = 22484
+
+[services.development]
+run = "npm run dev"
+
+[services.env]
+PORT = "22484"
+BASE_PATH = "/__mockup-ots/"

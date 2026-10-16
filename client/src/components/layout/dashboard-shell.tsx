@@ -11,10 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bell, Menu, Search, LogOut, Zap, ChevronDown } from "lucide-react";
+import { Bell, Menu, Search, LogOut, ChevronDown, RadioTower, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { OtsEnergyLogo } from "@/components/brand/ots-energy-logo";
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -29,25 +30,26 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     .toUpperCase() || "US";
 
   const NavContent = () => (
-    <div className="flex flex-col h-full bg-[hsl(222,47%,11%)]">
-      <div className="h-16 flex items-center px-5 border-b border-white/[0.06]">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
+      <div className="h-[76px] flex items-center px-5 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <span className="text-[15px] font-semibold text-white tracking-wide">OTS <span className="text-cyan-400">ENERGY</span></span>
-          </div>
+          <OtsEnergyLogo
+            iconClassName="h-9 w-9 shrink-0"
+            wordmarkClassName="leading-tight text-[15px] tracking-[0.08em] [&_strong]:font-bold [&_i]:not-italic [&_i]:text-sidebar-primary"
+            className="inline-flex items-center gap-2.5 text-white"
+            subtitle="Operación · Formación · Evidencia"
+          />
         </div>
       </div>
 
-      <div className="flex-1 py-4 px-3 overflow-y-auto">
-        <div className="px-3 mb-3">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em]">
-            Sistema de Control
+      <div className="flex-1 py-6 px-3 overflow-y-auto">
+        <div className="px-3 mb-3 flex items-center gap-2">
+          <span className="w-1 h-1 rounded-full bg-sidebar-primary" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.16em]">
+            Operación y formación
           </span>
         </div>
-        <nav className="space-y-0.5">
+        <nav className="space-y-1">
           {navItems.filter((item: any) => {
             if (!item.roles) return true;
             return user?.role && item.roles.includes(user.role);
@@ -58,20 +60,20 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 key={item.href} 
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 group",
+                  "relative flex items-center gap-3 px-3 py-[10px] rounded-lg text-[13px] font-medium transition-all duration-150 group",
                   isActive
-                    ? "bg-white/[0.08] text-white"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                    ? "bg-sidebar-accent text-white shadow-[inset_2px_0_0_hsl(var(--sidebar-primary))]"
+                    : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.045]"
                 )}
                 onClick={() => setIsMobileOpen(false)}
               >
                 <item.icon className={cn(
                   "w-[18px] h-[18px] transition-colors flex-shrink-0",
-                  isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-400"
+                  isActive ? "text-sidebar-primary" : "text-slate-500 group-hover:text-sidebar-foreground"
                 )} />
                 <span>{item.label}</span>
                 {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shadow-[0_0_0_3px_hsl(var(--sidebar-primary)/.12)]" />
                 )}
               </Link>
             );
@@ -79,10 +81,14 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         </nav>
       </div>
 
-      <div className="p-3 border-t border-white/[0.06]">
+      <div className="p-3 border-t border-sidebar-border">
+        <div className="flex items-center gap-2.5 px-2 py-2 mb-1 rounded-lg bg-white/[0.035]">
+          <ShieldCheck className="h-4 w-4 text-sidebar-primary shrink-0" />
+          <span className="text-[10px] leading-tight text-slate-400">Trazabilidad para operación segura</span>
+        </div>
         <div className="flex items-center gap-3 px-2 py-2">
           <Avatar className="h-8 w-8 ring-1 ring-white/10">
-            <AvatarFallback className="bg-gradient-to-br from-cyan-500/30 to-blue-600/30 text-cyan-300 text-xs font-semibold">
+            <AvatarFallback className="bg-sidebar-primary/15 text-sidebar-primary text-xs font-semibold">
               {userInitials}
             </AvatarFallback>
           </Avatar>
@@ -97,42 +103,44 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   return (
     <div className="min-h-screen bg-background text-foreground flex font-sans">
-      <aside className="hidden md:flex w-[260px] flex-col fixed inset-y-0 z-50 border-r border-white/[0.06]">
+      <aside className="hidden md:flex w-[264px] flex-col fixed inset-y-0 z-50 border-r border-sidebar-border">
         <NavContent />
       </aside>
 
       <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden fixed top-3 left-3 z-50 text-foreground hover:bg-accent/10">
+          <Button variant="ghost" size="icon" className="md:hidden fixed top-3 left-3 z-50 text-foreground hover:bg-primary/10">
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-[260px] border-r border-white/[0.06] bg-[hsl(222,47%,11%)]">
+        <SheetContent side="left" className="p-0 w-[264px] border-r border-sidebar-border bg-sidebar">
           <NavContent />
         </SheetContent>
       </Sheet>
 
-      <main className="flex-1 md:ml-[260px] flex flex-col min-h-screen">
-        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between">
+      <main className="flex-1 md:ml-[264px] flex flex-col min-h-[100dvh]">
+        <header className="h-[62px] border-b border-border bg-card/90 backdrop-blur-xl sticky top-0 z-40 px-4 md:px-7 flex items-center justify-between">
           <div className="flex items-center gap-3 md:ml-0 ml-10">
             <div className="relative hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Buscar..."
-                className="h-9 w-64 rounded-lg border border-border bg-muted/50 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                placeholder="Búsqueda no disponible"
+                title="La búsqueda global aún no está disponible"
+                aria-label="Búsqueda global no disponible"
+                className="h-9 w-64 rounded-lg border border-border bg-background/80 pl-9 pr-4 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
                 data-testid="input-global-search"
               />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-xs font-semibold text-emerald-600 border border-emerald-200">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              RED ACTIVA
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/5 text-[10px] font-bold tracking-[0.1em] text-primary border border-primary/15">
+              <RadioTower className="h-3.5 w-3.5" />
+              ENTORNO OPERATIVO
             </div>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground h-9 w-9" data-testid="button-notifications">
               <Bell className="h-[18px] w-[18px]" />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-card"></span>
+              <span className="absolute top-2 right-2 h-2 w-2 bg-[hsl(var(--accent))] rounded-full border-2 border-card"></span>
             </Button>
             <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
             <DropdownMenu>
@@ -178,7 +186,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           </div>
         </header>
 
-        <div className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex-1 p-4 md:p-7 lg:p-8 max-w-[1480px] mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
           {children}
         </div>
       </main>

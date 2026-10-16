@@ -1,25 +1,135 @@
 import { useMemo } from "react";
-import DashboardShell from "@/components/layout/dashboard-shell";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { ArrowUpRight, Users, CheckCircle2, Clock, TrendingUp, FileText } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  Network,
+  RefreshCw,
+  ShieldCheck,
+  Target,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import DashboardShell from "@/components/layout/dashboard-shell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
 import { cyclesAPI, usersAPI } from "@/lib/api";
 import type { Cycle, User } from "@shared/schema";
+import "./dashboard.css";
+
+type ActivityDay = { key: string; name: string; total: number };
+
+type MetricCardProps = {
+  label: string;
+  value: string | number;
+  foot: string;
+  icon: LucideIcon;
+  tone: "teal" | "amber" | "green" | "slate";
+};
+
+function MetricCard({ label, value, foot, icon: Icon, tone }: MetricCardProps) {
+  return (
+    <article className="od-metric">
+      <div className="od-metric-top">
+        <span className={`od-metric-icon ${tone}`}><Icon size={18} strokeWidth={1.8} /></span>
+      </div>
+      <div className="od-metric-value">{value}</div>
+      <div className="od-metric-label">{label}</div>
+      <div className="od-metric-foot">{foot}</div>
+    </article>
+  );
+}
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(value: Date | string | null | undefined) {
+  if (!value) return null;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseCycleStartDate(value: Date | string | null | undefined) {
+  if (typeof value === "string") {
+    const match = /^(\d{4})-(\d{2})-(\d{2})(?:T|$)/.exec(value);
+    if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  return parseLocalDate(value);
+}
+
+function formatDate(value: Date | string | null | undefined) {
+  const date = parseLocalDate(value);
+  if (!date) return "Fecha no disponible";
+  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(date);
+}
+
+function getCycleStatus(status: Cycle["status"]) {
+  switch (status) {
+    case "completed":
+      return { label: "Completado", tone: "done" };
+    case "in_progress":
+      return { label: "En curso", tone: "active" };
+    default:
+      return { label: "Pendiente", tone: "pending" };
+  }
+}
+
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
 
-  const { data: cycles = [], isLoading: cyclesLoading } = useQuery({
+  const {
+    data: cycles = [],
+    isLoading: cyclesLoading,
+    isError: cyclesError,
+    refetch: retryCycles,
+  } = useQuery({
     queryKey: ["cycles", user?.companyId],
     queryFn: () => user?.companyId ? cyclesAPI.getByCompany(user.companyId) : Promise.resolve([]),
     enabled: !!user?.companyId,
   });
 
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const {
+    data: users = [],
+    isLoading: usersLoading,
+    isError: usersError,
+    refetch: retryUsers,
+  } = useQuery({
     queryKey: ["users", user?.companyId],
     queryFn: () => user?.companyId ? usersAPI.getByCompany(user.companyId) : Promise.resolve([]),
     enabled: !!user?.companyId,
@@ -29,60 +139,106 @@ export default function Dashboard() {
 
   const statusCounts = useMemo(() => ({
     total: cycles.length,
-    completed: cycles.filter((c: Cycle) => c.status === "completed").length,
-    inProgress: cycles.filter((c: Cycle) => c.status === "in_progress").length,
-    pending: cycles.filter((c: Cycle) => c.status === "pending").length,
+    completed: cycles.filter((cycle: Cycle) => cycle.status === "completed").length,
+    inProgress: cycles.filter((cycle: Cycle) => cycle.status === "in_progress").length,
+    pending: cycles.filter((cycle: Cycle) => cycle.status === "pending").length,
   }), [cycles]);
 
   const approvalRate = useMemo(() => {
-    const completed = cycles.filter((c: Cycle) => c.status === "completed");
+    const completed = cycles.filter((cycle: Cycle) => cycle.status === "completed");
     if (completed.length === 0) return 0;
-    const passed = completed.filter((c: Cycle) => c.score !== null && c.score >= (c.minPassingScore || 80));
+    const passed = completed.filter(
+      (cycle: Cycle) => cycle.score !== null && cycle.score >= (cycle.minPassingScore || 80),
+    );
     return Math.round((passed.length / completed.length) * 100);
   }, [cycles]);
 
-  const activityData = useMemo(() => {
-    const days = [
-      { name: "Lun", total: 0 },
-      { name: "Mar", total: 0 },
-      { name: "Mié", total: 0 },
-      { name: "Jue", total: 0 },
-      { name: "Vie", total: 0 },
-      { name: "Sáb", total: 0 },
-      { name: "Dom", total: 0 },
-    ];
-    cycles.forEach((c: Cycle) => {
-      if (c.startDate) {
-        const d = new Date(c.startDate);
-        const dow = d.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
-        const idx = dow === 0 ? 6 : dow - 1;
-        days[idx].total++;
-      }
+  const activityData = useMemo<ActivityDay[]>(() => {
+    const today = new Date();
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6 + index);
+      return {
+        key: localDateKey(date),
+        name: new Intl.DateTimeFormat("es-MX", { weekday: "short" })
+          .format(date)
+          .replace(".", ""),
+        total: 0,
+      };
     });
+    const dayIndex = new Map(days.map((day, index) => [day.key, index]));
+
+    cycles.forEach((cycle: Cycle) => {
+      const startDate = parseCycleStartDate(cycle.startDate);
+      if (!startDate) return;
+      const index = dayIndex.get(localDateKey(startDate));
+      if (index !== undefined) days[index].total += 1;
+    });
+
     return days;
   }, [cycles]);
 
+  const recentCycles = useMemo(
+    () => [...cycles]
+      .sort((a: Cycle, b: Cycle) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 4),
+    [cycles],
+  );
+
+  const todayLabel = useMemo(
+    () => new Intl.DateTimeFormat("es-MX", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    }).format(new Date()),
+    [],
+  );
+
   const getUserName = (userId: number | null) => {
-    if (!userId) return "—";
-    const u = users.find((u: User) => u.id === userId);
-    return u?.name ?? `Operador #${userId}`;
+    if (!userId) return "Sin operador asignado";
+    const foundUser = users.find((entry: User) => entry.id === userId);
+    return foundUser?.name ?? `Operador #${userId}`;
   };
+
+  const maxActivity = Math.max(0, ...activityData.map((day) => day.total));
 
   if (isLoading) {
     return (
       <DashboardShell>
-        <div className="space-y-6">
-          <div>
-            <Skeleton className="h-7 w-52" />
-            <Skeleton className="h-4 w-80 mt-2" />
+        <div className="ots-dashboard od-loading" aria-label="Cargando centro de control">
+          <div className="od-loading-heading">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="mt-3 h-8 w-56" />
+            <Skeleton className="mt-2 h-4 w-80 max-w-full" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          <Skeleton className="h-32 rounded-xl" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[...Array(4)].map((_, index) => <Skeleton key={index} className="h-32 rounded-xl" />)}
           </div>
-          <div className="grid gap-4 lg:grid-cols-7">
-            <Skeleton className="lg:col-span-4 h-[360px] rounded-xl" />
-            <Skeleton className="lg:col-span-3 h-[360px] rounded-xl" />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Skeleton className="h-72 rounded-xl" />
+            <Skeleton className="h-72 rounded-xl" />
           </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (cyclesError || usersError) {
+    return (
+      <DashboardShell>
+        <div className="ots-dashboard">
+          <section className="od-error-state" role="alert">
+            <div className="od-empty-icon"><FileText size={22} /></div>
+            <h1>No pudimos cargar el resumen</h1>
+            <p>Verifica tu conexión e inténtalo de nuevo. Tus registros no se han modificado.</p>
+            <button
+              type="button"
+              className="od-primary-button"
+              onClick={() => { void retryCycles(); void retryUsers(); }}
+            >
+              <RefreshCw size={16} /> Reintentar
+            </button>
+          </section>
         </div>
       </DashboardShell>
     );
@@ -90,168 +246,182 @@ export default function Dashboard() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground" data-testid="text-page-title">Dashboard General</h1>
-          <p className="text-sm text-muted-foreground mt-1">Resumen de actividad de entrenamiento y certificaciones.</p>
-        </div>
+      <div className="ots-dashboard">
+        <section className="od-welcome-row">
+          <div>
+            <div className="od-eyebrow"><span /> VISTA GENERAL <span className="od-eyebrow-line" /></div>
+            <h1>Centro de control</h1>
+            <p>Estado de la preparación operativa y los ciclos de competencia.</p>
+          </div>
+          <div className="od-date-chip">
+            <CalendarDays size={15} />
+            <span>{todayLabel}</span>
+          </div>
+        </section>
 
-        {/* KPI Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-border shadow-sm" data-testid="card-total-evaluations">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-cyan-600" />
-                </div>
+        <section className="od-network-banner" aria-label="Resumen de continuidad operativa">
+          <div className="od-banner-grid" />
+          <div className="od-banner-icon"><Network size={21} /></div>
+          <div className="od-banner-copy">
+            <span>CONTINUIDAD OPERATIVA</span>
+            <h2>La preparación mantiene la red en marcha.</h2>
+            <p>Capacitación, evaluación y evidencia en una sola línea de trabajo.</p>
+          </div>
+          <div className="od-banner-status">
+            <span className={`od-status-beacon ${statusCounts.inProgress === 0 ? "is-idle" : ""}`} />
+            <div>
+              <b>{statusCounts.inProgress > 0 ? "Seguimiento activo" : "Sin ciclos en curso"}</b>
+              <small>{statusCounts.inProgress} {statusCounts.inProgress === 1 ? "ciclo en progreso" : "ciclos en progreso"}</small>
+            </div>
+          </div>
+          <div className="od-banner-ornament" aria-hidden="true">
+            {[0, 1, 2, 3, 4].map((bar) => <span key={bar} />)}
+          </div>
+        </section>
+
+        <section className="od-metric-grid" aria-label="Indicadores de entrenamiento">
+          <MetricCard label="Ciclos de evaluación" value={statusCounts.total} foot="En todos los formatos" icon={ClipboardList} tone="teal" />
+          <MetricCard label="En progreso" value={statusCounts.inProgress} foot="Ciclos en seguimiento" icon={Activity} tone="amber" />
+          <MetricCard label="Ciclos completados" value={statusCounts.completed} foot="Ciclos finalizados" icon={CheckCircle2} tone="green" />
+          <MetricCard
+            label="Aprobación"
+            value={`${approvalRate}%`}
+            foot={statusCounts.completed > 0 ? "De los ciclos completados" : "Sin ciclos completados"}
+            icon={Target}
+            tone="slate"
+          />
+        </section>
+
+        <section className="od-dashboard-grid">
+          <article className="od-panel od-activity-panel">
+            <div className="od-panel-heading">
+              <div>
+                <span className="od-section-kicker">RITMO DE ACTIVIDAD</span>
+                <h2>Ciclos iniciados</h2>
+                <p>Registros de los últimos 7 días</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{statusCounts.total}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Total Evaluaciones</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border shadow-sm" data-testid="card-in-progress">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-blue-600" />
-                </div>
+              <span className="od-period-chip">Últimos 7 días</span>
+            </div>
+            <div className="od-chart-summary">
+              <b>Actividad semanal</b>
+              <span><i /> Ciclos registrados</span>
+            </div>
+            {activityData.every((day) => day.total === 0) ? (
+              <div className="od-chart-empty">
+                <div className="od-empty-icon"><BarChart3 size={21} /></div>
+                <p>Sin actividad registrada en los últimos 7 días</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{statusCounts.inProgress}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Ciclos en Progreso</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border shadow-sm" data-testid="card-completed">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{statusCounts.completed}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Completadas</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border shadow-sm" data-testid="card-approval-rate">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-violet-600" />
-                </div>
-                {statusCounts.completed > 0 && (
-                  <Badge variant="secondary" className="text-[11px] font-medium bg-emerald-50 text-emerald-700 border-0">
-                    <ArrowUpRight className="h-3 w-3 mr-0.5" /> activo
-                  </Badge>
-                )}
-              </div>
-              <p className="text-2xl font-bold text-foreground">{approvalRate}%</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Tasa de Aprobación</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-7">
-          {/* Weekly Activity Chart */}
-          <Card className="lg:col-span-4 border-border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Actividad por Día de Semana</CardTitle>
-              <CardDescription className="text-xs">Ciclos registrados agrupados por día de inicio.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {activityData.every(d => d.total === 0) ? (
-                <div className="h-[300px] flex flex-col items-center justify-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                    <BarChart className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Sin datos de actividad aún</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={activityData} barSize={32}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+            ) : (
+              <div className="od-chart-wrap">
+                <ResponsiveContainer width="100%" height={190}>
+                  <BarChart data={activityData} margin={{ top: 18, right: 4, left: -24, bottom: 0 }} barSize={24}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--od-line)" />
                     <XAxis
                       dataKey="name"
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
+                      tick={{ fill: "var(--od-muted)", fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
                     />
                     <YAxis
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
+                      allowDecimals={false}
+                      domain={[0, (dataMax: number) => Math.max(dataMax, 1)]}
+                      tick={{ fill: "var(--od-muted)", fontSize: 9 }}
                       tickLine={false}
                       axisLine={false}
-                      allowDecimals={false}
+                      width={28}
                     />
                     <Tooltip
-                      cursor={{ fill: 'hsl(var(--muted) / 0.5)', radius: 4 }}
+                      cursor={{ fill: "rgba(22,122,114,.06)" }}
                       contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        backgroundColor: "var(--od-card)",
+                        borderColor: "var(--od-line)",
+                        borderRadius: 8,
+                        fontSize: 11,
                       }}
+                      formatter={(value) => [value, "Ciclos"]}
                     />
-                    <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                      {activityData.map((entry, index) => (
+                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                      <LabelList dataKey="total" position="top" fill="var(--od-muted)" fontSize={9} />
+                      {activityData.map((day) => (
                         <Cell
-                          key={`cell-${index}`}
-                          fill={entry.total > 0 ? 'hsl(217, 91%, 60%)' : 'hsl(var(--muted))'}
-                          opacity={0.85}
+                          key={day.key}
+                          fill={day.total === maxActivity && maxActivity > 0 ? "var(--od-amber)" : "var(--od-teal)"}
+                          opacity={day.total > 0 ? 0.82 : 0.2}
                         />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Evaluations */}
-          <Card className="lg:col-span-3 border-border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Evaluaciones Recientes</CardTitle>
-              <CardDescription className="text-xs">Últimos ciclos registrados.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {cycles.slice(0, 5).map((cycle: Cycle) => (
-                  <div key={cycle.id} className="flex items-center gap-3" data-testid={`cycle-item-${cycle.id}`}>
-                    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <span className="text-[11px] font-bold text-muted-foreground">
-                        {getUserName(cycle.studentId).substring(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-none truncate">{cycle.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{getUserName(cycle.studentId)}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      {cycle.status === "completed" ? (
-                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-medium hover:bg-emerald-100">Completado</Badge>
-                      ) : cycle.status === "in_progress" ? (
-                        <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[11px] font-medium hover:bg-blue-100">En curso</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[11px] font-medium">Pendiente</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {cycles.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-10 gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      <Users className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center">No hay ciclos de evaluación registrados</p>
-                  </div>
-                )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+            <div className="od-chart-foot">
+              <span><ArrowUpRight size={14} /> Basado en fechas reales de inicio</span>
+              <span>Actualizado al consultar</span>
+            </div>
+          </article>
+
+          <article className="od-panel od-recent-panel">
+            <div className="od-panel-heading">
+              <div>
+                <span className="od-section-kicker">SEGUIMIENTO</span>
+                <h2>Evaluaciones recientes</h2>
+                <p>Últimos ciclos registrados</p>
+              </div>
+              <Link className="od-text-action" href="/evaluations">
+                Ver todas <ArrowUpRight size={14} />
+              </Link>
+            </div>
+            <div className="od-recent-list">
+              {recentCycles.map((cycle: Cycle) => {
+                const operatorName = getUserName(cycle.studentId);
+                const status = getCycleStatus(cycle.status);
+                const typeLabel = cycle.type === "simulator"
+                  ? "Simulador"
+                  : cycle.type === "field"
+                    ? "Evaluación de campo"
+                    : "Entrenamiento";
+                return (
+                  <div className="od-recent-item" key={cycle.id} data-testid={`cycle-item-${cycle.id}`}>
+                    <span className={`od-operator-avatar ${status.tone}`}>{getInitials(operatorName) || "—"}</span>
+                    <div className="od-recent-detail">
+                      <b>{cycle.title}</b>
+                      <span>{operatorName} <i>·</i> {typeLabel} <i>·</i> {formatDate(cycle.createdAt)}</span>
+                    </div>
+                    <span className={`od-cycle-status ${status.tone}`}><i />{status.label}</span>
+                  </div>
+                );
+              })}
+              {recentCycles.length === 0 && (
+                <div className="od-recent-empty">
+                  <div className="od-empty-icon"><Users size={20} /></div>
+                  <p>No hay ciclos de evaluación registrados</p>
+                </div>
+              )}
+            </div>
+            <div className="od-recent-bottom">
+              <span><CalendarDays size={14} /> Fecha del sistema</span>
+              <b>{formatDate(new Date())}</b>
+            </div>
+          </article>
+        </section>
+
+        {statusCounts.pending > 0 && (
+          <section className="od-followup-strip" aria-label="Ciclos pendientes">
+            <div className="od-strip-icon"><AlertTriangle size={16} /></div>
+            <div className="od-strip-copy">
+              <b>Pendientes de seguimiento</b>
+              <span>{statusCounts.pending} {statusCounts.pending === 1 ? "ciclo requiere" : "ciclos requieren"} revisión.</span>
+            </div>
+            <Link href="/evaluations" className="od-strip-action">
+              Revisar ciclos <ArrowUpRight size={14} />
+            </Link>
+          </section>
+        )}
+
+        <footer className="od-dashboard-footer">
+          <span>OTS ENERGY <i>·</i> CONTROL DE COMPETENCIAS</span>
+          <span><ShieldCheck size={12} /> Trazabilidad de capacitación ISO 9001</span>
+        </footer>
       </div>
     </DashboardShell>
   );
