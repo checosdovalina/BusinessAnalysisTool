@@ -2,3 +2,4 @@
 - [OTS Energy visual direction](ots-energy-design-direction.md) — The user approved the teal/amber dashboard; production summaries must use real records, not sample data.
 - [DNC execution aggregation](dnc-execution-aggregation.md) — Group field/classroom runs count once toward the linked annual program; do not multiply hours by attendee count or merge simulator records.
 - [Auth context and Vite HMR](auth-fast-refresh.md) — Keep the shared auth context isolated from provider/hook exports so hot updates cannot split context identity.
+- [Report penalty totals](report-penalties.md) — Report summaries count only penalty points actually deducted after applying the zero-score floor.
